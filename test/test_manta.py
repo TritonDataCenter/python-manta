@@ -7,12 +7,9 @@ import os
 import sys
 from os.path import join, dirname, abspath, exists, splitext, basename
 import re
-from glob import glob
 from pprint import pprint
 import unittest
 import codecs
-import difflib
-import doctest
 try:
     from json import loads as json_loads
 except ImportError:
@@ -27,8 +24,17 @@ import manta
 
 
 
-#---- Python version compat
+#---- globals
 
+MANTA_URL = os.environ['MANTA_URL']
+MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
+MANTA_USER = os.environ['MANTA_USER']
+INSECURE = True #XXX
+
+
+#---- internal support stuff
+
+# Python version compat
 # Use `bytes` for byte strings and `unicode` for unicode strings (str in Py3).
 if sys.version_info[0] <= 2:
     py3 = False
@@ -44,15 +50,52 @@ elif sys.version_info[0] >= 3:
     unichr = chr
 
 
+class MantaTestCase(unittest.TestCase):
+    _client = None
+    def get_client(self):
+        if not self._client:
+            signer = manta.PrivateKeySigner(key_id=MANTA_KEY_ID)
+            self._client = manta.MantaClient(url=MANTA_URL, user=MANTA_USER,
+                key_id=MANTA_KEY_ID, signer=signer,
+                disable_ssl_certificate_validation=INSECURE)
+        return self._client
+
+    def stor(self, subpath):
+        if subpath.startswith("/"):
+            subpath = subpath[1:]
+        return "/%s/stor/%s" % (MANTA_USER, subpath)
+
 
 #---- Test cases
+#
+# We need to run these tests in order. We'll be creating a test area:
+#   /$user/stor/python-manta-test/
+# and working in there.
+#
 
-class MiscTestCase(unittest.TestCase):
+class MiscTestCase(MantaTestCase):
     """Miscellaneous 'manta' module tests."""
-
     def test_imports(self):
         self.assertTrue(manta.MantaClient)
         self.assertTrue(manta.PrivateKeySigner)
+        self.assertTrue(manta.MantaError)
+        self.assertTrue(manta.MantaAPIError)
+
+    def test_version(self):
+        VERSION_RE = re.compile('^\d+\.\d+\.\d+$')
+        self.assertTrue(manta.__version__)
+        self.assertTrue(VERSION_RE.search(manta.__version__))
+
+class CleanTestAreaTestCase(MantaTestCase):
+    def test_clean(self):
+        client = self.get_client()
+        self.assertTrue(client)
+        #XXX START HERE
+
+class MkdirTestCase(MantaTestCase):
+    def test_put_directory(self):
+        client = self.get_client()
+        res = client.put_directory(self.stor('python-manta-test'))
 
 
 
@@ -64,4 +107,6 @@ class MiscTestCase(unittest.TestCase):
 def test_cases():
     """This is called by test.py to build up the test cases."""
     yield MiscTestCase
+    yield CleanTestAreaTestCase
+    yield MkdirTestCase
     #yield GetTestCase

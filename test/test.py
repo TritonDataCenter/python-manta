@@ -15,6 +15,7 @@ testdir_from_ns = {
     None: dirname(__file__),
 }
 
+# TODO Perhaps just put this in the test_*.py file.
 def setup():
     top_dir = dirname(dirname(abspath(__file__)))
     lib_dir = join(top_dir, "lib")

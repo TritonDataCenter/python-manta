@@ -2,7 +2,7 @@
 
 """A Python client/CLI/shell/SDK for Joyent Manta."""
 
-__version__ = "1.0.0"
-
+from .version import __version__
 from .client import MantaClient
 from .auth import PrivateKeySigner
+from .errors import *

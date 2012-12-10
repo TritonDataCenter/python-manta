@@ -59,9 +59,10 @@ release: all
 		$(TOP)/lib \
 		$(TOP)/setup.py \
 		$(TOP)/README.md \
+		$(TOP)/LICENSE.txt \
+		$(TOP)/TODO.txt \
 		$(TOP)/test \
 		$(TMPDIR)/$(NAME)
 	(cd $(TMPDIR) && $(TAR) -czf $(TOP)/build/$(RELEASE_TARBALL) $(NAME))
 	@rm -rf $(TMPDIR)
 	@echo "Created 'build/$(RELEASE_TARBALL)'."
-

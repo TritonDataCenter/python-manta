@@ -49,7 +49,8 @@ def testall():
         ver_str = "%s.%s" % ver
         print "-- test with Python %s (%s)" % (ver_str, python)
         assert ' ' not in python
-        rv = os.system("%s test.py -- -knownfailure" % python)
+        test_py = join(TOP, "test", "test.py")
+        rv = os.system("%s %s -- -knownfailure" % (python, test_py))
         if rv:
             sys.exit(os.WEXITSTATUS(rv))
 

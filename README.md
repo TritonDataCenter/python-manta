@@ -28,19 +28,19 @@ First setup your environment to match your Joyent Manta account:
     import logging
     import manta
 
-    # Manta logs at the trace level, so the logging env needs to be setup.
+    # Manta logs at the debug level, so the logging env needs to be setup.
     logging.basicConfig()
 
     url = os.environ['MANTA_URL']
-    key_id = os.environ['MANTA_KEY_ID']   # TODO this being a sig *or* a pubkey path
     user = os.environ['MANTA_USER']
+    key_id = os.environ['MANTA_KEY_ID']
 
-    # This handle ssh-key signing of requests to Manta. Manta uses
-    # HTTP-Signature for auth
+    # This handles ssh-key signing of requests to Manta. Manta uses
+    # the HTTP Signature scheme for auth.
     # https://github.com/joyent/node-http-signature/blob/master/http_signing.md
-    signer = manta.PrivateKeySigner(user=user, key_id=key_id)
+    signer = manta.PrivateKeySigner(key_id)
 
-    client = manta.MantaClient(user=user, url=url, key_id=key_id, sign=signer)
+    client = manta.MantaClient(url, user, key_id, signer)
 
     content = client.get('/trent/stor/foo.txt')
     print content
@@ -51,6 +51,14 @@ First setup your environment to match your Joyent Manta account:
 TODO: describe mantash
 
 
+# License
+
+MIT. See LICENSE.txt.
+
+
+
+
 # notes
 
+- `pkgin in py27-crypto-2.4.1` on smartos to get pycrypto
 - http://guide.python-distribute.org/pip.html
