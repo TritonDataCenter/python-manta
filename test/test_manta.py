@@ -78,6 +78,7 @@ class MiscTestCase(MantaTestCase):
     def test_imports(self):
         self.assertTrue(manta.MantaClient)
         self.assertTrue(manta.PrivateKeySigner)
+        self.assertTrue(manta.SSHAgentSigner)
         self.assertTrue(manta.MantaError)
         self.assertTrue(manta.MantaAPIError)
 

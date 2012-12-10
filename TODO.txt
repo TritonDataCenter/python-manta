@@ -1,5 +1,7 @@
 # todo
 
+- Cache the Authorization header for the same Date second. Bryan has been
+  able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
+  conn to ssh-agent?
 
 # Someday/Maybe
-

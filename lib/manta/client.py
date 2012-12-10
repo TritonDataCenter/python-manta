@@ -81,8 +81,6 @@ class MantaClient(object):
 
     @param url {str} The Manta URL
     @param user {str} The Manta username.
-    @param key_id {str} An ssh key *fingerprint* or a path to a private
-        ssh key.
     @param signer {Signer instance} A python-manta Signer class instance
         that handles signing request to Manta using the http-signature
         auth scheme.
@@ -91,17 +89,15 @@ class MantaClient(object):
         be created as needed.
     @param disable_ssl_certificate_validation {bool} Default false.
     """
-    def __init__(self, url, user, key_id, sign=None, signer=None,
+    def __init__(self, url, user, sign=None, signer=None,
             user_agent=None, cache_dir=None,
             disable_ssl_certificate_validation=False):
         assert user, 'user'
-        assert key_id, 'key_id'
         # Prefer 'signer', but accept 'sign' a la node-manta.
         assert signer or sign, 'signer'
         self.url = url
         assert not url.endswith('/'), "don't want trailing '/' on url: %r" % url
         self.user = user
-        self.key_id = key_id
         self.signer = signer or sign
         self.cache_dir = cache_dir or DEFAULT_HTTP_CACHE_DIR
         self.user_agent = user_agent or DEFAULT_USER_AGENT

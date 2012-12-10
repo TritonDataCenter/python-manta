@@ -4,5 +4,5 @@
 
 from .version import __version__
 from .client import MantaClient
-from .auth import PrivateKeySigner
+from .auth import PrivateKeySigner, SSHAgentSigner
 from .errors import *

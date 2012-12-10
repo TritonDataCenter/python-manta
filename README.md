@@ -40,7 +40,7 @@ First setup your environment to match your Joyent Manta account:
     # https://github.com/joyent/node-http-signature/blob/master/http_signing.md
     signer = manta.PrivateKeySigner(key_id)
 
-    client = manta.MantaClient(url, user, key_id, signer)
+    client = manta.MantaClient(url, user, signer)
 
     content = client.get('/trent/stor/foo.txt')
     print content
