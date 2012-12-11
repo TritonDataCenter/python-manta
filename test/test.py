@@ -22,7 +22,11 @@ def setup():
     sys.path.insert(0, lib_dir)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    if "TEST_DEBUG" in os.environ:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(level=level)
 
     setup()
     default_tags = []

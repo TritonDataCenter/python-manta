@@ -98,18 +98,17 @@ class MiscTestCase(MantaTestCase):
 class CleanTestAreaTestCase(MantaTestCase):
     def test_clean(self):
         client = self.get_client()
-        self.assertTrue(client)
-        #XXX START HERE
+        #XXX
 
 class DirTestCase(MantaTestCase):
-    def test_put_directory(self):
+    def test_put(self):
         client = self.get_client()
         client.put_directory(stor(TDIR))
         dirents = client.list_directory(stor())
         dirent = [d for d in dirents if d["name"] == TDIR][0]
         self.assertTrue(dirent)
 
-    def test_list_directory(self):
+    def test_list(self):
         client = self.get_client()
         for d in ['a', 'b', 'c']:
             client.put_directory(stor(TDIR, d))
@@ -121,10 +120,35 @@ class DirTestCase(MantaTestCase):
         self.assertEqual(len(dirents), 2)
         self.assertEqual(dirents[1]["name"], "c")
 
+    def test_head(self):
+        client = self.get_client()
+        for d in ['a', 'b', 'c']:
+            client.put_directory(stor(TDIR, d))
+        res = client.head_directory(stor(TDIR))
+        self.assertEqual(int(res['result-set-size']), 3)
+
+    def test_delete(self):
+        client = self.get_client()
+        for d in ['a', 'b', 'c']:
+            client.delete_directory(stor(TDIR, d))
+        dirents = client.list_directory(stor(TDIR))
+        self.assertEqual(len(dirents), 0)
 
 
+class ObjectTestCase(MantaTestCase):
+    def test_putgetdel(self):
+        client = self.get_client()
+        client.put_directory(stor(TDIR))
+        mpath = stor(TDIR, 'foo.txt')
+        content = 'foo\nbar\nbaz'
+        client.put_object(mpath, content=content)
+        got = client.get_object(mpath)
+        self.assertEqual(content, got)
+        client.delete_object(mpath)
+        dirents = [e for e in client.list_directory(stor(TDIR))
+            if e["name"] == "foo.txt"]
+        self.assertEqual(len(dirents), 0)
 
-#---- internal support stuff
 
 
 #---- hook for testlib
@@ -134,4 +158,4 @@ def test_cases():
     yield MiscTestCase
     yield CleanTestAreaTestCase
     yield DirTestCase
-    #yield GetTestCase
+    yield ObjectTestCase

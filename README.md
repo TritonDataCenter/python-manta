@@ -42,7 +42,7 @@ First setup your environment to match your Joyent Manta account:
 
     client = manta.MantaClient(url, user, signer)
 
-    content = client.get('/trent/stor/foo.txt')
+    content = client.get_object('/trent/stor/foo.txt')
     print content
 
 
@@ -56,6 +56,15 @@ TODO: describe mantash
 MIT. See LICENSE.txt.
 
 
+# Limitations
+
+The python-manta Python API isn't currently well-suited to huge objects
+or huge directory listings (>10k dirents) because responses are fully
+buffered in memory rather than being streamed. If streaming is a requirement
+for your use case, you could consider the [Manta Node.js
+bindings](https://github.com/joyent/node-manta).
+
+For other limitations (also planned work) see TODO.txt.
 
 
 # notes

@@ -9,7 +9,9 @@ from os.path import exists, join
 import json
 from pprint import pprint, pformat
 from urllib import urlencode
+import hashlib
 import datetime
+import base64
 
 import httplib2
 import appdirs
@@ -28,6 +30,23 @@ DEFAULT_USER_AGENT = "python-manta/%s (%s) Python/%s" % (
     __version__, sys.platform, sys.version.split(None, 1)[0])
 
 
+
+#---- compat
+
+# Python version compat
+# Use `bytes` for byte strings and `unicode` for unicode strings (str in Py3).
+if sys.version_info[0] <= 2:
+    py3 = False
+    try:
+        bytes
+    except NameError:
+        bytes = str
+    base_string_type = basestring
+elif sys.version_info[0] >= 3:
+    py3 = True
+    unicode = str
+    base_string_type = str
+    unichr = chr
 
 
 
@@ -219,6 +238,103 @@ class MantaClient(object):
         res, content = self._request(mdir, "DELETE")
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
+
+    def put_object(self, mpath, content=None, path=None, file=None,
+                   content_length=None,
+                   content_type="application/octet-stream",
+                   durability_level=None):
+        """PutObject
+        http://apidocs.joyent.com/manta/manta/#PutObject
+
+        Examples:
+            client.put_object('/trent/stor/foo', 'foo\nbar\nbaz')
+            client.put_object('/trent/stor/foo', path='path/to/foo.txt')
+            client.put_object('/trent/stor/foo', file=open('path/to/foo.txt'),
+                              size=11)
+
+        One of `content`, `path` or `file` is required.
+
+        @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
+        @param content {bytes}
+        @param path {str}
+        @param file {file-like object}
+        @param content_type {string} Optional, but suggested. Default is
+            'application/octet-stream'.
+        @param durability_level {int} Optional. Default is 2. This tells
+            Manta the number of copies to keep.
+        """
+        log.debug('PutObject %r', mpath)
+        headers = {
+            "Content-Type": content_type,
+        }
+        if durability_level:
+            headers["x-durability-level"] = durability_level
+
+        methods = [m for m in [content, path, file] if m is not None]
+        if len(methods) != 1:
+            raise errors.MantaError("exactly one of 'content', 'path' or "
+                "'file' must be provided")
+        if content:
+            pass
+        elif path:
+            f = open(path)
+            try:
+                content = f.read()
+            finally:
+                f.close()
+        else:
+            content = f.read()
+        if not isinstance(content, bytes):
+            raise errors.MantaError("'content' must be bytes, not unicode")
+
+        headers["Content-Length"] = str(len(content))
+        md5 = hashlib.md5(content)
+        headers["Content-MD5"] = base64.b64encode(md5.digest())
+        res, content = self._request(mpath, "PUT", body=content,
+                                     headers=headers)
+        if res["status"] != "204":
+            raise errors.MantaAPIError(res, content)
+
+    def get_object(self, mpath, accept="*/*"):
+        """GetObject
+        http://apidocs.joyent.com/manta/manta/#GetObject
+
+        @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
+        @param accept {str} Optional. Default is '*/*'. The Accept header
+            for content negotiation.
+        """
+        log.debug('GetObject %r', mpath)
+        headers = {
+            "Accept": accept
+        }
+
+        res, content = self._request(mpath, "GET", headers=headers)
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        if len(content) != int(res["content-length"]):
+            raise errors.MantaError("content-length mismatch: expected %d, "
+                "got %s" % (res["content-length"], content))
+        if res["content-md5"]:
+            md5 = hashlib.md5(content)
+            content_md5 = base64.b64encode(md5.digest())
+            if content_md5 != res["content-md5"]:
+                raise errors.MantaError("content-md5 mismatch: expected %d, "
+                    "got %s" % (res["content-md5"], content_md5))
+        return content
+
+    def delete_object(self, mpath):
+        """DeleteObject
+        http://apidocs.joyent.com/manta/manta/#DeleteObject
+
+        @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
+        """
+        log.debug('GetObject %r', mpath)
+        res, content = self._request(mpath, "DELETE")
+        if res["status"] != "204":
+            raise errors.MantaAPIError(res, content)
         return res
+
+    #def put_link
+
 
 

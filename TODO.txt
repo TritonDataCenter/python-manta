@@ -7,11 +7,14 @@
 - Cache the Authorization header for the same Date second. Bryan has been
   able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
   conn to ssh-agent?
+- 'datetime=True' option to list_directory to interp the mtime to datetime
+  objects
 - retries
 
 # Someday/Maybe
 
 - Unix-y MantaClient subclass with: mkdir, mkdirp, rmr, etc. a la node-manta.
   - ls should use marker and result-set-size
-- streaming MantaClient.list_directory()
+- streaming MantaClient.list_directory(), put_object(), get_object()
+  See https://github.com/madlag/streaming_httplib2
 - extra utility endpoints like node-manta's client.info() and others?
