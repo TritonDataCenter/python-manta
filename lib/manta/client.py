@@ -6,6 +6,7 @@ import sys
 import logging
 import os
 from os.path import exists, join
+from posixpath import join as ujoin
 import json
 from pprint import pprint, pformat
 from urllib import urlencode
@@ -92,9 +93,11 @@ class MantaHttp(httplib2.Http):
 
 #---- exports
 
-class MantaClient(object):
-    """
-    A client for accessing the Manta REST API.
+class RawMantaClient(object):
+    """A raw client for accessing the Manta REST API. Here "raw" means that
+    the API is limited to the strict set of endpoints in the REST API. No
+    sugar. See `MantaClient` for the sugar.
+
     http://apidocs.joyent.com/manta/manta/
     http://apidocs.joyent.com/manta/pythonsdk/
 
@@ -309,7 +312,7 @@ class MantaClient(object):
         }
 
         res, content = self._request(mpath, "GET", headers=headers)
-        if res["status"] != "200":
+        if res["status"] not in ("200", "304"):
             raise errors.MantaAPIError(res, content)
         if len(content) != int(res["content-length"]):
             raise errors.MantaError("content-length mismatch: expected %d, "
@@ -328,13 +331,61 @@ class MantaClient(object):
 
         @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
         """
-        log.debug('GetObject %r', mpath)
+        log.debug('DeleteObject %r', mpath)
         res, content = self._request(mpath, "DELETE")
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
         return res
 
-    #def put_link
+    def put_link(self, mpath, location):
+        """PutLink
+        http://apidocs.joyent.com/manta/manta/#PutLink
 
+        @param mpath {str} Required. A manta path, e.g. '/trent/stor/mylink'.
+        @param location {str} Required. The manta path to an existing target
+            manta object.
+        """
+        log.debug('PutLink %r -> %r', mpath, location)
+        headers = {
+            "Content-Type": "application/json; type=link",
+            "Content-Length": "0",   #XXX Needed?
+            "Location": location
+        }
+        res, content = self._request(mpath, "PUT", headers=headers)
+        if res["status"] != "204":
+            raise errors.MantaAPIError(res, content)
+
+
+class MantaClient(RawMantaClient):
+    """A Manta client that builds on `RawMantaClient` to provide some
+    API sugar.
+    """
+
+    def walk(self, mtop, topdown=True):
+        """`os.walk(path)` for a directory in Manta.
+
+        A somewhat limited form in that some of the optional args to
+        `os.walk` are not supported.
+
+        @param mtop {Manta dir}
+        """
+        #TODO:XXX If result-set-size > 1000, then we are missing elements. Fix.
+        dirents = self.list_directory(mtop)
+
+        mdirs, mnondirs = [], []
+        for dirent in dirents:
+            if dirent["type"] == "directory":
+                mdirs.append(dirent)
+            else:
+                mnondirs.append(dirent)
+
+        if topdown:
+            yield mtop, mdirs, mnondirs
+        for mdir in mdirs:
+            mpath = ujoin(mtop, mdir["name"])
+            for x in self.walk(mpath, topdown):
+                yield x
+        if not topdown:
+            yield mtop, mdirs, mnondirs
 
 

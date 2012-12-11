@@ -6,6 +6,7 @@
 import os
 import sys
 from os.path import join, dirname, abspath, exists, splitext, basename
+from posixpath import join as ujoin
 import re
 from pprint import pprint
 import unittest
@@ -54,10 +55,9 @@ elif sys.version_info[0] >= 3:
 
 
 def stor(*subpaths):
-    from posixpath import join as urljoin
     if not subpaths:
         return '/%s/stor' % MANTA_USER
-    subpath = urljoin(*subpaths)
+    subpath = ujoin(*subpaths)
     if subpath.startswith("/"):
         subpath = subpath[1:]
     return "/%s/stor/%s" % (MANTA_USER, subpath)
@@ -98,7 +98,17 @@ class MiscTestCase(MantaTestCase):
 class CleanTestAreaTestCase(MantaTestCase):
     def test_clean(self):
         client = self.get_client()
-        #XXX
+        try:
+            client.list_directory(stor(TDIR))
+        except manta.MantaError, ex:
+            if ex.code == "ResourceNotFound":
+                return
+            else:
+                raise
+        for mdir, dirs, nondirs in client.walk(stor(TDIR), False):
+            for nondir in nondirs:
+                client.delete_object(ujoin(mdir, nondir["name"]))
+            client.delete_object(mdir)
 
 class DirTestCase(MantaTestCase):
     def test_put(self):
@@ -108,8 +118,9 @@ class DirTestCase(MantaTestCase):
         dirent = [d for d in dirents if d["name"] == TDIR][0]
         self.assertTrue(dirent)
 
-    def test_list(self):
+    def test_listheaddel(self):
         client = self.get_client()
+        client.put_directory(stor(TDIR))
         for d in ['a', 'b', 'c']:
             client.put_directory(stor(TDIR, d))
         dirents = client.list_directory(stor(TDIR))
@@ -120,20 +131,13 @@ class DirTestCase(MantaTestCase):
         self.assertEqual(len(dirents), 2)
         self.assertEqual(dirents[1]["name"], "c")
 
-    def test_head(self):
-        client = self.get_client()
-        for d in ['a', 'b', 'c']:
-            client.put_directory(stor(TDIR, d))
         res = client.head_directory(stor(TDIR))
         self.assertEqual(int(res['result-set-size']), 3)
 
-    def test_delete(self):
-        client = self.get_client()
         for d in ['a', 'b', 'c']:
             client.delete_directory(stor(TDIR, d))
         dirents = client.list_directory(stor(TDIR))
         self.assertEqual(len(dirents), 0)
-
 
 class ObjectTestCase(MantaTestCase):
     def test_putgetdel(self):
@@ -149,6 +153,26 @@ class ObjectTestCase(MantaTestCase):
             if e["name"] == "foo.txt"]
         self.assertEqual(len(dirents), 0)
 
+class LinkTestCase(MantaTestCase):
+    def test_put(self):
+        client = self.get_client()
+        client.put_directory(stor(TDIR))
+        obj_path = stor(TDIR, 'obj.txt')
+        content = 'foo\nbar\nbaz'
+        client.put_object(obj_path, content=content)
+        link_path = stor(TDIR, 'link.txt')
+        client.put_link(link_path, obj_path)
+        got = client.get_object(link_path)
+        self.assertEqual(content, got)
+        client.delete_object(obj_path)
+        got2 = client.get_object(link_path)
+        self.assertEqual(content, got2)
+        client.delete_object(link_path)
+        dirents = [e for e in client.list_directory(stor(TDIR))
+            if e["name"] in ("obj.txt", "link.txt")]
+        self.assertEqual(len(dirents), 0)
+
+
 
 
 #---- hook for testlib
@@ -159,3 +183,4 @@ def test_cases():
     yield CleanTestAreaTestCase
     yield DirTestCase
     yield ObjectTestCase
+    yield LinkTestCase
