@@ -22,7 +22,7 @@ def setup():
     sys.path.insert(0, lib_dir)
 
 if __name__ == "__main__":
-    logging.basicConfig()
+    logging.basicConfig(level=logging.DEBUG)
 
     setup()
     default_tags = []

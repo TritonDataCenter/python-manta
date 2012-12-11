@@ -29,7 +29,10 @@ import manta
 MANTA_URL = os.environ['MANTA_URL']
 MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
 MANTA_USER = os.environ['MANTA_USER']
-INSECURE = True #XXX
+INSECURE = False
+
+TDIR = "python-manta-test"
+
 
 
 #---- internal support stuff
@@ -50,20 +53,25 @@ elif sys.version_info[0] >= 3:
     unichr = chr
 
 
+def stor(*subpaths):
+    from posixpath import join as urljoin
+    if not subpaths:
+        return '/%s/stor' % MANTA_USER
+    subpath = urljoin(*subpaths)
+    if subpath.startswith("/"):
+        subpath = subpath[1:]
+    return "/%s/stor/%s" % (MANTA_USER, subpath)
+
 class MantaTestCase(unittest.TestCase):
     _client = None
     def get_client(self):
         if not self._client:
-            signer = manta.PrivateKeySigner(key_id=MANTA_KEY_ID)
+            signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
             self._client = manta.MantaClient(url=MANTA_URL, user=MANTA_USER,
-                key_id=MANTA_KEY_ID, signer=signer,
+                signer=signer,
                 disable_ssl_certificate_validation=INSECURE)
         return self._client
 
-    def stor(self, subpath):
-        if subpath.startswith("/"):
-            subpath = subpath[1:]
-        return "/%s/stor/%s" % (MANTA_USER, subpath)
 
 
 #---- Test cases
@@ -93,10 +101,26 @@ class CleanTestAreaTestCase(MantaTestCase):
         self.assertTrue(client)
         #XXX START HERE
 
-class MkdirTestCase(MantaTestCase):
+class DirTestCase(MantaTestCase):
     def test_put_directory(self):
         client = self.get_client()
-        res = client.put_directory(self.stor('python-manta-test'))
+        client.put_directory(stor(TDIR))
+        dirents = client.list_directory(stor())
+        dirent = [d for d in dirents if d["name"] == TDIR][0]
+        self.assertTrue(dirent)
+
+    def test_list_directory(self):
+        client = self.get_client()
+        for d in ['a', 'b', 'c']:
+            client.put_directory(stor(TDIR, d))
+        dirents = client.list_directory(stor(TDIR))
+        self.assertEqual(len(dirents), 3)
+        dirents = client.list_directory(stor(TDIR), limit=2)
+        self.assertEqual(len(dirents), 2)
+        dirents = client.list_directory(stor(TDIR), marker=dirents[-1]["name"])
+        self.assertEqual(len(dirents), 2)
+        self.assertEqual(dirents[1]["name"], "c")
+
 
 
 
@@ -109,5 +133,5 @@ def test_cases():
     """This is called by test.py to build up the test cases."""
     yield MiscTestCase
     yield CleanTestAreaTestCase
-    yield MkdirTestCase
+    yield DirTestCase
     #yield GetTestCase

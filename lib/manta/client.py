@@ -8,7 +8,7 @@ import os
 from os.path import exists, join
 import json
 from pprint import pprint, pformat
-from urllib import urlencode, urlretrieve
+from urllib import urlencode
 import datetime
 
 import httplib2
@@ -115,8 +115,16 @@ class MantaClient(object):
     def _sign_request(self, headers):
         pass
 
-    def _request(self, path, method="GET", body=None, headers=None):
+    def _request(self, path, method="GET", query=None, body=None, headers=None):
+        """Make a Manta request
+
+        ...
+        @returns (res, content)
+        """
         assert path.startswith('/'), "bogus path: %r" % path
+
+        if query:
+            path += '?' + urlencode(query)
         url = self.url + path
         http = self._get_http()
 
@@ -135,16 +143,7 @@ class MantaClient(object):
             'Signature keyId="/%s/keys/%s",algorithm="%s" %s' % (
                 self.user, fingerprint, algorithm, signature)
 
-        res, content = http.request(url, method, ubody, headers)
-        return res, content
-        #res, content = _manta_req(url, method, body, headers)
-        #if res["status"] == "204":
-        #    return res, content
-        #else:
-        #    if res["content-type"] != "application/json":
-        #        raise MantaShellError("API error: response is not json: '%s'"
-        #            % res["content-type"])
-        #    return res, json.loads(content)
+        return http.request(url, method, ubody, headers)
 
     def put_directory(self, mdir):
         """PutDirectory
@@ -157,19 +156,69 @@ class MantaClient(object):
             "Content-Type": "application/json; type=directory"
         }
         res, content = self._request(mdir, "PUT", headers=headers)
-        #XXX
+        if res["status"] != "204":
+            raise errors.MantaAPIError(res, content)
 
-    # Aliases.
-    # XXX want these? Perhaps in a separate optional class?
-    #mkdir = put_directory
+    def list_directory(self, mdir, limit=None, marker=None):
+        """ListDirectory
+        http://apidocs.joyent.com/manta/manta/#ListDirectory
 
-    def _manta_mkdir(url, log_write=None, dry_run=False, insecure=False):
-        if log_write:
-            log_write("mkdir %s", url)
-        if not dry_run:
-            res, data = _manta_json_req(url, "PUT",
-                headers={"Content-Type": g_dir_content_type},
-                insecure=insecure)
-            if res["status"] != "204":
-                raise MantaShellError("mkdir API error: %s %s: %s" % (
-                    res["status"], data["code"], data["message"]))
+        @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
+        @param limit {int} Limits the number of records to come back (default
+            and max is 1000).
+        @param marker {str} Key name at which to start the next listing.
+        @returns Directory entries (dirents). E.g.:
+            [{u'mtime': u'2012-12-11T01:54:07Z', u'name': u'play', u'type': u'directory'},
+             ...]
+        """
+        log.debug('ListDirectory %r', mdir)
+
+        query = {}
+        if limit:
+            query["limit"] = limit
+        if marker:
+            query["marker"] = marker
+
+        res, content = self._request(mdir, "GET", query=query)
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        lines = content.split('\r\n')
+        dirents = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                dirents.append(json.loads(line))
+            except ValueError:
+                raise errors.MantaError('invalid directory entry: %r' % line)
+        return dirents
+
+    def head_directory(self, mdir):
+        """HEAD method on ListDirectory
+        http://apidocs.joyent.com/manta/manta/#ListDirectory
+
+        This is not strictly a documented Manta API call. However it is
+        provided to allow access to the useful 'result-set-size' header.
+
+        @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
+        @returns The response object, which acts as a dict with the headers.
+        """
+        log.debug('HEAD ListDirectory %r', mdir)
+        res, content = self._request(mdir, "HEAD")
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        return res
+
+    def delete_directory(self, mdir):
+        """DeleteDirectory
+        http://apidocs.joyent.com/manta/manta/#DeleteDirectory
+
+        @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
+        """
+        log.debug('DeleteDirectory %r', mdir)
+        res, content = self._request(mdir, "DELETE")
+        if res["status"] != "204":
+            raise errors.MantaAPIError(res, content)
+        return res
+
+
