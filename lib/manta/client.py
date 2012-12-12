@@ -328,6 +328,17 @@ class RawMantaClient(object):
         @returns {str|None} None if `path` is provided, else the object
             content.
         """
+        res, content = self.get_object2(mpath, path=path, accept=accept)
+        return content
+
+    def get_object2(self, mpath, path=None, accept="*/*"):
+        """A lower-level version of `get_object` that returns the
+        response object (which includes the headers).
+
+        ...
+        @returns (res, content) {2-tuple} `content` is None if `path` was
+            provided
+        """
         log.debug('GetObject %r', mpath)
         headers = {
             "Accept": accept
@@ -351,8 +362,9 @@ class RawMantaClient(object):
                 f.write(content)
             finally:
                 f.close()
+            return (res, None)
         else:
-            return content
+            return (res, content)
 
     def delete_object(self, mpath):
         """DeleteObject

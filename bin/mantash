@@ -830,9 +830,11 @@ class Mantash(cmdln.Cmdln):
         """find paths
 
         Usage:
-            ${cmd_name} [DIR] [-name PATTERN]
+            ${cmd_name} [DIR] [-name PATTERN] [-type TYPE]
+
+        Where "DIR" is a Manta dir, "PATTERN" is a glob pattern and "TYPE"
+        is one of 'd' (for directories), 'o' or 'f' (for objects).
         """
-        XXX
         class Options:
             def __init__(self, *opts):
                 for name in opts:
@@ -847,7 +849,7 @@ class Mantash(cmdln.Cmdln):
         top = '.'
         if argv and not argv[0].startswith('-'):
             top = argv.pop(0)
-        opts = Options("name")
+        opts = Options("name", "type")
         while argv:
             opt = argv.pop(0)
             if opt == "-name":
@@ -855,59 +857,74 @@ class Mantash(cmdln.Cmdln):
                     log.error("no argument for '-name'")
                     return 1
                 opts.name = argv.pop(0)
+            elif opt == "-type":
+                if not argv:
+                    log.error("no argument for '-type'")
+                    return 1
+                type_char = argv.pop(0)
+                opts.type = {
+                    "o": "object",
+                    "f": "object",
+                    "d": "directory",
+                }
             else:
                 log.error("unknown option: %r", opt)
                 return 1
         #print "find: top=%r, opts=%r" % (top, opts)
 
         def find_all(d):
-            for dirpath, dirs, nondirs in self._manta_walk(d):
-                yield dirpath
-                for name in nondirs.keys():
-                    yield ujoin(dirpath, name)
+            for dirpath, dirents, objents in self.client.walk(d):
+                yield {"type": "directory", "name": ubasename(dirpath),
+                       "path": dirpath}
+                for objent in objents:
+                    objent["path"] = ujoin(dirpath, objent["name"])
+                    yield objent
 
         # Do the find and filtering.
-        for path in find_all(top):
+        ntop = self._realpath(top)
+        for dirent in find_all(ntop):
+            if opts.type and dirent["type"] != opts.type:
+                continue
             if opts.name:
-                base = ubasename(path)
+                base = dirent["name"]
                 if not fnmatchcase(base, opts.name):
                     continue
-            print path
+            print top + dirent["path"][len(ntop):]
 
     def do_vi(self, subcmd, opts, path):
         """edit a file on Manta (locally in vi)
 
         Usage:
-            ${cmd_name} [OPTIONS...] PATH
+            ${cmd_name} [OPTIONS...] MANTA-PATH
 
         ${cmd_option_list}
         Note that this is a limited hack. You need to have a 'vi' to run
-        locally. Only one PATH can be edited. You can edit other files from
+        locally. Only one path can be edited. You can edit other files from
         within the Vi session, etc.
         """
-        XXX
-        base = os.path.basename(path)
+        npath = self._realpath(path)
+        base = ubasename(npath)
         local_path = os.path.join(g_cache_dir, "vi",
             "%s-local.%s" % (os.getpid(), base))
         if not os.path.exists(os.path.dirname(local_path)):
             os.makedirs(os.path.dirname(local_path))
 
-        url = self._get_manta_url(path)
         try:
-            # TODO get the content-type and set that below
-            res = _manta_getobject(url, local_path,
-                insecure=self.options.insecure)
+            res, _ = self.client.get_object2(npath, path=local_path)
             is_new = False
             old_digest = res["content-md5"].decode("base64")
             content_type = res["content-type"]
-        except MantaObjectDoesNotExist:
-            is_new = True
-            content = ""
-            content_type = "text/plain"
-            old_digest = md5("").digest()
-            f = open(local_path, 'w')
-            f.write(content)
-            f.close()
+        except manta.MantaAPIError, ex:
+            if ex.code == 'ResourceNotFound':
+                is_new = True
+                content = ""
+                content_type = "text/plain"
+                old_digest = md5("").digest()
+                f = open(local_path, 'w')
+                f.write(content)
+                f.close()
+            else:
+                raise
 
         os.system('vi -f "%s"' % local_path)
 
@@ -918,8 +935,7 @@ class Mantash(cmdln.Cmdln):
             if not is_new:
                 log.info("'%s' unchanged.", path)
         else:
-            _manta_putobject(url, local_path, content_type=content_type,
-                insecure=self.options.insecure)
+            self.client.put(npath, path=local_path, content_type=content_type)
             log.info("'%s' saved.", path)
 
     def do_job(self, argv):
