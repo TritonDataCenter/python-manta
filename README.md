@@ -12,6 +12,8 @@ The *intention* is to support Windows (if reasonable) and Linux; and Python
 >=2.5 and Python 3 (again, if reasonable). Supporting Python 3 might largely
 depend on python-manta's dependencies (paramiko and pycrypto).
 
+Please send all feedback to Trent Mick on the <manta-private-beta@joyent.com>.
+
 
 # Installation
 
@@ -28,7 +30,10 @@ things to try:
     sudo easy_install pycrypto
 
     # SmartOS
-    pkgin in py27-crypto-2.4.1
+    # - `pkgin in py27-crypto-2.4.1` is insufficient (DATASET-627)
+    # - a binary build for SunOS/Python-2.7 is included
+    **Please let me know if this binary build fails for you, e.g. dependency
+    issue or different Python version.**
 
     # Any platform using ActivePython
     pypm install pycrypto
@@ -165,3 +170,4 @@ for your use case, you could consider the [Manta Node.js
 bindings](https://github.com/joyent/node-manta).
 
 For other limitations (also planned work) see TODO.txt.
+
