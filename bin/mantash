@@ -511,6 +511,8 @@ class Mantash(cmdln.Cmdln):
 
     @cmdln.option("-v", "--verbose", action="store_true",
         help="show files (and content-type) as they are being copied")
+    @cmdln.option("-d", "--durability-level",
+        help="Tell Manta the number of copies to keep. Default is 2.")
     @cmdln.option("-t", "--content-type",
         help="specify content-type, else cp will attempt to guess based "
             "on the filename. This 'wins' over '-b'.")
@@ -593,7 +595,8 @@ class Mantash(cmdln.Cmdln):
                 log.info("put %s %s  # %s", src_file, dst_file, content_type)
             if not opts.dry_run:
                 self.client.put(dst_file, path=src_file,
-                    content_type=content_type)
+                    content_type=content_type,
+                    durability_level=opts.durability_level)
 
         # Copy the files.
         retval = None
