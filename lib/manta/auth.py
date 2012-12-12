@@ -2,8 +2,9 @@
 
 """Manta client auth."""
 
+import sys
 import os
-from os.path import exists, expanduser
+from os.path import exists, expanduser, join, dirname, abspath
 import logging
 import base64
 import hashlib
@@ -12,6 +13,10 @@ import re
 import struct
 from glob import glob
 
+PLAT_LIB = join(dirname(dirname(abspath(__file__))),
+    "plat-%s-py%s" % (sys.platform, '.'.join(map(str, sys.version_info[:2]))))
+if PLAT_LIB not in sys.path:
+    sys.path.insert(0, PLAT_LIB)
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256, SHA, SHA512
