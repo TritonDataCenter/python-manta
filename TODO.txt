@@ -1,21 +1,22 @@
 # todo
 
-- jobs endpoints
-- re-instate all of mantash:
-  - mantash commands:
-      - ls
 - package build and install notes for installing from tarball
+- mantash job ^C support
+- mantash job -W   or something to NOT wait for a job to complete
+- testing running large jobs via `mantash job`:
+  - taking keys on stdin
+- mantash job -c JOB-ID   # cancel a job
 - auth.cliSigner -- have all the pieces there
-- Cache the Authorization header for the same Date second. Bryan has been
-  able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
-  conn to ssh-agent?
-- 'datetime=True' option to list_directory to interp the mtime to datetime
-  objects
 - retries
 - import mantash TODOs
 
 # Someday/Maybe
 
+- Cache the Authorization header for the same Date second. Bryan has been
+  able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
+  conn to ssh-agent?
+- 'datetime=True' option to list_directory to interp the mtime to datetime
+  objects
 - mantash jobs (note 'mjobs -s running' to show active jobs)
 - remember visited public folders for tab completion and 'mantash ls /'
   Need an option to drop that cache.

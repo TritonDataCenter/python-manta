@@ -77,7 +77,7 @@ class MantaHttp(httplib2.Http):
                 '\n'.join([
                     _indent("host: " + host),
                     _indent("headers: " + pformat(headers)),
-                    _indent("cachekey: " + pformat(cachekey)), #XXX
+                    #_indent("cachekey: " + pformat(cachekey)), #XXX
                     _indent("body: " + body_str)
                 ]))
         res, content = httplib2.Http._request(self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey)
@@ -396,6 +396,167 @@ class RawMantaClient(object):
         res, content = self._request(link_path, "PUT", headers=headers)
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
+
+    def create_job(self, phases, name=None, input=None):
+        """CreateJob
+        XXX
+        """
+        log.debug('CreateJob')
+        path = '/%s/jobs' % self.user
+        body = {"phases": phases}
+        if name: body["name"] = name
+        if input: body["input"] = input
+        headers = {
+            "Content-Type": "application/json"
+        }
+        res, content = self._request(path, "POST", body=json.dumps(body),
+            headers=headers)
+        if res["status"] != '201':
+            raise errors.MantaAPIError(res, content)
+        location = res["location"]
+        assert res["location"]
+        job_id = res["location"].rsplit('/', 1)[-1]
+        return job_id
+
+    def add_job_keys(self, job_id, keys):
+        """AddJobKeys
+        XXX
+        """
+        log.debug("AddJobKeys %r", job_id)
+        path = "/%s/jobs/%s/in" % (self.user, job_id)
+        body = '\r\n'.join(keys) + '\r\n'
+        headers = {
+            "Content-Type": "text/plain",
+            "Content-Length": str(len(body))
+        }
+        res, content = self._request(path, "POST", body=body, headers=headers)
+        if res["status"] != '204':
+            raise errors.MantaAPIError(res, content)
+
+    def end_job_input(self, job_id):
+        """EndJobInput
+        XXX
+        """
+        log.debug("EndJobInput %r", job_id)
+        path = "/%s/jobs/%s/in/end" % (self.user, job_id)
+        headers = {
+            "Content-Length": "0"
+        }
+        res, content = self._request(path, "POST", headers=headers)
+        if res["status"] != '204':
+            raise errors.MantaAPIError(res, content)
+
+    def cancel_job(self, job_id):
+        """CancelJob
+        XXX
+        """
+        log.debug("CancelJob %r", job_id)
+        path = "/%s/jobs/%s/cancel" % (self.user, job_id)
+        headers = {
+            "Content-Length": "0"
+        }
+        res, content = self._request(path, "POST", headers=headers)
+        if res["status"] != "204":
+            raise errors.MantaAPIError(res, content)
+
+    def list_jobs(self, state=None):
+        """ListJobs
+        XXX
+
+        @param state {str} Only return jobs in the given state, e.g.
+            "running", "done", etc.
+        @returns jobs {list}
+        """
+        log.debug('ListJobs')
+
+        path = "/%s/jobs" % self.user
+        query = {}
+        if state:
+            query["state"] = state
+
+        res, content = self._request(path, "GET", query=query)
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        lines = content.split('\r\n')
+        jobs = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                jobs.append(json.loads(line))
+            except ValueError:
+                raise errors.MantaError('invalid job entry: %r' % line)
+        return jobs
+
+    def get_job(self, job_id):
+        """GetJob
+        XXX
+        """
+        log.debug("GetJob %r", job_id)
+        path = "/%s/jobs/%s" % (self.user, job_id)
+        res, content = self._request(path, "GET")
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        try:
+            return json.loads(content)
+        except ValueError:
+            raise errors.MantaError('invalid job data: %r' % content)
+
+    def get_job_output(self, job_id):
+        """GetJobOutput
+        XXX
+        """
+        log.debug("GetJobOutput %r", job_id)
+        path = "/%s/jobs/%s/out" % (self.user, job_id)
+        res, content = self._request(path, "GET")
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        keys = content.splitlines(False)
+        return keys
+
+    def get_job_input(self, job_id):
+        """GetJobInput
+        XXX
+        """
+        log.debug("GetJobInput", job_id)
+        path = "/%s/jobs/%s/in" % (self.user, job_id)
+        res, content = self._request(path, "GET")
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        keys = content.splitlines(False)
+        return keys
+
+    def get_job_failures(self, job_id):
+        """GetJobFailures
+        XXX
+        """
+        log.debug("GetJobFailures %r", job_id)
+        path = "/%s/jobs/%s/fail" % (self.user, job_id)
+        res, content = self._request(path, "GET")
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        keys = content.splitlines(False)
+        return keys
+
+    def get_job_errors(self, job_id):
+        """GetJobErrors
+        XXX
+        """
+        log.debug("GetJobErrors %r", job_id)
+        path = "/%s/jobs/%s/err" % (self.user, job_id)
+        res, content = self._request(path, "GET")
+        if res["status"] != "200":
+            raise errors.MantaAPIError(res, content)
+        lines = content.split('\r\n')
+        errs = []
+        for line in lines:
+            if not line.strip():
+                continue
+            try:
+                errs.append(json.loads(line))
+            except ValueError:
+                raise errors.MantaError('invalid job error entry: %r' % line)
+        return errs
 
 
 class MantaClient(RawMantaClient):

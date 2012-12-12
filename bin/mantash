@@ -107,8 +107,7 @@ class Mantash(cmdln.Cmdln):
         signer = manta.SSHAgentSigner(self.options.key_id)
         self.client = manta.MantaClient(self.manta_url, self.user, signer,
             disable_ssl_certificate_validation=self.options.insecure,
-            #debug=self.options.debug  #XXX
-            )
+            debug=self.options.debug)
         self._update_prompt()
 
     def _update_prompt(self):
@@ -378,10 +377,6 @@ class Mantash(cmdln.Cmdln):
         if opts.json:
             print json.dumps(listing, indent=2)
         return retval
-
-    #def _get_manta_url(self, path):
-    #    XXX
-    #    return _get_manta_url(self.manta_url, self.user, self.cwd, path)
 
     def do_cd(self, subcmd, opts, directory='~'):
         """change directory
@@ -938,8 +933,40 @@ class Mantash(cmdln.Cmdln):
             self.client.put(npath, path=local_path, content_type=content_type)
             log.info("'%s' saved.", path)
 
+    #@cmdln.option("-j", "--json", action="store_true",
+    #    help="display the jobs in JSON")
+    @cmdln.option("-s", "--state",
+        help="limit to jobs in the given state: 'running', 'done', etc.")
+    def do_jobs(self, subcmd, opts):
+        """List Manta jobs
+
+        Usage:
+            ${cmd_name} [OPTIONS...]
+
+        ${cmd_option_list}
+        """
+        jobs = self.client.list_jobs(state=opts.state)
+        print json.dumps(jobs, indent=2)
+
+    def do_jobinfo(self, subcmd, opts, job_id):
+        """Get details for a Manta job.
+
+        Usage:
+            ${cmd_name} [OPTIONS...] JOB-ID
+
+        ${cmd_option_list}
+        """
+        info = {
+            "job": self.client.get_job(job_id),
+            "in": self.client.get_job_input(job_id),
+            "out": self.client.get_job_output(job_id),
+            "err": self.client.get_job_errors(job_id),
+            "fail": self.client.get_job_failures(job_id),
+        }
+        print json.dumps(info, indent=2)
+
     def do_job(self, argv):
-        """run a Manta job
+        """start a Manta job
 
         Usage:
             ${cmd_name} [OPTIONS...] [PATHS...] ^ MAP-PHASE [^ MAP-PHASES...]
@@ -954,7 +981,7 @@ class Mantash(cmdln.Cmdln):
                                 for now.
 
         You can use '|' instead of '^'. The latter is provided so you don't
-        have to escape '|' from your shell. Back in the old school, '^' was
+        have to escape '|' from your shell. Back in the old school '^' was
         a synonym for '|' in the shell
         (http://en.wikipedia.org/wiki/Thompson_shell).
 
@@ -962,16 +989,13 @@ class Mantash(cmdln.Cmdln):
             mantash job words.txt ^ grep foo
             mantash job words.txt \| grep foo
         """
-        XXX
         #TODO: job `find . -name "email*.txt"` ^ grep foo
         #    Update cmdln.py's line2argv parsing for this? Need a *more*
         #    raw mode for own parsing. What does this line look like *with*
         #    bash in the way?
         #Easier todo this:
         #    find . -name "email*.txt" ^ job -n NAME ^ grep foo
-
-        # Requirement for a name might go away. If so, remove this default.
-        DEFAULT_NAME='job-' + str(time.time())
+        DEBUG = False
 
         first_argv = None
         pipe_chars = ['^', '|', '^^']
@@ -988,7 +1012,7 @@ class Mantash(cmdln.Cmdln):
         optparser = cmdln.SubCmdOptionParser()
         optparser.set_cmdln_info(self, "job")
         optparser.add_option("-t", "--timeout", type="int", default=0)
-        optparser.add_option("-n", "--name", default=DEFAULT_NAME)
+        optparser.add_option("-n", "--name")
         try:
             opts, path_patterns = optparser.parse_args(first_argv[1:])
         except cmdln.StopOptionProcessing:
@@ -1013,163 +1037,65 @@ class Mantash(cmdln.Cmdln):
             #   we want to single quote.
             phase["exec"] = argv2line(phase["exec"])
 
-        keyBase = '/%s/stor' % self.user
         keys = []
         for pp in path_patterns:
             try:
                 # list of (<is-dir>, <path>, <dirents>)
-                paths = _ls_path(pp, self.cwd, self.manta_url,
-                    self.user, True, insecure=self.options.insecure)
+                paths = self._ls_path(pp, True)
             except MantashError, ex:
                 log.error(ex)
                 retval = 1
             else:
                 for is_dir, p, dirents in paths:
-                    for pname, pdirent in dirents.items():
-                        if pdirent["type"] != "object":
+                    for dirent in dirents.values():
+                        if dirent["type"] != "object":
                             raise MantashError(
                                 "'%s' is a %s (can only process objects)" % (
-                                pname, pdirent["type"]))
-                        keys.append(keyBase + unormpath(ujoin(self.cwd, pname)))
+                                pname, dirent["type"]))
+                        keys.append(unormpath(ujoin(self.cwd, dirent["name"])))
 
-        #print "XXX keys", keys
-        #print "XXX phases", pformat(phases)
-        uuid = self._manta_create_job(phases, name=opts.name)
-        self._manta_add_job_keys(uuid, keys)
-        self._manta_end_job_input(uuid)
-        self._manta_wait_for_job(uuid, timeout=opts.timeout)
-        outkeys = self._manta_get_job_output(uuid)
+        if DEBUG:
+            print "-- CreateJob"
+            print "  keys: %s" % keys
+            print "  phases:\n%s" % _indent(pformat(phases))
+        job_id = self.client.create_job(phases, name=opts.name)
+        if DEBUG:
+            print "  job_id: %s" % job_id
+        sys.stderr.write("Created job %s\n", job_id)  #TODO log?
+        self.client.add_job_keys(job_id, keys)
+        self.client.end_job_input(job_id)
+        #TODO: support cancel_job on ^C
+        sys.stderr.write("Waiting for job %s to complete\n", job_id)  #TODO log?
+        self._wait_for_job(job_id, timeout=opts.timeout)
+        outkeys = self.client.get_job_output(job_id)
         for outkey in outkeys:
-            res, content = _manta_req(self.manta_url + outkey,
-                insecure=self.options.insecure)
-            if res["status"] not in ("200", "304"):
-                raise MantashError('error getting job output file: %s: %s: %s'
-                    % (outkey, res["status"], content))
+            log.debug("get job %s output key '%s'", job_id, outkey)
+            content = self.client.get(outkey)
             sys.stdout.write(content)
+        #XXX Report job failures and errors!
 
-    def _manta_get_job_output(self, uuid):
-        url = ujoin(self.manta_url, self.user, 'jobs', uuid, 'out')
-        res, content = _manta_req(url, 'GET', insecure=self.options.insecure)
-        if res["status"] != "200":
-            raise MantashError("get job output API error: %s: %s %s: %s" % (
-                url, res["status"], data["code"], data["message"]))
-        content = re.sub(r'\r?\n$', '', content)
-        keys = [k for k in content.split('\n') if k]
-        return keys
-
-    def _manta_wait_for_job(self, uuid, timeout=30):
+    def _wait_for_job(self, job_id, timeout=30):
         start_time = time.time()
-        url = ujoin(self.manta_url, self.user, 'jobs', uuid)
+        url = ujoin(self.manta_url, self.user, 'jobs', job_id)
         successive_errors = 0
         #time.sleep(2)
         while True:
             time.sleep(1)
             if timeout and time.time() - start_time >= timeout:
                 raise MantashError("job timed out (%ds)" % timeout)
-            res, data = _manta_json_req(url, 'GET',
-                insecure=self.options.insecure)
-            if res["status"] != "200":
-                # TODO: should only allow retry for some error types,
-                #  e.g. not for 400
-                successive_errors += 1
-                if successive_errors >= 3:
-                    raise MantashError("add job keys API error: %s: %s %s: %s" % (
-                        url, res["status"], data["code"], data["message"]))
-                continue
+            job = self.client.get_job(job_id)
+            #XXX Restore this?
+            #if res["status"] != "200":
+            #    # TODO: should only allow retry for some error types,
+            #    #  e.g. not for 400
+            #    successive_errors += 1
+            #    if successive_errors >= 3:
+            #        raise MantashError("add job keys API error: %s: %s %s: %s" % (
+            #            url, res["status"], data["code"], data["message"]))
+            #    continue
             successive_errors = 0
-            if data["state"] == "done":
+            if job["state"] == "done":
                 break
-
-    def _manta_end_job_input(self, uuid):
-        url = ujoin(self.manta_url, self.user, 'jobs', uuid, 'in', 'end')
-        body = ''
-        res, data = _manta_json_req(url, 'POST', body,
-            insecure=self.options.insecure)
-        if res["status"] != "204":
-            raise MantashError("end job input API error: %s: %s %s: %s" % (
-                url, res["status"], data["code"], data["message"]))
-
-    def _manta_add_job_keys(self, uuid, keys):
-        url = ujoin(self.manta_url, self.user, 'jobs', uuid, 'in')
-        body = '\r\n'.join(keys)
-        res, data = _manta_json_req(url, 'POST', body, headers={
-            'Content-Type': 'text/plain'
-        }, insecure=self.options.insecure)
-        if res["status"] != "204":
-            raise MantashError("add job keys API error: %s: %s %s: %s" % (
-                url, res["status"], data["code"], data["message"]))
-
-    def _manta_create_job(self, phases, name=None):
-        url = ujoin(self.manta_url, self.user, 'jobs')
-        body = {"phases": phases}
-        if name:
-            body["name"] = name
-        res, data = _manta_req(url, 'POST', json.dumps(body),
-            headers={"Content-Type": "application/json"},
-            insecure=self.options.insecure)
-        if res["status"] != '201':
-            raise MantashError("create job API error: %s: %s: %s" % (
-                url, res["status"], data))
-        location = res["location"]
-        assert res["location"]
-        #print "XXX location", res["location"]
-        uuid = res["location"].rsplit('/', 1)[-1]
-        #print "XXX uuid", uuid
-        return uuid
-
-    def _manta_walk(self, top, topdown=True):
-        """`os.walk(path)` for a directory in Manta.
-
-        A somewhat limited form in that some of the optional args to
-        `os.walk` are not supported.
-        """
-        XXX
-        top_url = self._get_manta_url(top)
-        res, dirents = _manta_getdir(top_url, insecure=self.options.insecure)
-
-        dirs, nondirs = {}, {}
-        for name, dirent in dirents.items():
-            if dirent["type"] == "directory":
-                dirs[name] = dirent
-            else:
-                nondirs[name] = dirent
-
-        if topdown:
-            yield top, dirs, nondirs
-        for name in dirs.keys():
-            path = ujoin(top, name)
-            for x in self._manta_walk(path, topdown):
-                yield x
-        if not topdown:
-            yield top, dirs, nondirs
-
-    def _manta_type(self, path):
-        """Return the type of the given Manta path. Returns None if the
-        path doesn't exist.
-        """
-        XXX
-        p_realpath = unormpath(ujoin(self.cwd, path))
-        if p_realpath == '/':
-            return "directory"
-        else:
-            p_parent = udirname(p_realpath)
-            p_base = ubasename(p_realpath)
-            res, dirents = _manta_getdir(self._get_manta_url(p_parent),
-                insecure=self.options.insecure)
-            if dirents and p_base in dirents:
-                return dirents[p_base]["type"]
-            else:
-                return None
-
-    def _manta_isdir(self, path):
-        """Return true iff the given path is an existing directory in Manta."""
-        XXX
-        return self._manta_type(path) == "directory"
-
-    def _manta_isobject(self, path):
-        """Return true iff the given path is an existing object in Manta."""
-        XXX
-        return self._manta_type(path) == "object"
 
 
 
@@ -1219,211 +1145,9 @@ def argv2line(argv):
     return ' '.join(escapedArgs)
 
 
-_is_glob_re = re.compile(r'(?<!\\)[*?\[]')
-def _ls_path(path, cwd, manta_url, user, listDirs, insecure=False):
-    """Get the set of directory entries (dirents) matching the
-    given path, which may be a glob pattern.
-
-    @param path {str} Path or path glob pattern.
-    @param cwd {str} Interpret relative paths to this absolute cwd.
-    @param manta_url {str}
-    @param user {str} User account connecting to manta.
-    @param listDirs {boolean} List directory names, do not search recursively.
-    @raises {MantashError} For any error ls'ing.
-    @returns list of (<is-dir>, <path>, <dirents>), e.g.:
-        [(False,
-          'tmp/*.txt',
-          {'tmp/foo.txt': {'name': 'foo.txt', 'type': 'object'}}),
-         (True,
-          'lib',
-          {'bar.py': {'mtime': 1341422663102L, 'type': 'object'},
-           'baz': {'mtime': 1341422663102L, 'type': 'directory'}})]
-    """
-    if _is_glob_re.search(path):
-        # TODO: Could optimize the following to only get a particular dir
-        # if the basename has glob chars.
-        parts = path.split('/')
-        #print 'DEBUG -- glob: %r -> %r' % (path, parts)
-        # match -> dirent, each is a base dir for next
-        matches = {'.': {"type": "directory"}}
-        for p in parts:
-            patterns = [unormpath(ujoin(m, p)) for m,dirent in matches.items()
-                if dirent["type"] == "directory"]
-            #print "DEBUG %r -> %r with matches %r" % (p, patterns, matches)
-            matches = {}
-            for pattern in patterns:
-                parent = udirname(pattern)
-                basepat = ubasename(pattern)
-                #print "  DEBUG parent %r" % parent
-                url = _get_manta_url(manta_url, user, cwd, parent)
-                res, dirents = _manta_getdir(url, #TODO: api error
-                    insecure=insecure)
-                for name, dirent in dirents.items():
-                    if fnmatchcase(name, basepat):
-                        matches[ujoin(parent, name)] = dirent
-            #print "  DEBUG new matches: %r" % (matches,)
-
-        # Any leaf directories are recursed into... unless `ls -d`.
-        hits = []
-        if not listDirs:
-            for n,dirent in matches.items():
-                if dirent["type"] == "directory":
-                    del matches[n]
-                    url = _get_manta_url(manta_url, user, cwd, n)
-                    res, dirents = _manta_getdir(url, #TODO: api error
-                        insecure=insecure)
-                    hits.append((True, n, dirents))
-        hits.append((False, path, matches))
-        return hits
-    else:
-        # No globbing. This is easier.
-        p = unormpath(ujoin(cwd, path))
-        if p == "/":
-            dirent = {"name": "/", "type": "directory"}
-        else:
-            # Ensure it exists.
-            parent = udirname(p) or "/"
-            name = ubasename(p)
-            url = _get_manta_url(manta_url, user, cwd, parent)
-            res, data = _manta_getdir(url, #TODO: api error
-                insecure=insecure)
-            if data is None:
-                dirent = None
-            else:
-                dirent = data.get(name)
-        if not dirent:
-            raise MantashError("%s: no such object or directory" %
-                (path or '/'))
-
-        if dirent["type"] == "directory" and not listDirs:
-            is_dir = True
-            url = _get_manta_url(manta_url, user, cwd, p)
-            res, dirents = _manta_getdir(url, #TODO: api error
-                insecure=insecure)
-        else:
-            is_dir = False
-            dirents = {
-                path: dirent
-            }
-        return [(is_dir, path, dirents)]
-
 def _indent(s, indent='    '):
     return indent + indent.join(s.splitlines(True))
 
-
-def _get_http(scope=None, insecure=False):
-    cache_dir = os.path.join(g_http_cache_dir, scope)
-    if not os.path.exists(os.path.dirname(cache_dir)):
-        os.makedirs(os.path.dirname(cache_dir))
-    return MantaHttp(cache_dir, disable_ssl_certificate_validation=insecure)
-
-def _get_manta_url(manta_url, user, cwd, path):
-    return "%s/%s/stor%s" % (manta_url, user,
-        unormpath(ujoin(cwd, path)))
-
-def _manta_json_req(url, method="GET", body=None, headers=None, insecure=False):
-    res, content = _manta_req(url, method, body, headers, insecure=insecure)
-    if res["status"] == "204":
-        return res, content
-    else:
-        if res["content-type"] != "application/json":
-            raise MantashError("API error: response is not json: '%s'"
-                % res["content-type"])
-        return res, json.loads(content)
-
-def _manta_req(url, method="GET", body=None, headers=None, insecure=False):
-    http = _get_http("manta", insecure=insecure)
-    ubody = body
-    if body is not None and isinstance(body, dict):
-        ubody = urlencode(body)
-    if headers is None:
-        headers = {}
-    headers["User-Agent"] = g_user_agent
-    headers['x-marlin'] = 'true'  #XXX temporary auth hack
-    res, content = http.request(url, method, ubody, headers)
-    return res, content
-
-def _manta_getdir(url, insecure=False):
-    """Manta readdir
-
-    error -> raise MantashError
-    no such user -> raise MantashError
-    404 -> (res, None)
-    success -> (res, dirents)
-    """
-    res, content = _manta_req(url, insecure=insecure)
-    if res["status"] == "404":
-        err = json.loads(content)
-        if err["code"] == "UserDoesNotExist":
-            raise MantashError("readdir API error: %s %s: %s" % (
-                res["status"], err["code"], err["message"]))
-        # Note: could be 404 for no such user, or for no such dir.
-        return res, None
-    if res["status"] != "200":
-        err = json.loads(content)
-        raise MantashError("readdir API error: %s %s: %s" % (
-            res["status"], err["code"], err["message"]))
-    if res["content-type"] != g_dir_stream_content_type:
-        raise MantashError(
-            "readdir API error: unexpected response content-type: '%s'"
-            % res["content-type"])
-
-    data = {}
-    for e in content.split("\r\n"):
-        if len(e):
-            obj = json.loads(e)
-            data[obj["name"]] = obj
-
-    return res, data
-
-def _manta_putobject(url, local_path, content_type="application/octet-stream", insecure=False):
-    if content_type is None:
-        content_type = "application/octet-stream"
-    body = open(local_path, 'rb').read()
-    res, content = _manta_json_req(url, 'PUT', body, headers={
-        "content-type": content_type,
-        "content-length": str(len(body))
-    }, insecure=insecure)
-
-def _manta_getobject(url, local_file, insecure=False):
-    res, content = _manta_req(url, insecure=insecure)
-    if res["status"] == "404":
-        raise MantaObjectDoesNotExist("no such object (%s)" % url)
-    elif res["status"] not in ("200", "304"):
-        data = json.loads(content)
-        raise MantashError("getobject API error: %s: %s %s: %s" % (
-            url, res["status"], data["code"], data["message"]))
-    else:
-        f = open(local_file, 'wb')
-        f.write(content)
-        f.close()
-        return res
-
-def _manta_mkdir(url, log_write=None, dry_run=False, insecure=False):
-    if log_write:
-        log_write("mkdir %s", url)
-    if not dry_run:
-        res, data = _manta_json_req(url, "PUT",
-            headers={"Content-Type": g_dir_content_type},
-            insecure=insecure)
-        if res["status"] != "204":
-            raise MantashError("mkdir API error: %s %s: %s" % (
-                res["status"], data["code"], data["message"]))
-
-def _manta_ln(location, url, log_write=None, dry_run=False, insecure=False):
-    """Create a manta link."""
-    if log_write:
-        log_write("ln %s %s", location, url)
-    if not dry_run:
-        res, data = _manta_json_req(url, "PUT",
-            headers={
-                "Content-Type": "application/json; type=link",
-                "Content-Length": "0",
-                "Location": location
-            }, insecure=insecure)
-        if res["status"] != "204":
-            raise MantashError("ln API error: %s %s: %s" % (
-                res["status"], data["code"], data["message"]))
 
 
 #---- mainline
