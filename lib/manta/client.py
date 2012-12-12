@@ -449,7 +449,57 @@ class MantaClient(RawMantaClient):
         return dirents
 
     get = RawMantaClient.get_object
+    put = RawMantaClient.put_object
 
+    def mkdir(self, mdir, parents=False):
+        """Make a directory.
 
+        Note that this will not error out if the directory already exists
+        (that is how the PutDirectory Manta API behaves).
+
+        @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
+        @param parents {bool} Optional. Default false. Like 'mkdir -p', this
+            will create parent dirs as necessary.
+        @param log_write {function} Optional. A `logging.Logger.debug|info|...`
+            method to which to write
+        """
+        assert mdir.startswith('/'), "%s: invalid manta path" % mdir
+        parts = mdir.split('/')
+        assert len(parts) > 3, "%s: cannot create top-level dirs" % mdir
+        if not parents:
+            self.put_directory(mdir)
+        else:
+            # Find the first non-existant dir: binary search. Because
+            # PutDirectory doesn't error on 'mkdir .../already-exists' we
+            # don't have a way to detect a miss on `start`. So basically we
+            # keep doing the binary search until we hit a close the `start`
+            # to `end` gap.
+            end = len(parts) + 1
+            start = 4 # Index of the first possible dir to create.
+            while start < end - 1:
+                idx = (end - start) / 2 + start
+                d = '/'.join(parts[:idx])
+                try:
+                    self.put_directory(d)
+                except errors.MantaAPIError, ex:
+                    if ex.code == 'DirectoryDoesNotExist':
+                        end = idx
+                    else:
+                        raise
+                else:
+                    start = idx
+
+            # Now need to create from (end-1, len(parts)].
+            for i in range(end - 1, len(parts)):
+                d = '/'.join(parts[:i])
+                self.put_directory(d)
+
+    def mkdirp(self, mdir):
+        """A convenience wrapper around mkdir a la `mkdir -p`, i.e. always
+        create parent dirs as necessary.
+
+        @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
+        """
+        return self.mkdir(mdir, parents=True)
 
 

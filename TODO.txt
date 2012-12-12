@@ -2,26 +2,8 @@
 
 - jobs endpoints
 - re-instate all of mantash:
-  - /:account/public is a curve ball
-  - /:account/reports also, perhaps less so, tho. Need to provide raw
-    `cat` for reports?
-
-  This doesn't fly anymore:
-    [https://manta-beta.joyentcloud.com/trentm /]$
-  New:
-    [https://manta-beta.joyentcloud.com/trentm/stor]$
-    [manta-beta.joyentcloud.com/trentm/stor]$
-
-  - cd ~   # /USER/stor
-  - import mantash TODOs
-
   - mantash commands:
-      - cd    # and special tab completion here
-      - someday: remember visited public folders for tab completion and 'ls /'
-        Need an option to drop that cache.
       - ls
-
-
 - package build and install notes for installing from tarball
 - auth.cliSigner -- have all the pieces there
 - Cache the Authorization header for the same Date second. Bryan has been
@@ -30,9 +12,13 @@
 - 'datetime=True' option to list_directory to interp the mtime to datetime
   objects
 - retries
+- import mantash TODOs
 
 # Someday/Maybe
 
+- mantash jobs (note 'mjobs -s running' to show active jobs)
+- remember visited public folders for tab completion and 'mantash ls /'
+  Need an option to drop that cache.
 - Unix-y MantaClient subclass with: mkdir, mkdirp, rmr, etc. a la node-manta.
   - ls should use marker and result-set-size
 - streaming MantaClient.list_directory(), put_object(), get_object()

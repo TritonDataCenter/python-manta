@@ -16,6 +16,7 @@ import mimetypes
 from hashlib import md5
 from operator import itemgetter
 from fnmatch import fnmatchcase
+import optparse
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
@@ -313,6 +314,7 @@ class Mantash(cmdln.Cmdln):
             print "  hits:\n%s" % _indent(pformat(hits))
         return hits
 
+    @cmdln.option("-a", action="store_true", help=optparse.SUPPRESS_HELP)
     @cmdln.option("-l", action="store_true", dest="long",
         help="list in long format")
     @cmdln.option("-d", action="store_true", dest="dir",
@@ -476,12 +478,8 @@ class Mantash(cmdln.Cmdln):
         print "exit"
         self.stop = True
 
-    @cmdln.option("-v", "--verbose", action="store_true",
-        help="show files (and content-type) as they are being copied")
     @cmdln.option("-p", dest="parents", action="store_true",
         help="create intermediate directories as require")
-    @cmdln.option("--dry-run", action="store_true",
-        help="do a dry-run, implies '--verbose'")
     def do_mkdir(self, subcmd, opts, *paths):
         """create a directory
 
@@ -490,42 +488,18 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        XXX
         if not paths:
             log.error("mkdir: no PATH arguments given")
             return 1
-        if opts.dry_run:
-            opts.verbose = True
-
-        def make_dir(path):
-            url = self._get_manta_url(path)
+        retval = None
+        for path in paths:
+            mdir = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
             try:
-                _manta_mkdir(url, opts.verbose and log.info,
-                    dry_run=opts.dry_run, insecure=self.options.insecure)
-            except MantashError, ex:
+                self.client.mkdir(mdir, parents=opts.parents)
+            except manta.MantaError, ex:
                 log.error(ex)
                 retval = 1
-                return False  # failed
-            else:
-                return True  # success
-
-        retval = None
-        for p in paths:
-            if not opts.parents:
-                make_dir(p)
-            else:
-                p_realpath = unormpath(ujoin(self.cwd, p))
-                if p_realpath == '/':
-                    continue
-                p_parts = p_realpath.split('/')
-                for i in range(2, len(p_parts) + 1):
-                    d = '/'.join(p_parts[:i])
-                    if not self._manta_isdir(d):
-                        success = make_dir(d)
-                        if not success:
-                            break  # don't try child dirs if parent failed
         return retval
-
 
     @cmdln.option("-v", "--verbose", action="store_true",
         help="show files (and content-type) as they are being copied")
@@ -538,7 +512,6 @@ class Mantash(cmdln.Cmdln):
         help="recursively copy a source directory")
     @cmdln.option("--dry-run", action="store_true",
         help="do a dry-run, implies '--verbose'")
-    @cmdln.alias("cp")
     def do_put(self, subcmd, opts, *paths):
         """put a local file to manta
 
@@ -548,7 +521,6 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        XXX
         if len(paths) < 2:
             log.error("incorrect number of arguments")
             return 1
@@ -578,14 +550,15 @@ class Mantash(cmdln.Cmdln):
 
         # Get info on dest path
         # TODO: could switch to self._manta_isdir()
-        dst_realpath = unormpath(ujoin(self.cwd, dst_path))
-        if dst_realpath == '/':
+        dst_realpath = unormpath(ujoin(self.cwd,
+            uexpanduser(dst_path, self.home)))
+        dst_parts = dst_realpath.split('/')
+        if len(dst_parts) <= 3:
             dst_is_existing_dir = True
         else:
             dst_parent = udirname(dst_realpath)
             dst_base = ubasename(dst_realpath)
-            res, dirents = _manta_getdir(self._get_manta_url(dst_parent),
-                insecure=self.options.insecure)
+            dirents = self._get_dir(dst_parent)
             if dirents is None:
                 log.error("%s: no such remote directory", dst_parent)
                 return 1
@@ -608,12 +581,11 @@ class Mantash(cmdln.Cmdln):
                 content_type = (mimetypes.guess_type(src_file)[0]
                     or "application/octet-stream")
 
-            url = self._get_manta_url(dst_file)
             if opts.verbose:
-                log.info("put %s %s  # %s", src_file, url, content_type)
+                log.info("put %s %s  # %s", src_file, dst_file, content_type)
             if not opts.dry_run:
-                _manta_putobject(url, src_file, content_type,
-                    insecure=self.options.insecure)
+                self.client.put(dst_file, path=src_file,
+                    content_type=content_type)
 
         # Copy the files.
         retval = None
@@ -625,40 +597,38 @@ class Mantash(cmdln.Cmdln):
                     retval = 1
                     continue
                 if dst_is_existing_dir:
-                    dst_file = ujoin(dst_path, os.path.basename(src_path))
+                    dst_file = ujoin(dst_realpath, os.path.basename(src_path))
                     put_file(src_path, dst_file)
                 else:
-                    put_file(src_path, dst_path)
+                    put_file(src_path, dst_realpath)
             elif os.path.isfile(src_path):
                 if dst_is_existing_dir:
-                    dst_file = ujoin(dst_path, os.path.basename(src_path))
+                    dst_file = ujoin(dst_realpath, os.path.basename(src_path))
                     put_file(src_path, dst_file)
                 else:
-                    put_file(src_path, dst_path)
+                    put_file(src_path, dst_realpath)
             elif os.path.isdir(src_path):
                 if not dst_is_existing_dir:
-                    # `mkdir dst_path`. See '(*)' case above.
-                    _manta_mkdir(self._get_manta_url(dst_path), log.info,
-                        dry_run=opts.dry_run, insecure=self.options.insecure)
+                    # `mkdir dst_realpath`. See '(*)' case above.
+                    if not opts.dry_run:
+                        self.client.mkdir(dst_realpath)
 
                 rel_prefix = ((dst_is_existing_dir and not src_path.endswith('/'))
                     and os.path.basename(src_path) + '/' or '')
                 if rel_prefix:
-                    _manta_mkdir(self._get_manta_url(
-                        ujoin(dst_path, rel_prefix)), log.info,
-                        dry_run=opts.dry_run, insecure=self.options.insecure)
+                    if not opts.dry_run:
+                        self.client.mkdir(ujoin(dst_realpath, rel_prefix))
                 norm_src_path = src_path.rstrip('/')
                 for dirpath, dirnames, filenames in os.walk(norm_src_path):
                     reldirpath = unormpath(
                         rel_prefix + dirpath[len(norm_src_path)+1:])
                     for filename in filenames:
-                        put_file(os.path.join(dirpath, filename),
-                            ujoin(dst_path, reldirpath, filename))
-                    for dirname in dirnames:
-                        _manta_mkdir(self._get_manta_url(
-                            ujoin(dst_path, reldirpath, dirname)), log.debug,
-                            dry_run=opts.dry_run,
-                            insecure=self.options.insecure)
+                        put_file(os.path.join(dirpath, filename), unormpath(
+                            ujoin(dst_realpath, reldirpath, filename)))
+                    if not opts.dry_run:
+                        for dirname in dirnames:
+                            self.client.mkdir(unormpath(
+                                ujoin(dst_realpath, reldirpath, dirname)))
             else:
                 log.error("%s is not a regular file or directory (not copied)",
                     src_path)
