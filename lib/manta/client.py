@@ -448,7 +448,7 @@ class MantaClient(RawMantaClient):
 
         return dirents
 
-
+    get = RawMantaClient.get_object
 
 
 
