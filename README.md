@@ -3,14 +3,37 @@ A Python client and 'mantash' CLI and shell for Joyent Manta.
 
 # Installation
 
+For developers:
+
+    git clone git@github.com:joyent/python-manta.git
+    export PATH=`pwd`/python-manta/bin:$PATH
+
+The 'pycrypto' (aka 'Crypto') Python module is a binary dependency. Python
+module installation is a bit of a gong show, in general, but here are some
+things to try:
+
+    # Mac (using system python)
+    sudo easy_install pycrypto
+
+    # SmartOS
+    pkgin in py27-crypto-2.4.1` on smartos to get pycrypto
+
+    # Any platform using ActivePython
+    pypm install pycrypto
+
+    # Other
+    # Please let me know what works for you so I can add instructions to the
+    # list here.
+
+Eventually (when packaging and releases are implemented) this:
+
+    pip install path/to/python-manta-VERSION.tgz  # not yet implemented (TODO)
+
 Eventually (when python-manta is published to PyPI) this:
 
-    pip install manta
+    pip install manta    # not yet working (TODO)
 
-Until then:
 
-    make package  # TODO
-    pip install path/to/python-manta-VERSION.tgz  # TODO
 
 
 # Setup
@@ -18,8 +41,8 @@ Until then:
 First setup your environment to match your Joyent Manta account:
 
     $ export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
-    $ export MANTA_URL=https://manta.us-east.joyentcloud.com
-    $ export MANTA_USER=trent
+    $ export MANTA_URL=https://manta-beta.joyentcloud.com
+    $ export MANTA_USER=trentm
 
 
 # Python Usage

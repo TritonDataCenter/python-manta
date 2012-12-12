@@ -357,26 +357,33 @@ class Mantash(cmdln.Cmdln):
                     print
                 print "%s:" % path
             for name_, dirent in sorted(dirents.iteritems()):
-                name = dirent["name"]
-                if opts.format:
-                    name += {
-                        "directory": "/",
-                        "link": "@"
-                    }.get(dirent["type"], "")
-                if opts.long:
-                    sz = dirent.get("size", 0)
-                    # Note: Don't have a strong reason to show the "asctime"
-                    # format here, rather than just parroting the RFC 3339
-                    # format.
-                    mtime = time.asctime(
-                        time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%SZ"))
-                    print "%9s  %9s  %8s  %s  %s" % (
-                        dirent["type"], self.user, sz, mtime, name)
-                else:
-                    print name
+                self._ls_print_dirent(dirent, long=opts.long,
+                    format=opts.format)
         if opts.json:
             print json.dumps(listing, indent=2)
         return retval
+
+    def _ls_print_dirent(self, dirent, long=False, format=False):
+        name = dirent["name"]
+        if format:
+            name += {
+                "directory": "/",
+                "link": "@"
+            }.get(dirent["type"], "")
+        if long:
+            sz = dirent.get("size", 0)
+            # Note: Don't have a strong reason to show the "asctime"
+            # format here, rather than just parroting the RFC 3339
+            # format. IOW, if others have opinions on the time format here,
+            # I'm fine changing.
+            mtime = ''
+            if "mtime" in dirent:
+                mtime = time.asctime(
+                    time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%SZ"))
+            print "%9s  %s  %8s  %24s  %s" % (
+                dirent["type"], self.user, sz, mtime, name)
+        else:
+            print name
 
     def do_cd(self, subcmd, opts, directory='~'):
         """change directory
@@ -825,7 +832,7 @@ class Mantash(cmdln.Cmdln):
         """find paths
 
         Usage:
-            ${cmd_name} [DIR] [-name PATTERN] [-type TYPE]
+            ${cmd_name} [DIR] [-name PATTERN] [-type TYPE] [-ls]
 
         Where "DIR" is a Manta dir, "PATTERN" is a glob pattern and "TYPE"
         is one of 'd' (for directories), 'o' or 'f' (for objects).
@@ -844,7 +851,7 @@ class Mantash(cmdln.Cmdln):
         top = '.'
         if argv and not argv[0].startswith('-'):
             top = argv.pop(0)
-        opts = Options("name", "type")
+        opts = Options("name", "type", "ls")
         while argv:
             opt = argv.pop(0)
             if opt == "-name":
@@ -862,6 +869,8 @@ class Mantash(cmdln.Cmdln):
                     "f": "object",
                     "d": "directory",
                 }
+            elif opt == "-ls":
+                opts.ls = True
             else:
                 log.error("unknown option: %r", opt)
                 return 1
@@ -884,7 +893,12 @@ class Mantash(cmdln.Cmdln):
                 base = dirent["name"]
                 if not fnmatchcase(base, opts.name):
                     continue
-            print top + dirent["path"][len(ntop):]
+            path = top + dirent["path"][len(ntop):]
+            if opts.ls:
+                dirent["name"] = path
+                self._ls_print_dirent(dirent, long=True)
+            else:
+                print path
 
     def do_vi(self, subcmd, opts, path):
         """edit a file on Manta (locally in vi)
@@ -966,13 +980,15 @@ class Mantash(cmdln.Cmdln):
         print json.dumps(info, indent=2)
 
     def do_job(self, argv):
-        """start a Manta job
+        """Run a Manta job
 
         Usage:
             ${cmd_name} [OPTIONS...] [PATHS...] ^ MAP-PHASE [^ MAP-PHASES...]
 
         Options:
             -h, --help          show this help message and exit
+            -v, --verbose       Verbose. Print the job ID (on stderr) and
+                                some administrivia for this job.
             -t TIMEOUT, --timeout=TIMEOUT
                                 Number of seconds after which to timeout waiting for
                                 the job to complete. Default 0 (i.e. never timeout).
@@ -1001,6 +1017,9 @@ class Mantash(cmdln.Cmdln):
         pipe_chars = ['^', '|', '^^']
         pipe_idxs = [argv.index(c) for c in pipe_chars if c in argv]
         if not pipe_idxs:
+            if '-h' in argv or '--help' in argv:  # help
+                self.do_help(['', 'job'])
+                return 0
             pipe_chars_str = "', '".join(pipe_chars[:-1]) \
                 + "' or '%s" % pipe_chars[-1]
             raise MantashError("no '%s' pipe char found in job request"
@@ -1013,6 +1032,7 @@ class Mantash(cmdln.Cmdln):
         optparser.set_cmdln_info(self, "job")
         optparser.add_option("-t", "--timeout", type="int", default=0)
         optparser.add_option("-n", "--name")
+        optparser.add_option("-v", "--verbose", action="store_true")
         try:
             opts, path_patterns = optparser.parse_args(first_argv[1:])
         except cmdln.StopOptionProcessing:
@@ -1061,11 +1081,13 @@ class Mantash(cmdln.Cmdln):
         job_id = self.client.create_job(phases, name=opts.name)
         if DEBUG:
             print "  job_id: %s" % job_id
-        sys.stderr.write("Created job %s\n", job_id)  #TODO log?
+        if opts.verbose:
+            sys.stderr.write("Created job %s\n" % job_id)
         self.client.add_job_keys(job_id, keys)
         self.client.end_job_input(job_id)
         #TODO: support cancel_job on ^C
-        sys.stderr.write("Waiting for job %s to complete\n", job_id)  #TODO log?
+        if opts.verbose:
+            sys.stderr.write("Waiting for job %s to complete\n" % job_id)  #TODO log?
         self._wait_for_job(job_id, timeout=opts.timeout)
         outkeys = self.client.get_job_output(job_id)
         for outkey in outkeys:

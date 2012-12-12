@@ -1,17 +1,24 @@
 # todo
 
 - package build and install notes for installing from tarball
-- mantash job ^C support
-- mantash job -W   or something to NOT wait for a job to complete
 - testing running large jobs via `mantash job`:
   - taking keys on stdin
 - mantash job -c JOB-ID   # cancel a job
-- auth.cliSigner -- have all the pieces there
-- retries
-- import mantash TODOs
+- job support for running a given *script*
+- test suite:
+  - moar
+  - python version compat (add Python 3 classifiers), clarify supported
+    python verions
+  - OS compat tests
+- unicode data tests: and filenames too
 
 # Someday/Maybe
 
+- import mantash TODOs
+- mantash job ^C support
+- mantash job -W   or something to NOT wait for a job to complete
+- retries
+- auth.cliSigner -- have all the pieces there
 - Cache the Authorization header for the same Date second. Bryan has been
   able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
   conn to ssh-agent?
