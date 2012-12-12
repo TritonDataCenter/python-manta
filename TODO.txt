@@ -11,10 +11,29 @@
     python verions
   - OS compat tests
 - unicode data tests: and filenames too
+- restdown docs (Philip?)
+
+# Bugs
+
+- ls bug: missing '/'
+    [https://10.2.121.193/trent/stor/shakespeare]$ ls */*
+    allswellthatendswell
+    asyoulikeit
+    comedyoferrors
+    cymbeline
+    loveslabourslost
+    measureforemeasure
+    merchantofvenice
 
 # Someday/Maybe
 
+- mantash job ARGS:  where 'ARGS' is like 'find -type o', i.e. recursive
+  and just objects
 - mantash lcd, lls
+- mantash diff   # that does the fast thing for binary files (use md5 compare)
+- mantash sync  # like rsync, but less complicated
+  Use case: sync the latest changes from a *git repo* in manta, then run
+  a job on it.
 - pipe support in interactive shell to *local* commands
 - import mantash TODOs
 - mantash job ^C support
@@ -34,3 +53,10 @@
 - streaming MantaClient.list_directory(), put_object(), get_object()
   See https://github.com/madlag/streaming_httplib2
 - extra utility endpoints like node-manta's client.info() and others?
+
+# Wanted from Manta
+
+- include content-type for files in dirents. would be handy for 'ls -l'.
+  Also include size/content-length -- useful for Apache/Nginx-style dir
+  listings.
+

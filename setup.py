@@ -33,9 +33,11 @@ Topic :: Software Development :: Libraries :: Python Modules
 
 
 script = (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
+#XXX version = manta.__version__ + '-' + 'gcafebab'
+version = manta.__version__
 setup(
     name="manta",
-    version=manta.__version__,
+    version=version,
     maintainer="Joyent",
     maintainer_email="support@joyent.com",
     author="Joyent",
@@ -46,8 +48,11 @@ setup(
     py_modules=["manta"],
     package_dir={"": "lib"},
     scripts=[script],
-    description="A Python SDK for Manta (Joyent's Object Store and Cloud Compute)",
+    description="A Python SDK for Manta (Joyent's Object Store and Cloud Compute system)",
     classifiers=filter(None, classifiers.split("\n")),
-    long_description="""XXX
+    long_description="""A Python SDK for Manta (Joyent's Object Store and Cloud Compute system).
+
+This provides a Python 'manta' package and a 'mantash' (Manta Shell) CLI
+and shell.
 """,
 )

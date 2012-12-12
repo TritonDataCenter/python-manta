@@ -81,6 +81,12 @@ class Mantash(cmdln.Cmdln):
             log.setLevel(logging.DEBUG)
         #log.debug("cache dir: %s", g_cache_dir)
 
+        # HACK: Don't run the code below if just doing a 'help' command,
+        # because then we might error out when the user is just trying to
+        # get help.
+        if len(sys.argv) > 1 and sys.argv[1] == 'help':
+            return
+
         # TODO: would be preferable to have a '--no-cache' option that
         # just fully disabled using a cache. Perhaps setting the cache dir
         # to /dev/null? Or the MantaClient.no_cache thing above.
