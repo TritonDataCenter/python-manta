@@ -1,8 +1,28 @@
 # todo
 
-- all the endpoints
+- jobs endpoints
+- re-instate all of mantash:
+  - /:account/public is a curve ball
+  - /:account/reports also, perhaps less so, tho. Need to provide raw
+    `cat` for reports?
+
+  This doesn't fly anymore:
+    [https://manta-beta.joyentcloud.com/trentm /]$
+  New:
+    [https://manta-beta.joyentcloud.com/trentm/stor]$
+    [manta-beta.joyentcloud.com/trentm/stor]$
+
+  - cd ~   # /USER/stor
+  - import mantash TODOs
+
+  - mantash commands:
+      - cd    # and special tab completion here
+      - someday: remember visited public folders for tab completion and 'ls /'
+        Need an option to drop that cache.
+      - ls
+
+
 - package build and install notes for installing from tarball
-- re-instate all of mantash
 - auth.cliSigner -- have all the pieces there
 - Cache the Authorization header for the same Date second. Bryan has been
   able to get ECONNREFUSED using the ssh-agent. Also keep a persistent

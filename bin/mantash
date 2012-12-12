@@ -1,0 +1,1464 @@
+#!/usr/bin/env python
+
+"""Manta shell."""
+
+import sys
+import os
+from posixpath import dirname as udirname, join as ujoin, \
+    basename as ubasename, normpath as unormpath
+import datetime
+import logging
+import json
+from pprint import pprint, pformat
+import re
+import time
+import mimetypes
+from hashlib import md5
+from operator import itemgetter
+from fnmatch import fnmatchcase
+
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
+import cmdln
+import appdirs
+import manta
+del sys.path[0]
+
+
+
+#---- globals
+
+log = logging.getLogger("mantash")
+g_cache_dir = appdirs.user_cache_dir("mantash", "Joyent")
+g_http_cache_dir = os.path.join(g_cache_dir, "http")
+g_user_agent = "mantash/%s (%s) Python/%s" % (
+    manta.__version__, sys.platform, sys.version.split(None, 1)[0])
+
+g_dir_content_type = "application/json; type=directory"
+g_dir_stream_content_type = "application/x-json-stream; type=directory"
+
+
+
+#---- errors
+
+class MantashError(Exception):
+    pass
+
+class MantaObjectDoesNotExist(MantashError):
+    pass
+
+
+#---- the shell
+
+class Mantash(cmdln.Cmdln):
+    name = "mantash"
+    manta_url = None
+    cwd = None  # initialized in `postoptparse`
+    lcwd = os.getcwd()
+
+    def get_optparser(self):
+        parser = cmdln.Cmdln.get_optparser(self)
+        parser.add_option("-d", "--debug", action="store_true",
+            help="debug logging")
+        parser.add_option("-U", "-m", "--manta-url", dest="manta_url",
+            help="manta base URL", default=os.environ.get("MANTA_URL"))
+        parser.add_option("-u", "--user", "--account", dest="user",
+            help="manta user/account name or UUID",
+            default=os.environ.get("MANTA_USER"))
+        parser.add_option("-i", "--key-id", dest="key_id",
+            help="SSH key to use for authenticating with Manta",
+            default=os.environ.get("MANTA_KEY_ID"))
+        parser.add_option("--drop-cache", dest="drop_cache", action="store_true",
+            help="drop the current HTTP cache before starting")
+        parser.add_option("-k", "--insecure", action="store_true",
+            help="skip certificate validation (not recommended but useful for dev)",
+            default=False)
+        return parser
+
+    def postoptparse(self):
+        if self.options.debug:
+            log.setLevel(logging.DEBUG)
+        #log.debug("cache dir: %s", g_cache_dir)
+
+        # TODO: would be preferable to have a '--no-cache' option that
+        # just fully disabled using a cache. Perhaps setting the cache dir
+        # to /dev/null? Or the MantaClient.no_cache thing above.
+        if self.options.drop_cache and os.path.exists(g_http_cache_dir):
+            import shutil
+            shutil.rmtree(g_http_cache_dir)
+            assert not os.path.exists(g_http_cache_dir)
+
+        if not self.options.manta_url:
+            raise MantashError("no Manta URL: use '-U' or 'MANTA_URL' envvar")
+        if not self.options.user:
+            raise MantashError("no Manta user: use '-u' or 'MANTA_USER' envvar")
+        if not self.options.key_id:
+            raise MantashError("no Manta key ID: use '-i' or 'MANTA_KEY_ID' envvar")
+        self.manta_url = self.options.manta_url
+
+        if (not self.manta_url.startswith('http://') and
+            not self.manta_url.startswith('https://')):
+            self.manta_url = 'https://' + self.manta_url
+
+        self.user = self.options.user
+        self.home = "/%s/stor" % self.user
+        self.cwd = self.home
+        signer = manta.SSHAgentSigner(self.options.key_id)
+        self.client = manta.MantaClient(self.manta_url, self.user, signer,
+            disable_ssl_certificate_validation=self.options.insecure,
+            #debug=self.options.debug  #XXX
+            )
+        self._update_prompt()
+
+    def _update_prompt(self):
+        self._prompt_str = "[%s%s]$ " % (self.manta_url, self.cwd)
+
+    def do_pwd(self, subcmd, opts):
+        """${cmd_name}: print the cwd"""
+        print self.cwd
+
+    def _get_dir(self, mdir):
+        """Light wrapper around `self.client.ls(mdir)`.
+
+        success -> dirents
+        no such user -> raise MantashError
+        404 -> None
+        error -> raise MantaError
+        """
+        try:
+            return self.client.ls(mdir)
+        except manta.MantaAPIError, ex:
+            if ex.code == 'UserDoesNotExist':
+                raise MantashError(str(ex))
+            elif ex.code == 'ResourceNotFound':
+                return None
+            else:
+                raise
+
+    _is_glob_re = re.compile(r'(?<!\\)[*?\[]')
+    def _ls_path(self, path, listDirs):
+        """Get the set of directory entries (dirents) matching the
+        given path, which may be a glob pattern.
+
+        @param path {str} Path or path glob pattern.
+        @param listDirs {boolean} List directory names, do not search recursively.
+        @raises {MantashError} For any error ls'ing.
+        @returns list of (<is-dir>, <path>, <dirents>), e.g.:
+            [(False,
+              'tmp/*.txt',
+              {'tmp/foo.txt': {'name': 'foo.txt', 'type': 'object'}}),
+             (True,
+              'lib',
+              {'bar.py': {'mtime': 1341422663102L, 'type': 'object'},
+               'baz': {'mtime': 1341422663102L, 'type': 'directory'}})]
+        """
+        npath = unormpath(uexpanduser(path, self.home))  # normalized
+        if npath == '.':
+            is_abs = False
+            abspath = self.cwd
+        else:
+            is_abs = npath.startswith('/')
+            abspath = unormpath(ujoin(self.cwd, npath))
+        parts = abspath.split('/')
+        is_glob = self._is_glob_re.search(path) is not None
+        head = '/'.join(parts[:3])
+        if self._is_glob_re.search(head):
+            raise MantashError("cannot use glob chars in first two parts "
+                "of a Manta path: %r" % head)
+
+        DEBUG = False
+        if DEBUG:
+            print "-- _ls_path"
+            print "  path: %r" % path
+            print "  npath: %r" % npath
+            print "  is_abs: %r" % is_abs
+            print "  abspath: %r" % abspath
+            print "  parts: %r" % parts
+            print "  is_glob: %r" % is_glob
+            print "  head: %r" % head
+
+        if abspath == '/':
+            is_dir = True
+            if listDirs:
+                dirents = {abspath: {"name": "/", "type": "directory"}}
+            else:
+                # TODO: Just the user for now. Add cached visited public
+                # users eventually.
+                dirents = {
+                    self.user: {"name": self.user, "type": "directory"}
+                }
+            hits = [(is_dir, path, dirents)]
+
+        elif len(parts) == 2:   # '/USER'
+            # '/USER'. Just presume that user exists for now.
+            is_dir = True
+            if listDirs:
+                if is_abs:
+                    dirents = {abspath: {"name": abspath, "type": "directory"}}
+                else:
+                    dirents = {abspath: {"name": parts[1], "type": "directory"}}
+            elif parts[1] == self.user:
+                dirents = {
+                    "stor": {"name": "stor", "type": "directory"},
+                    "public": {"name": "public", "type": "directory"},
+                    "jobs": {"name": "jobs", "type": "directory"},
+                    "reports": {"name": "reports", "type": "directory"},
+                }
+            else:
+                dirents = {
+                    "public": {"name": "public", "type": "directory"}
+                }
+            hits = [(is_dir, path, dirents)]
+
+        elif not is_glob:
+            # Get the dirent for this path.
+            if len(parts) == 3:
+                # '/USER/{stor,public,jobs,reports}'
+                if parts[1] == self.user:
+                    if parts[2] not in ("stor", "public", "jobs", "reports"):
+                        raise MantashError("%s: invalid manta path" %
+                            (path or '/'))
+                elif parts[2] != "public":
+                    raise MantashError("%s: invalid manta path" % (path or '/'))
+                dirent = {"name": parts[2], "type": "directory"}
+            else:
+                # Ensure it exists.
+                parent = udirname(abspath)
+                name = ubasename(abspath)
+                pdirents = self._get_dir(parent)
+                if pdirents is None:
+                    dirent = None
+                else:
+                    dirent = pdirents.get(name)
+            if not dirent:
+                raise MantashError("%s: no such object or directory" %
+                    (path or '/'))
+            if DEBUG:
+                print "  dirent: %r" % dirent
+
+            if dirent["type"] == "directory":
+                is_dir = True
+                if listDirs:
+                    if is_abs:
+                        dirent["name"] = abspath
+                    dirents = {
+                        path: dirent
+                    }
+                else:
+                    dirents = self.client.ls(abspath)
+            else:
+                is_dir = False
+                if is_abs:
+                    dirent["name"] = abspath
+                dirents = {
+                    path: dirent
+                }
+            hits = [(is_dir, path, dirents)]
+
+        else:
+            # Work up to first dir with a glob char.
+            lead = parts[:3]
+            start = 3
+            for start in range(3, len(parts)-1):
+                if self._is_glob_re.search(parts[start]):
+                    break
+                lead.append(parts[start])
+            else:
+                start += 1
+            if DEBUG:
+                print "  non-glob dirs lead: %r (glob start index %d)" % (lead, start)
+
+            # `matches` is a mapping of {match -> dirent} where each
+            # match is a base dir for next iteration.
+            matches = {'/'.join(lead): {"type": "directory"}}
+            for i in range(start, len(parts)):
+                p = parts[i]
+                patterns = [unormpath(ujoin(m, p)) for m,dirent in matches.items()
+                    if dirent["type"] == "directory"]
+                if DEBUG:
+                    print "  glob part %r: patterns %s from matches %r" % (p, patterns, matches)
+                matches = {}
+                for pattern in patterns:
+                    parent = udirname(pattern)
+                    basepat = ubasename(pattern)
+                    dirents = self._get_dir(ujoin(self.cwd, parent))
+                    if DEBUG:
+                        print "    pattern %r: parent %r, basepat %r, dirents %r" % (pattern, parent, basepat, dirents)
+                    if dirents:
+                        for name, dirent in dirents.items():
+                            if fnmatchcase(name, basepat):
+                                matches[ujoin(parent, name)] = dirent
+                            elif DEBUG:
+                                print "    discard %r (does not match %r)" % (name, basepat)
+                if DEBUG:
+                    print "    new matches: %r" % matches
+                if not matches:
+                    raise MantashError("%s: no such object or directory" %
+                        (path or '/'))
+
+            # Any leaf directories are recursed into... unless `ls -d`.
+            hits = []
+            if not listDirs:
+                for name,dirent in matches.items():
+                    if dirent["type"] == "directory":
+                        if DEBUG:
+                            print "    descend into dir %r" % name
+                        del matches[name]
+                        dirents = self._get_dir(name)
+                        hits.append((True, name, dirents))
+            if matches:
+                if is_abs:
+                    for m in matches:
+                        matches[m]["name"] = m
+                hits.append((False, path, matches))
+
+        if DEBUG:
+            print "  hits:\n%s" % _indent(pformat(hits))
+        return hits
+
+    @cmdln.option("-l", action="store_true", dest="long",
+        help="list in long format")
+    @cmdln.option("-d", action="store_true", dest="dir",
+        help="list directory names, do not search recursively")
+    @cmdln.option("-F", action="store_true", dest="format",
+        help="display a '/' after a directory name, a '@' after a link name")
+    @cmdln.option("-j", "--json", action="store_true",
+        help="display the listing in JSON")
+    def do_ls(self, subcmd, opts, *paths):
+        """list objects, directories and links
+
+        Usage:
+            ${cmd_name} [OPTIONS...] [PATHS...]
+
+        ${cmd_option_list}
+        """
+        retval = None  # set to 1 for any errors
+
+        # Gather list of things to print.
+        paths = paths or ['']
+        all_to_print = []  # list of (<is-dir>, <path>, <dirents>)
+        for path in paths:
+            try:
+                to_print = self._ls_path(path, opts.dir)
+            except MantashError, ex:
+                log.error(ex)
+                retval = 1
+            else:
+                all_to_print += to_print
+
+        # Do non-dirs first, as does `ls dirA fileB dirC fileD`.
+        if opts.json:
+            listing = {}
+        for i, (is_dir, path, dirents) in enumerate(
+                sorted(all_to_print, key=itemgetter(0))):
+            if opts.json:
+                listing[path] = dirents
+                continue
+            if is_dir and len(all_to_print) > 1:
+                if i > 0:
+                    print
+                print "%s:" % path
+            for name_, dirent in sorted(dirents.iteritems()):
+                name = dirent["name"]
+                if opts.format:
+                    name += {
+                        "directory": "/",
+                        "link": "@"
+                    }.get(dirent["type"], "")
+                if opts.long:
+                    sz = dirent.get("size", 0)
+                    # Note: Don't have a strong reason to show the "asctime"
+                    # format here, rather than just parroting the RFC 3339
+                    # format.
+                    mtime = time.asctime(
+                        time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%SZ"))
+                    print "%9s  %9s  %8s  %s  %s" % (
+                        dirent["type"], self.user, sz, mtime, name)
+                else:
+                    print name
+        if opts.json:
+            print json.dumps(listing, indent=2)
+        return retval
+
+    #def _get_manta_url(self, path):
+    #    XXX
+    #    return _get_manta_url(self.manta_url, self.user, self.cwd, path)
+
+    def do_cd(self, subcmd, opts, directory='~'):
+        """change directory
+
+        Usage:
+            ${cmd_name} [DIRECTORY]
+        """
+        ndir = unormpath(ujoin(self.cwd, uexpanduser(directory, self.home)))
+        nparts = ndir.split('/')
+        if len(nparts) <= 2:
+            # '/' or '/USER'
+            self.cwd = ndir
+        elif len(nparts) == 3:
+            # '/USER/SCOPE'
+            if nparts[2] not in ("stor", "public", "reports", "jobs"):
+                log.error("%s: no such directory", directory)
+                return 1
+            if nparts[1] != self.user and nparts[2] != "public":
+                log.error("%s: no access to other user's directory",
+                    directory)
+                return 1
+            self.cwd = ndir
+        else:
+            parent = udirname(ndir)
+            name = ubasename(ndir)
+            dirents = self.client.ls(parent)
+            if name not in dirents:
+                log.error("%s: no such directory", directory)
+                return 1
+            elif dirents[name]["type"] != "directory":
+                log.error("%s: not a directory", directory)
+                return 1
+            else:
+                self.cwd = ndir
+
+    def completedefault(self, text, line, begidx, endidx):
+        # Complete paths in the cwd.
+        XXX
+        start = line[begidx:endidx]
+        parent = udirname(start)
+        res, dirents = _manta_getdir(self._get_manta_url(parent),
+            insecure=self.options.insecure)
+        matches = [m for m in dirents.keys() if m.startswith(start)]
+        return matches
+
+    def do_cat(self, subcmd, opts, *paths):
+        """${cmd_name}: print objects"""
+        XXX
+        retval = None
+        content = None
+        for path in paths:
+            #TODO: check its dir to make sure it is an object
+            p = unormpath(ujoin(self.cwd, path))
+            parent = udirname(p)
+            name = ubasename(p)
+            res, dirents = _manta_getdir(self._get_manta_url(parent),
+                insecure=self.options.insecure)
+            if name not in dirents:
+                log.error("%s: no such object or directory", path)
+                retval = 1
+                continue
+            elif dirents[name]["type"] == "directory":
+                log.error("%s: is a directory", path)
+                retval = 1
+                continue
+            res, content = _manta_req(self._get_manta_url(p),
+                insecure=self.options.insecure)
+            sys.stdout.write(content)
+        if content and not content.endswith('\n'):
+            sys.stdout.write('\n')
+        return retval
+
+    def do_exit(self, subcmd, opts):
+        """${cmd_name}: exit the shell"""
+        print "exit"
+        self.stop = True
+
+    @cmdln.option("-v", "--verbose", action="store_true",
+        help="show files (and content-type) as they are being copied")
+    @cmdln.option("-p", dest="parents", action="store_true",
+        help="create intermediate directories as require")
+    @cmdln.option("--dry-run", action="store_true",
+        help="do a dry-run, implies '--verbose'")
+    def do_mkdir(self, subcmd, opts, *paths):
+        """create a directory
+
+        Usage:
+            ${cmd_name} PATH ...
+
+        ${cmd_option_list}
+        """
+        XXX
+        if not paths:
+            log.error("mkdir: no PATH arguments given")
+            return 1
+        if opts.dry_run:
+            opts.verbose = True
+
+        def make_dir(path):
+            url = self._get_manta_url(path)
+            try:
+                _manta_mkdir(url, opts.verbose and log.info,
+                    dry_run=opts.dry_run, insecure=self.options.insecure)
+            except MantashError, ex:
+                log.error(ex)
+                retval = 1
+                return False  # failed
+            else:
+                return True  # success
+
+        retval = None
+        for p in paths:
+            if not opts.parents:
+                make_dir(p)
+            else:
+                p_realpath = unormpath(ujoin(self.cwd, p))
+                if p_realpath == '/':
+                    continue
+                p_parts = p_realpath.split('/')
+                for i in range(2, len(p_parts) + 1):
+                    d = '/'.join(p_parts[:i])
+                    if not self._manta_isdir(d):
+                        success = make_dir(d)
+                        if not success:
+                            break  # don't try child dirs if parent failed
+        return retval
+
+
+    @cmdln.option("-v", "--verbose", action="store_true",
+        help="show files (and content-type) as they are being copied")
+    @cmdln.option("-t", "--content-type",
+        help="specify content-type, else cp will attempt to guess based "
+            "on the filename. This 'wins' over '-b'.")
+    @cmdln.option("-b", "--binary", action="store_true",
+        help="disable content-type guessing and use 'application/octet-stream'")
+    @cmdln.option("-R", "-r", dest="recursive", action="store_true",
+        help="recursively copy a source directory")
+    @cmdln.option("--dry-run", action="store_true",
+        help="do a dry-run, implies '--verbose'")
+    @cmdln.alias("cp")
+    def do_put(self, subcmd, opts, *paths):
+        """put a local file to manta
+
+        Usage:
+            ${cmd_name} LOCAL-PATH MANTA-PATH
+            ${cmd_name} LOCAL-PATH ... MANTA-DIRECTORY
+
+        ${cmd_option_list}
+        """
+        XXX
+        if len(paths) < 2:
+            log.error("incorrect number of arguments")
+            return 1
+        if opts.dry_run:
+            opts.verbose = True
+        src_paths = paths[:-1]
+        dst_path = paths[-1]
+
+        # In all cases we get the normalized dest path.
+        # Non-recursive:
+        #   cp file1 file2          find out if dest is a dir
+        #   cp file1 dir2           ditto, dest=dir2/basename(file1)
+        #   cp file1 dir2/          we know dest is a dir, assert that, dest=dir2/basename(file1)
+        #   cp file1 file2 dir2     dest must be a dir, assert that, dest=...
+        #   cp file1 file2 dir2/    dest must be a dir, assert that, dest=...
+        # Recursive:
+        #   cp -r file1 file2       find out if dest is a dir
+        #   cp -r file1 dir2        ditto, dest=dir2/basename(file1)
+        #   cp -r file1 dir2/       assert dir2 is a dir, dest=...
+        #   cp -r dir1 dir2         if dir2 exists then dest=dir2/basename(dir1)/...
+        #                               else dest=dir2/...
+        #                               (*) only case where 'dir2' is created
+        #   cp -r dir1/ dir2        dest=dir2/...
+        #                               (*) only case where 'dir2' is created
+        #   cp -r file1 file2 dir2  assert dir2 is a dir
+        #   cp -r file1 dir1 dir2   assert dir2 is a dir
+
+        # Get info on dest path
+        # TODO: could switch to self._manta_isdir()
+        dst_realpath = unormpath(ujoin(self.cwd, dst_path))
+        if dst_realpath == '/':
+            dst_is_existing_dir = True
+        else:
+            dst_parent = udirname(dst_realpath)
+            dst_base = ubasename(dst_realpath)
+            res, dirents = _manta_getdir(self._get_manta_url(dst_parent),
+                insecure=self.options.insecure)
+            if dirents is None:
+                log.error("%s: no such remote directory", dst_parent)
+                return 1
+            dst_is_existing_dir = (dst_base in dirents
+                and dirents[dst_base]["type"] == "directory")
+
+        # Sanity checks on args.
+        if len(src_paths) > 1 or dst_path.endswith('/'):
+            # dst must be an existing dir
+            if not dst_is_existing_dir:
+                log.error("%s (remote) is not an existing directory", dst_path)
+                return 1
+
+        def put_file(src_file, dst_file):
+            if opts.content_type:
+                content_type = opts.content_type
+            elif opts.binary:
+                content_type = "application/octet-stream"
+            else:
+                content_type = (mimetypes.guess_type(src_file)[0]
+                    or "application/octet-stream")
+
+            url = self._get_manta_url(dst_file)
+            if opts.verbose:
+                log.info("put %s %s  # %s", src_file, url, content_type)
+            if not opts.dry_run:
+                _manta_putobject(url, src_file, content_type,
+                    insecure=self.options.insecure)
+
+        # Copy the files.
+        retval = None
+        for src_path in src_paths:
+            if not opts.recursive:
+                # Must be regular file.
+                if not os.path.isfile(src_path):
+                    log.error("%s is not a regular file (not copied)", src_path)
+                    retval = 1
+                    continue
+                if dst_is_existing_dir:
+                    dst_file = ujoin(dst_path, os.path.basename(src_path))
+                    put_file(src_path, dst_file)
+                else:
+                    put_file(src_path, dst_path)
+            elif os.path.isfile(src_path):
+                if dst_is_existing_dir:
+                    dst_file = ujoin(dst_path, os.path.basename(src_path))
+                    put_file(src_path, dst_file)
+                else:
+                    put_file(src_path, dst_path)
+            elif os.path.isdir(src_path):
+                if not dst_is_existing_dir:
+                    # `mkdir dst_path`. See '(*)' case above.
+                    _manta_mkdir(self._get_manta_url(dst_path), log.info,
+                        dry_run=opts.dry_run, insecure=self.options.insecure)
+
+                rel_prefix = ((dst_is_existing_dir and not src_path.endswith('/'))
+                    and os.path.basename(src_path) + '/' or '')
+                if rel_prefix:
+                    _manta_mkdir(self._get_manta_url(
+                        ujoin(dst_path, rel_prefix)), log.info,
+                        dry_run=opts.dry_run, insecure=self.options.insecure)
+                norm_src_path = src_path.rstrip('/')
+                for dirpath, dirnames, filenames in os.walk(norm_src_path):
+                    reldirpath = unormpath(
+                        rel_prefix + dirpath[len(norm_src_path)+1:])
+                    for filename in filenames:
+                        put_file(os.path.join(dirpath, filename),
+                            ujoin(dst_path, reldirpath, filename))
+                    for dirname in dirnames:
+                        _manta_mkdir(self._get_manta_url(
+                            ujoin(dst_path, reldirpath, dirname)), log.debug,
+                            dry_run=opts.dry_run,
+                            insecure=self.options.insecure)
+            else:
+                log.error("%s is not a regular file or directory (not copied)",
+                    src_path)
+                retval = 1
+                continue
+        return retval
+
+    @cmdln.option("-v", "--verbose", action="store_true",
+        help="show files (and content-type) as they are being copied")
+    @cmdln.option("-R", "-r", dest="recursive", action="store_true",
+        help="recursively copy a source directory")
+    @cmdln.option("--dry-run", action="store_true",
+        help="do a dry-run, implies '--verbose'")
+    def do_get(self, subcmd, opts, *paths):
+        """get a file from manta
+
+        Usage:
+            ${cmd_name} MANTA-PATH LOCAL-PATH
+            ${cmd_name} MANTA-PATH LOCAL-DIRECTORY
+
+        ${cmd_option_list}
+        """
+        XXX
+        if len(paths) < 2:
+            log.error("incorrect number of arguments")
+            return 1
+        if opts.dry_run:
+            opts.verbose = True
+        src_paths = paths[:-1]
+        dst_path = paths[-1]
+
+        # In all cases we get the normalized dest path.
+        # Non-recursive:
+        #   put file1 file2          find out if dest is a dir
+        #   put file1 dir2           ditto, dest=dir2/basename(file1)
+        #   put file1 dir2/          we know dest is a dir, assert that, dest=dir2/basename(file1)
+        #   put file1 file2 dir2     dest must be a dir, assert that, dest=...
+        #   put file1 file2 dir2/    dest must be a dir, assert that, dest=...
+        # Recursive:
+        #   put -r file1 file2       find out if dest is a dir
+        #   put -r file1 dir2        ditto, dest=dir2/basename(file1)
+        #   put -r file1 dir2/       assert dir2 is a dir, dest=...
+        #   put -r dir1 dir2         if dir2 exists then dest=dir2/basename(dir1)/...
+        #                               else dest=dir2/...
+        #                               (*) only case where 'dir2' is created
+        #   put -r dir1/ dir2        dest=dir2/...
+        #                               (*) only case where 'dir2' is created
+        #   put -r file1 file2 dir2  assert dir2 is a dir
+        #   put -r file1 dir1 dir2   assert dir2 is a dir
+
+        # Get info on dest path
+        dst_normpath = os.path.normpath(os.path.join(self.lcwd, dst_path))
+        dst_is_existing_dir = os.path.isdir(dst_normpath)
+
+        # Sanity checks on args.
+        if len(src_paths) > 1 or dst_path.endswith('/'):
+            # dst must be an existing dir
+            if not dst_is_existing_dir:
+                log.error("%s (local) is not an existing directory", dst_path)
+                return 1
+
+        def get_file(src_file, dst_file):
+            src_url = self._get_manta_url(src_file)
+            if opts.verbose:
+                log.info("get %s %s", src_url, dst_file)
+            if not opts.dry_run:
+                _manta_getobject(src_url, dst_file,
+                    insecure=self.options.insecure)
+
+        # Copy the files.
+        retval = None
+        for src_path in src_paths:
+            src_type = self._manta_type(src_path)
+            if not opts.recursive:
+                # Must be manta object (as opposed to a dir).
+                if src_type != "object":
+                    log.error("%s is not a Manta object (not copied)", src_path)
+                    retval = 1
+                    continue
+                if dst_is_existing_dir:
+                    dst_file = os.path.join(dst_path, os.path.basename(src_path))
+                    get_file(src_path, dst_file)
+                else:
+                    get_file(src_path, dst_path)
+            elif src_type == "object":
+                if dst_is_existing_dir:
+                    dst_file = os.path.join(dst_path, os.path.basename(src_path))
+                    get_file(src_path, dst_file)
+                else:
+                    get_file(src_path, dst_path)
+            elif src_type == "directory":
+                if not dst_is_existing_dir:
+                    # `mkdir dst_path`. See '(*)' case above.
+                    if not opts.dry_run:
+                        log.info("mkdir %s", dst_path)
+                        os.mkdir(dst_path)
+
+                rel_prefix = ((dst_is_existing_dir and not src_path.endswith('/'))
+                    and os.path.basename(src_path) + '/' or '')
+                if rel_prefix:
+                    d = os.path.join(dst_path, rel_prefix)
+                    if not opts.dry_run:
+                        log.info("mkdir %s", d)
+                        os.mkdir(d)
+                norm_src_path = src_path.rstrip('/')
+                for dirpath, dirnames, objnames in self._manta_walk(norm_src_path):
+                    #pprint((dirpath, dirnames, objnames))
+                    reldirpath = os.path.normpath(
+                        rel_prefix + dirpath[len(norm_src_path)+1:])
+                    for objname in objnames:
+                        get_file(ujoin(dirpath, objname),
+                            os.path.normpath(
+                                os.path.join(dst_path, reldirpath, objname)))
+                    for dirname in dirnames:
+                        if not opts.dry_run:
+                            d = os.path.normpath(os.path.join(
+                                dst_path, reldirpath, dirname))
+                            log.debug("mkdir %s", d)
+                            os.mkdir(d)
+            elif src_type is None:
+                log.error("%s (manta path) does not exist", src_path)
+                retval = 1
+                continue
+            else:
+                log.error("%s (manta path) is of unknown type, not an object "
+                    "or directory (not copied)", src_path)
+                retval = 1
+                continue
+        return retval
+
+    @cmdln.option("-v", "--verbose", action="store_true",
+        help="show files as they are being removed")
+    @cmdln.option("-f", "--force", action="store_true",
+        help="force removal, don't complain about file not existing")
+    @cmdln.option("-r", "--recursive", action="store_true",
+        help="recursively delete a directory")
+    @cmdln.option("--dry-run", action="store_true",
+        help="do a dry-run, implies '--verbose'")
+    def do_rm(self, subcmd, opts, *paths):
+        """rm a file from manta
+
+        Usage:
+            ${cmd_name} PATHS...
+
+        ${cmd_option_list}
+        """
+        XXX
+        if opts.dry_run:
+            opts.verbose = True
+        retval = None
+
+        def remove_thing(path):
+            url = self._get_manta_url(path)
+            if opts.verbose:
+                log.info("rm %s", url)
+            if not opts.dry_run:
+                res, content = _manta_json_req(url, "DELETE",
+                    insecure=self.options.insecure)
+                status = int(res["status"])
+                if not (status == 204 or (opts.force and status == 404)):
+                    log.error("rm %s: %s %s: %s", path, res["status"],
+                              content["code"], content["message"])
+                    retval = 1
+
+        for p in paths:
+            if not opts.recursive or not self._manta_isdir(p):
+                remove_thing(p)
+            else:
+                # Recursive delete of a directory.
+                for dirpath, dirs, nondirs in self._manta_walk(p, False):
+                    #pprint((dirpath, dirs, nondirs))
+                    for name, dirent in nondirs.items():
+                        remove_thing(ujoin(dirpath, name))
+                    remove_thing(dirpath)
+        return retval
+
+    @cmdln.option("-v", "--verbose", action="store_true",
+        help="show link details as it is being linked")
+    def do_ln(self, subcmd, opts, object_path, link_path):
+        """create a manta link to an object
+
+        Usage:
+            ${cmd_name} OBJECT-PATH LINK-PATH
+
+        ${cmd_option_list}
+        """
+        XXX
+        url = self._get_manta_url(link_path)
+        location = "/%s/stor%s" % (
+            self.user, unormpath(ujoin(self.cwd, object_path)))
+        _manta_ln(location, url, opts.verbose and log.info,
+            insecure=self.options.insecure)
+
+    def do_find(self, argv):
+        """find paths
+
+        Usage:
+            ${cmd_name} [DIR] [-name PATTERN]
+        """
+        XXX
+        class Options:
+            def __init__(self, *opts):
+                for name in opts:
+                    setattr(self, name, None)
+            def __repr__(self):
+                return "<Options: %s>" % dict(
+                    (o, getattr(opts, o)) for o in dir(opts)
+                      if not o.startswith('__'))
+
+        # Parse argv.
+        argv.pop(0)  # "find"
+        top = '.'
+        if argv and not argv[0].startswith('-'):
+            top = argv.pop(0)
+        opts = Options("name")
+        while argv:
+            opt = argv.pop(0)
+            if opt == "-name":
+                if not argv:
+                    log.error("no argument for '-name'")
+                    return 1
+                opts.name = argv.pop(0)
+            else:
+                log.error("unknown option: %r", opt)
+                return 1
+        #print "find: top=%r, opts=%r" % (top, opts)
+
+        def find_all(d):
+            for dirpath, dirs, nondirs in self._manta_walk(d):
+                yield dirpath
+                for name in nondirs.keys():
+                    yield ujoin(dirpath, name)
+
+        # Do the find and filtering.
+        for path in find_all(top):
+            if opts.name:
+                base = ubasename(path)
+                if not fnmatchcase(base, opts.name):
+                    continue
+            print path
+
+    def do_vi(self, subcmd, opts, path):
+        """edit a file on Manta (locally in vi)
+
+        Usage:
+            ${cmd_name} [OPTIONS...] PATH
+
+        ${cmd_option_list}
+        Note that this is a limited hack. You need to have a 'vi' to run
+        locally. Only one PATH can be edited. You can edit other files from
+        within the Vi session, etc.
+        """
+        XXX
+        base = os.path.basename(path)
+        local_path = os.path.join(g_cache_dir, "vi",
+            "%s-local.%s" % (os.getpid(), base))
+        if not os.path.exists(os.path.dirname(local_path)):
+            os.makedirs(os.path.dirname(local_path))
+
+        url = self._get_manta_url(path)
+        try:
+            # TODO get the content-type and set that below
+            res = _manta_getobject(url, local_path,
+                insecure=self.options.insecure)
+            is_new = False
+            old_digest = res["content-md5"].decode("base64")
+            content_type = res["content-type"]
+        except MantaObjectDoesNotExist:
+            is_new = True
+            content = ""
+            content_type = "text/plain"
+            old_digest = md5("").digest()
+            f = open(local_path, 'w')
+            f.write(content)
+            f.close()
+
+        os.system('vi -f "%s"' % local_path)
+
+        f = open(local_path, 'rb') # TODO: would md5 comparison be preferable?
+        new_digest = md5(f.read()).digest()
+        f.close()
+        if new_digest == old_digest:
+            if not is_new:
+                log.info("'%s' unchanged.", path)
+        else:
+            _manta_putobject(url, local_path, content_type=content_type,
+                insecure=self.options.insecure)
+            log.info("'%s' saved.", path)
+
+    def do_job(self, argv):
+        """run a Manta job
+
+        Usage:
+            ${cmd_name} [OPTIONS...] [PATHS...] ^ MAP-PHASE [^ MAP-PHASES...]
+
+        Options:
+            -h, --help          show this help message and exit
+            -t TIMEOUT, --timeout=TIMEOUT
+                                Number of seconds after which to timeout waiting for
+                                the job to complete. Default 0 (i.e. never timeout).
+            -n NAME, --name NAME
+                                Give your job a name. Default's to 'job-$timestamp'
+                                for now.
+
+        You can use '|' instead of '^'. The latter is provided so you don't
+        have to escape '|' from your shell. Back in the old school, '^' was
+        a synonym for '|' in the shell
+        (http://en.wikipedia.org/wiki/Thompson_shell).
+
+        Examples:
+            mantash job words.txt ^ grep foo
+            mantash job words.txt \| grep foo
+        """
+        XXX
+        #TODO: job `find . -name "email*.txt"` ^ grep foo
+        #    Update cmdln.py's line2argv parsing for this? Need a *more*
+        #    raw mode for own parsing. What does this line look like *with*
+        #    bash in the way?
+        #Easier todo this:
+        #    find . -name "email*.txt" ^ job -n NAME ^ grep foo
+
+        # Requirement for a name might go away. If so, remove this default.
+        DEFAULT_NAME='job-' + str(time.time())
+
+        first_argv = None
+        pipe_chars = ['^', '|', '^^']
+        pipe_idxs = [argv.index(c) for c in pipe_chars if c in argv]
+        if not pipe_idxs:
+            pipe_chars_str = "', '".join(pipe_chars[:-1]) \
+                + "' or '%s" % pipe_chars[-1]
+            raise MantashError("no '%s' pipe char found in job request"
+                % pipe_chars_str)
+        pipe_idx = min(pipe_idxs)
+        first_argv = argv[:pipe_idx]
+        rest_argv = argv[pipe_idx:]
+
+        optparser = cmdln.SubCmdOptionParser()
+        optparser.set_cmdln_info(self, "job")
+        optparser.add_option("-t", "--timeout", type="int", default=0)
+        optparser.add_option("-n", "--name", default=DEFAULT_NAME)
+        try:
+            opts, path_patterns = optparser.parse_args(first_argv[1:])
+        except cmdln.StopOptionProcessing:
+            return 0
+        assert len(path_patterns) > 0, "No KEY paths given"
+
+        # Parse args.
+        phases = []
+        for arg in rest_argv:
+            if arg in ('|', '^'):
+                phases.append({"exec": []})
+            elif arg == '^^':
+                phases.append({"type": "reduce", "exec": []})
+            else:
+                phases[-1]["exec"].append(arg)
+        assert len(phases) > 0, "No job phases given"
+        for phase in phases:
+            assert len(phase["exec"]) > 0, "Empty job phase"
+            # TODO:XXX To double-quote or single-quote? Bash has already
+            #   removed the quotes for us. I think we want to single quote.
+            #   Is this a "you can't know" question? Lacking info, I think
+            #   we want to single quote.
+            phase["exec"] = argv2line(phase["exec"])
+
+        keyBase = '/%s/stor' % self.user
+        keys = []
+        for pp in path_patterns:
+            try:
+                # list of (<is-dir>, <path>, <dirents>)
+                paths = _ls_path(pp, self.cwd, self.manta_url,
+                    self.user, True, insecure=self.options.insecure)
+            except MantashError, ex:
+                log.error(ex)
+                retval = 1
+            else:
+                for is_dir, p, dirents in paths:
+                    for pname, pdirent in dirents.items():
+                        if pdirent["type"] != "object":
+                            raise MantashError(
+                                "'%s' is a %s (can only process objects)" % (
+                                pname, pdirent["type"]))
+                        keys.append(keyBase + unormpath(ujoin(self.cwd, pname)))
+
+        #print "XXX keys", keys
+        #print "XXX phases", pformat(phases)
+        uuid = self._manta_create_job(phases, name=opts.name)
+        self._manta_add_job_keys(uuid, keys)
+        self._manta_end_job_input(uuid)
+        self._manta_wait_for_job(uuid, timeout=opts.timeout)
+        outkeys = self._manta_get_job_output(uuid)
+        for outkey in outkeys:
+            res, content = _manta_req(self.manta_url + outkey,
+                insecure=self.options.insecure)
+            if res["status"] not in ("200", "304"):
+                raise MantashError('error getting job output file: %s: %s: %s'
+                    % (outkey, res["status"], content))
+            sys.stdout.write(content)
+
+    def _manta_get_job_output(self, uuid):
+        url = ujoin(self.manta_url, self.user, 'jobs', uuid, 'out')
+        res, content = _manta_req(url, 'GET', insecure=self.options.insecure)
+        if res["status"] != "200":
+            raise MantashError("get job output API error: %s: %s %s: %s" % (
+                url, res["status"], data["code"], data["message"]))
+        content = re.sub(r'\r?\n$', '', content)
+        keys = [k for k in content.split('\n') if k]
+        return keys
+
+    def _manta_wait_for_job(self, uuid, timeout=30):
+        start_time = time.time()
+        url = ujoin(self.manta_url, self.user, 'jobs', uuid)
+        successive_errors = 0
+        #time.sleep(2)
+        while True:
+            time.sleep(1)
+            if timeout and time.time() - start_time >= timeout:
+                raise MantashError("job timed out (%ds)" % timeout)
+            res, data = _manta_json_req(url, 'GET',
+                insecure=self.options.insecure)
+            if res["status"] != "200":
+                # TODO: should only allow retry for some error types,
+                #  e.g. not for 400
+                successive_errors += 1
+                if successive_errors >= 3:
+                    raise MantashError("add job keys API error: %s: %s %s: %s" % (
+                        url, res["status"], data["code"], data["message"]))
+                continue
+            successive_errors = 0
+            if data["state"] == "done":
+                break
+
+    def _manta_end_job_input(self, uuid):
+        url = ujoin(self.manta_url, self.user, 'jobs', uuid, 'in', 'end')
+        body = ''
+        res, data = _manta_json_req(url, 'POST', body,
+            insecure=self.options.insecure)
+        if res["status"] != "204":
+            raise MantashError("end job input API error: %s: %s %s: %s" % (
+                url, res["status"], data["code"], data["message"]))
+
+    def _manta_add_job_keys(self, uuid, keys):
+        url = ujoin(self.manta_url, self.user, 'jobs', uuid, 'in')
+        body = '\r\n'.join(keys)
+        res, data = _manta_json_req(url, 'POST', body, headers={
+            'Content-Type': 'text/plain'
+        }, insecure=self.options.insecure)
+        if res["status"] != "204":
+            raise MantashError("add job keys API error: %s: %s %s: %s" % (
+                url, res["status"], data["code"], data["message"]))
+
+    def _manta_create_job(self, phases, name=None):
+        url = ujoin(self.manta_url, self.user, 'jobs')
+        body = {"phases": phases}
+        if name:
+            body["name"] = name
+        res, data = _manta_req(url, 'POST', json.dumps(body),
+            headers={"Content-Type": "application/json"},
+            insecure=self.options.insecure)
+        if res["status"] != '201':
+            raise MantashError("create job API error: %s: %s: %s" % (
+                url, res["status"], data))
+        location = res["location"]
+        assert res["location"]
+        #print "XXX location", res["location"]
+        uuid = res["location"].rsplit('/', 1)[-1]
+        #print "XXX uuid", uuid
+        return uuid
+
+    def _manta_walk(self, top, topdown=True):
+        """`os.walk(path)` for a directory in Manta.
+
+        A somewhat limited form in that some of the optional args to
+        `os.walk` are not supported.
+        """
+        XXX
+        top_url = self._get_manta_url(top)
+        res, dirents = _manta_getdir(top_url, insecure=self.options.insecure)
+
+        dirs, nondirs = {}, {}
+        for name, dirent in dirents.items():
+            if dirent["type"] == "directory":
+                dirs[name] = dirent
+            else:
+                nondirs[name] = dirent
+
+        if topdown:
+            yield top, dirs, nondirs
+        for name in dirs.keys():
+            path = ujoin(top, name)
+            for x in self._manta_walk(path, topdown):
+                yield x
+        if not topdown:
+            yield top, dirs, nondirs
+
+    def _manta_type(self, path):
+        """Return the type of the given Manta path. Returns None if the
+        path doesn't exist.
+        """
+        XXX
+        p_realpath = unormpath(ujoin(self.cwd, path))
+        if p_realpath == '/':
+            return "directory"
+        else:
+            p_parent = udirname(p_realpath)
+            p_base = ubasename(p_realpath)
+            res, dirents = _manta_getdir(self._get_manta_url(p_parent),
+                insecure=self.options.insecure)
+            if dirents and p_base in dirents:
+                return dirents[p_base]["type"]
+            else:
+                return None
+
+    def _manta_isdir(self, path):
+        """Return true iff the given path is an existing directory in Manta."""
+        XXX
+        return self._manta_type(path) == "directory"
+
+    def _manta_isobject(self, path):
+        """Return true iff the given path is an existing object in Manta."""
+        XXX
+        return self._manta_type(path) == "object"
+
+
+
+
+#---- internal support stuff
+
+def uexpanduser(mpath, home):
+    """Like os.path.expanduser for mpaths."""
+    if not mpath or not mpath.startswith('~'):
+        return mpath
+    if mpath == "~":
+        return home
+    elif mpath[1] != '/':
+        return mpath
+    else:
+        return ujoin(home, mpath[2:])
+
+
+def argv2line(argv):
+    r"""Put together the given argument vector into a command line.
+
+        "argv" is the argument vector to process.
+
+    >>> argv2line(['foo'])
+    'foo'
+    >>> argv2line(['foo', 'bar'])
+    'foo bar'
+    >>> argv2line(['foo', 'bar baz'])
+    "foo 'bar baz'"
+    >>> argv2line(['foo', 'bar "baz"'])
+    "foo 'bar \"baz\"'"
+    >>> argv2line(['foo"bar'])
+    'foo"bar'
+    >>> print argv2line(['foo" bar'])
+    'foo" bar'
+    >>> print argv2line(["foo' bar"])
+    "foo' bar"
+    >>> argv2line(["foo'bar"])
+    "foo'bar"
+    """
+    escapedArgs = []
+    for arg in argv:
+        if ' ' in arg or '\t' in arg:
+            arg = arg.replace("'", r"\'")
+            arg = "'"+arg+"'"
+        escapedArgs.append(arg)
+    return ' '.join(escapedArgs)
+
+
+_is_glob_re = re.compile(r'(?<!\\)[*?\[]')
+def _ls_path(path, cwd, manta_url, user, listDirs, insecure=False):
+    """Get the set of directory entries (dirents) matching the
+    given path, which may be a glob pattern.
+
+    @param path {str} Path or path glob pattern.
+    @param cwd {str} Interpret relative paths to this absolute cwd.
+    @param manta_url {str}
+    @param user {str} User account connecting to manta.
+    @param listDirs {boolean} List directory names, do not search recursively.
+    @raises {MantashError} For any error ls'ing.
+    @returns list of (<is-dir>, <path>, <dirents>), e.g.:
+        [(False,
+          'tmp/*.txt',
+          {'tmp/foo.txt': {'name': 'foo.txt', 'type': 'object'}}),
+         (True,
+          'lib',
+          {'bar.py': {'mtime': 1341422663102L, 'type': 'object'},
+           'baz': {'mtime': 1341422663102L, 'type': 'directory'}})]
+    """
+    if _is_glob_re.search(path):
+        # TODO: Could optimize the following to only get a particular dir
+        # if the basename has glob chars.
+        parts = path.split('/')
+        #print 'DEBUG -- glob: %r -> %r' % (path, parts)
+        # match -> dirent, each is a base dir for next
+        matches = {'.': {"type": "directory"}}
+        for p in parts:
+            patterns = [unormpath(ujoin(m, p)) for m,dirent in matches.items()
+                if dirent["type"] == "directory"]
+            #print "DEBUG %r -> %r with matches %r" % (p, patterns, matches)
+            matches = {}
+            for pattern in patterns:
+                parent = udirname(pattern)
+                basepat = ubasename(pattern)
+                #print "  DEBUG parent %r" % parent
+                url = _get_manta_url(manta_url, user, cwd, parent)
+                res, dirents = _manta_getdir(url, #TODO: api error
+                    insecure=insecure)
+                for name, dirent in dirents.items():
+                    if fnmatchcase(name, basepat):
+                        matches[ujoin(parent, name)] = dirent
+            #print "  DEBUG new matches: %r" % (matches,)
+
+        # Any leaf directories are recursed into... unless `ls -d`.
+        hits = []
+        if not listDirs:
+            for n,dirent in matches.items():
+                if dirent["type"] == "directory":
+                    del matches[n]
+                    url = _get_manta_url(manta_url, user, cwd, n)
+                    res, dirents = _manta_getdir(url, #TODO: api error
+                        insecure=insecure)
+                    hits.append((True, n, dirents))
+        hits.append((False, path, matches))
+        return hits
+    else:
+        # No globbing. This is easier.
+        p = unormpath(ujoin(cwd, path))
+        if p == "/":
+            dirent = {"name": "/", "type": "directory"}
+        else:
+            # Ensure it exists.
+            parent = udirname(p) or "/"
+            name = ubasename(p)
+            url = _get_manta_url(manta_url, user, cwd, parent)
+            res, data = _manta_getdir(url, #TODO: api error
+                insecure=insecure)
+            if data is None:
+                dirent = None
+            else:
+                dirent = data.get(name)
+        if not dirent:
+            raise MantashError("%s: no such object or directory" %
+                (path or '/'))
+
+        if dirent["type"] == "directory" and not listDirs:
+            is_dir = True
+            url = _get_manta_url(manta_url, user, cwd, p)
+            res, dirents = _manta_getdir(url, #TODO: api error
+                insecure=insecure)
+        else:
+            is_dir = False
+            dirents = {
+                path: dirent
+            }
+        return [(is_dir, path, dirents)]
+
+def _indent(s, indent='    '):
+    return indent + indent.join(s.splitlines(True))
+
+
+def _get_http(scope=None, insecure=False):
+    cache_dir = os.path.join(g_http_cache_dir, scope)
+    if not os.path.exists(os.path.dirname(cache_dir)):
+        os.makedirs(os.path.dirname(cache_dir))
+    return MantaHttp(cache_dir, disable_ssl_certificate_validation=insecure)
+
+def _get_manta_url(manta_url, user, cwd, path):
+    return "%s/%s/stor%s" % (manta_url, user,
+        unormpath(ujoin(cwd, path)))
+
+def _manta_json_req(url, method="GET", body=None, headers=None, insecure=False):
+    res, content = _manta_req(url, method, body, headers, insecure=insecure)
+    if res["status"] == "204":
+        return res, content
+    else:
+        if res["content-type"] != "application/json":
+            raise MantashError("API error: response is not json: '%s'"
+                % res["content-type"])
+        return res, json.loads(content)
+
+def _manta_req(url, method="GET", body=None, headers=None, insecure=False):
+    http = _get_http("manta", insecure=insecure)
+    ubody = body
+    if body is not None and isinstance(body, dict):
+        ubody = urlencode(body)
+    if headers is None:
+        headers = {}
+    headers["User-Agent"] = g_user_agent
+    headers['x-marlin'] = 'true'  #XXX temporary auth hack
+    res, content = http.request(url, method, ubody, headers)
+    return res, content
+
+def _manta_getdir(url, insecure=False):
+    """Manta readdir
+
+    error -> raise MantashError
+    no such user -> raise MantashError
+    404 -> (res, None)
+    success -> (res, dirents)
+    """
+    res, content = _manta_req(url, insecure=insecure)
+    if res["status"] == "404":
+        err = json.loads(content)
+        if err["code"] == "UserDoesNotExist":
+            raise MantashError("readdir API error: %s %s: %s" % (
+                res["status"], err["code"], err["message"]))
+        # Note: could be 404 for no such user, or for no such dir.
+        return res, None
+    if res["status"] != "200":
+        err = json.loads(content)
+        raise MantashError("readdir API error: %s %s: %s" % (
+            res["status"], err["code"], err["message"]))
+    if res["content-type"] != g_dir_stream_content_type:
+        raise MantashError(
+            "readdir API error: unexpected response content-type: '%s'"
+            % res["content-type"])
+
+    data = {}
+    for e in content.split("\r\n"):
+        if len(e):
+            obj = json.loads(e)
+            data[obj["name"]] = obj
+
+    return res, data
+
+def _manta_putobject(url, local_path, content_type="application/octet-stream", insecure=False):
+    if content_type is None:
+        content_type = "application/octet-stream"
+    body = open(local_path, 'rb').read()
+    res, content = _manta_json_req(url, 'PUT', body, headers={
+        "content-type": content_type,
+        "content-length": str(len(body))
+    }, insecure=insecure)
+
+def _manta_getobject(url, local_file, insecure=False):
+    res, content = _manta_req(url, insecure=insecure)
+    if res["status"] == "404":
+        raise MantaObjectDoesNotExist("no such object (%s)" % url)
+    elif res["status"] not in ("200", "304"):
+        data = json.loads(content)
+        raise MantashError("getobject API error: %s: %s %s: %s" % (
+            url, res["status"], data["code"], data["message"]))
+    else:
+        f = open(local_file, 'wb')
+        f.write(content)
+        f.close()
+        return res
+
+def _manta_mkdir(url, log_write=None, dry_run=False, insecure=False):
+    if log_write:
+        log_write("mkdir %s", url)
+    if not dry_run:
+        res, data = _manta_json_req(url, "PUT",
+            headers={"Content-Type": g_dir_content_type},
+            insecure=insecure)
+        if res["status"] != "204":
+            raise MantashError("mkdir API error: %s %s: %s" % (
+                res["status"], data["code"], data["message"]))
+
+def _manta_ln(location, url, log_write=None, dry_run=False, insecure=False):
+    """Create a manta link."""
+    if log_write:
+        log_write("ln %s %s", location, url)
+    if not dry_run:
+        res, data = _manta_json_req(url, "PUT",
+            headers={
+                "Content-Type": "application/json; type=link",
+                "Content-Length": "0",
+                "Location": location
+            }, insecure=insecure)
+        if res["status"] != "204":
+            raise MantashError("ln API error: %s %s: %s" % (
+                res["status"], data["code"], data["message"]))
+
+
+#---- mainline
+
+def main(argv=sys.argv):
+    logging.basicConfig(format='%(name)s: %(levelname)s: %(message)s')
+    log.setLevel(logging.INFO)
+    shell = Mantash()
+    return shell.main(argv, loop=cmdln.LOOP_IF_EMPTY)
+
+
+## {{{ http://code.activestate.com/recipes/577258/ (r5)
+if __name__ == "__main__":
+    try:
+        retval = main(sys.argv)
+    except KeyboardInterrupt:
+        sys.exit(1)
+    except SystemExit:
+        raise
+    except:
+        import traceback, logging
+        if not log.handlers and not logging.root.handlers:
+            logging.basicConfig()
+        skip_it = False
+        exc_info = sys.exc_info()
+        if hasattr(exc_info[0], "__name__"):
+            exc_class, exc, tb = exc_info
+            if isinstance(exc, IOError) and exc.args[0] == 32:
+                # Skip 'IOError: [Errno 32] Broken pipe': often a cancelling of `less`.
+                skip_it = True
+            if not skip_it:
+                tb_path, tb_lineno, tb_func = traceback.extract_tb(tb)[-1][:3]
+                log.error("%s (%s:%s in %s)", exc_info[1], tb_path,
+                    tb_lineno, tb_func)
+        else:  # string exception
+            log.error(exc_info[0])
+        if not skip_it:
+            if log.isEnabledFor(logging.DEBUG):
+                print('')
+                traceback.print_exception(*exc_info)
+            sys.exit(1)
+    else:
+        sys.exit(retval)
+## end of http://code.activestate.com/recipes/577258/ }}}

@@ -110,10 +110,13 @@ class RawMantaClient(object):
     @param cache_dir {str} Optional. A dir to use for HTTP caching. It will
         be created as needed.
     @param disable_ssl_certificate_validation {bool} Default false.
+    @param debug {bool} Optional. Default false. If true, then will log
+        debugging info.
     """
     def __init__(self, url, user, sign=None, signer=None,
             user_agent=None, cache_dir=None,
-            disable_ssl_certificate_validation=False):
+            disable_ssl_certificate_validation=False,
+            debug=False):
         assert user, 'user'
         # Prefer 'signer', but accept 'sign' a la node-manta.
         assert signer or sign, 'signer'
@@ -124,6 +127,10 @@ class RawMantaClient(object):
         self.cache_dir = cache_dir or DEFAULT_HTTP_CACHE_DIR
         self.user_agent = user_agent or DEFAULT_USER_AGENT
         self.disable_ssl_certificate_validation = disable_ssl_certificate_validation
+        if debug:
+            # TODO: log should be `self.log`
+            global log
+            log.setLevel(logging.DEBUG)
 
     _http_cache = None
     def _get_http(self):
@@ -193,6 +200,16 @@ class RawMantaClient(object):
             [{u'mtime': u'2012-12-11T01:54:07Z', u'name': u'play', u'type': u'directory'},
              ...]
         """
+        res, dirents = self.list_directory2(mdir, limit=limit, marker=marker)
+        return dirents
+
+    def list_directory2(self, mdir, limit=None, marker=None):
+        """A lower-level version of `list_directory` that returns the
+        response object (which includes the headers).
+
+        ...
+        @returns (res, dirents) {2-tuple}
+        """
         log.debug('ListDirectory %r', mdir)
 
         query = {}
@@ -213,7 +230,7 @@ class RawMantaClient(object):
                 dirents.append(json.loads(line))
             except ValueError:
                 raise errors.MantaError('invalid directory entry: %r' % line)
-        return dirents
+        return res, dirents
 
     def head_directory(self, mdir):
         """HEAD method on ListDirectory
@@ -370,6 +387,8 @@ class MantaClient(RawMantaClient):
         @param mtop {Manta dir}
         """
         #TODO:XXX If result-set-size > 1000, then we are missing elements. Fix.
+        #   Really should move to always returning `res` from raw APIs. Or
+        #   at least from list_directory().
         dirents = self.list_directory(mtop)
 
         mdirs, mnondirs = [], []
@@ -387,5 +406,50 @@ class MantaClient(RawMantaClient):
                 yield x
         if not topdown:
             yield mtop, mdirs, mnondirs
+
+    def ls(self, mdir, limit=None, marker=None):
+        """List a directory.
+
+        Dev Notes:
+        - If `limit` and `marker` are *not* specified. This handles paging
+          through a directory with more entries than Manta will return in
+          one request (1000).
+        - This returns a dict mapping name to dirent as a convenience.
+          Note that that makes this inappropriate for streaming a huge
+          listing. A streaming-appropriate `ls` will be a separate method
+          if/when that is added.
+
+        @param mdir {str} A manta directory, e.g. '/trent/stor/a-dir'.
+        @returns {dict} A mapping of names to their directory entry (dirent).
+        """
+        assert limit is None and marker is None, "not yet implemented"
+        dirents = {}
+
+        if limit or marker:
+            entries = self.list_directory(mdir, limit=limit, marker=marker)
+            for entry in entries:
+                dirents[entry["name"]] = entry
+
+        else:
+            # TODO: think through this with a dir adding/removing entries
+            # *while* we are paging through results.
+            marker = None
+            while True:
+                res, entries = self.list_directory2(mdir, marker=marker)
+                result_set_size = int(res.get("result-set-size", 0))
+                if marker:
+                    entries.pop(0)  # first one is a repeat (the marker)
+                for entry in entries:
+                    dirents[entry["name"]] = entry
+                if len(dirents) >= result_set_size:
+                    break
+                else:
+                    marker = entries[-1]["name"]
+
+        return dirents
+
+
+
+
 
 
