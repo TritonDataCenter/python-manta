@@ -651,7 +651,6 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        XXX
         if len(paths) < 2:
             log.error("incorrect number of arguments")
             return 1
@@ -680,7 +679,8 @@ class Mantash(cmdln.Cmdln):
         #   put -r file1 dir1 dir2   assert dir2 is a dir
 
         # Get info on dest path
-        dst_normpath = os.path.normpath(os.path.join(self.lcwd, dst_path))
+        dst_normpath = os.path.normpath(os.path.join(self.lcwd,
+            os.path.expanduser(dst_path)))
         dst_is_existing_dir = os.path.isdir(dst_normpath)
 
         # Sanity checks on args.
@@ -691,17 +691,17 @@ class Mantash(cmdln.Cmdln):
                 return 1
 
         def get_file(src_file, dst_file):
-            src_url = self._get_manta_url(src_file)
             if opts.verbose:
-                log.info("get %s %s", src_url, dst_file)
+                log.info("get %s %s", src_file, dst_file)
             if not opts.dry_run:
-                _manta_getobject(src_url, dst_file,
-                    insecure=self.options.insecure)
+                self.client.get(src_file, dst_file)
 
         # Copy the files.
         retval = None
         for src_path in src_paths:
-            src_type = self._manta_type(src_path)
+            src_npath = unormpath(ujoin(self.cwd,
+                uexpanduser(src_path, self.home)))
+            src_type = self.client.type(src_npath)
             if not opts.recursive:
                 # Must be manta object (as opposed to a dir).
                 if src_type != "object":
@@ -709,16 +709,16 @@ class Mantash(cmdln.Cmdln):
                     retval = 1
                     continue
                 if dst_is_existing_dir:
-                    dst_file = os.path.join(dst_path, os.path.basename(src_path))
-                    get_file(src_path, dst_file)
+                    dst_file = os.path.join(dst_path, ubasename(src_npath))
+                    get_file(src_npath, dst_file)
                 else:
-                    get_file(src_path, dst_path)
+                    get_file(src_npath, dst_path)
             elif src_type == "object":
                 if dst_is_existing_dir:
-                    dst_file = os.path.join(dst_path, os.path.basename(src_path))
-                    get_file(src_path, dst_file)
+                    dst_file = os.path.join(dst_path, basename(src_npath))
+                    get_file(src_npath, dst_file)
                 else:
-                    get_file(src_path, dst_path)
+                    get_file(src_npath, dst_path)
             elif src_type == "directory":
                 if not dst_is_existing_dir:
                     # `mkdir dst_path`. See '(*)' case above.
@@ -727,25 +727,24 @@ class Mantash(cmdln.Cmdln):
                         os.mkdir(dst_path)
 
                 rel_prefix = ((dst_is_existing_dir and not src_path.endswith('/'))
-                    and os.path.basename(src_path) + '/' or '')
+                    and ubasename(src_npath) + '/' or '')
                 if rel_prefix:
                     d = os.path.join(dst_path, rel_prefix)
                     if not opts.dry_run:
                         log.info("mkdir %s", d)
                         os.mkdir(d)
-                norm_src_path = src_path.rstrip('/')
-                for dirpath, dirnames, objnames in self._manta_walk(norm_src_path):
-                    #pprint((dirpath, dirnames, objnames))
+                for dirpath, dirents, objents in self.client.walk(src_npath):
+                    #pprint((dirpath, dirents, objents))
                     reldirpath = os.path.normpath(
-                        rel_prefix + dirpath[len(norm_src_path)+1:])
-                    for objname in objnames:
-                        get_file(ujoin(dirpath, objname),
-                            os.path.normpath(
-                                os.path.join(dst_path, reldirpath, objname)))
-                    for dirname in dirnames:
+                        rel_prefix + dirpath[len(src_npath)+1:])
+                    for objent in objents:
+                        get_file(ujoin(dirpath, objent["name"]),
+                            os.path.normpath(os.path.join(
+                                dst_path, reldirpath, objent["name"])))
+                    for dirent in dirents:
                         if not opts.dry_run:
                             d = os.path.normpath(os.path.join(
-                                dst_path, reldirpath, dirname))
+                                dst_path, reldirpath, dirent["name"]))
                             log.debug("mkdir %s", d)
                             os.mkdir(d)
             elif src_type is None:
@@ -771,37 +770,37 @@ class Mantash(cmdln.Cmdln):
         """rm a file from manta
 
         Usage:
-            ${cmd_name} PATHS...
+            ${cmd_name} MANTA-PATHS...
 
         ${cmd_option_list}
         """
-        XXX
         if opts.dry_run:
             opts.verbose = True
         retval = None
 
-        def remove_thing(path):
-            url = self._get_manta_url(path)
+        def remove_thing(mpath):
             if opts.verbose:
                 log.info("rm %s", url)
             if not opts.dry_run:
-                res, content = _manta_json_req(url, "DELETE",
-                    insecure=self.options.insecure)
-                status = int(res["status"])
-                if not (status == 204 or (opts.force and status == 404)):
-                    log.error("rm %s: %s %s: %s", path, res["status"],
-                              content["code"], content["message"])
-                    retval = 1
+                try:
+                    self.client.rm(mpath)
+                except manta.MantaAPIError, ex:
+                    if opts.force and ex.code == 'ResourceNotFound':
+                        pass
+                    else:
+                        log.error("rm %s: %s", mpath, ex)
+                        retval = 1
 
-        for p in paths:
-            if not opts.recursive or not self._manta_isdir(p):
-                remove_thing(p)
+        for path in paths:
+            npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
+            if not opts.recursive or not self.client.type(npath) == "directory":
+                remove_thing(npath)
             else:
                 # Recursive delete of a directory.
-                for dirpath, dirs, nondirs in self._manta_walk(p, False):
-                    #pprint((dirpath, dirs, nondirs))
-                    for name, dirent in nondirs.items():
-                        remove_thing(ujoin(dirpath, name))
+                for dirpath, dirents, objents in self.client.walk(npath, False):
+                    #pprint((dirpath, dirents, objents))
+                    for objent in objents:
+                        remove_thing(ujoin(dirpath, objent["name"]))
                     remove_thing(dirpath)
         return retval
 

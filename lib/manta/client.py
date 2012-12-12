@@ -6,7 +6,7 @@ import sys
 import logging
 import os
 from os.path import exists, join
-from posixpath import join as ujoin
+from posixpath import join as ujoin, dirname as udirname, basename as ubasename
 import json
 from pprint import pprint, pformat
 from urllib import urlencode
@@ -315,13 +315,18 @@ class RawMantaClient(object):
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
 
-    def get_object(self, mpath, accept="*/*"):
+    def get_object(self, mpath, path=None, accept="*/*"):
         """GetObject
         http://apidocs.joyent.com/manta/manta/#GetObject
 
         @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
+        @param path {str} Optional. If given, the retrieved object will be
+            written to the given file path instead of the content being
+            returned.
         @param accept {str} Optional. Default is '*/*'. The Accept header
             for content negotiation.
+        @returns {str|None} None if `path` is provided, else the object
+            content.
         """
         log.debug('GetObject %r', mpath)
         headers = {
@@ -340,7 +345,14 @@ class RawMantaClient(object):
             if content_md5 != res["content-md5"]:
                 raise errors.MantaError("content-md5 mismatch: expected %d, "
                     "got %s" % (res["content-md5"], content_md5))
-        return content
+        if path is not None:
+            f = open(path, 'wb')
+            try:
+                f.write(content)
+            finally:
+                f.close()
+        else:
+            return content
 
     def delete_object(self, mpath):
         """DeleteObject
@@ -377,22 +389,37 @@ class MantaClient(RawMantaClient):
     """A Manta client that builds on `RawMantaClient` to provide some
     API sugar.
     """
+    get = RawMantaClient.get_object
+    put = RawMantaClient.put_object
+    rm = RawMantaClient.delete_object
 
     def walk(self, mtop, topdown=True):
         """`os.walk(path)` for a directory in Manta.
 
         A somewhat limited form in that some of the optional args to
-        `os.walk` are not supported.
+        `os.walk` are not supported. Instead of dir *names* and file *names*,
+        the dirents for those are returned. E.g.:
+
+            >>> for dirpath, dirents, objents in client.walk('/trent/stor/test'):
+            ...     pprint((dirpath, dirents, objents))
+            ('/trent/stor/test',
+             [{u'mtime': u'2012-12-12T05:40:23Z',
+               u'name': u'__pycache__',
+               u'type': u'directory'}],
+             [{u'etag': u'a5ab3753-c691-4645-9c14-db6653d4f064',
+               u'mtime': u'2012-12-12T05:40:22Z',
+               u'name': u'test.py',
+               u'size': 5627,
+               u'type': u'object'},
+              ...])
+            ...
 
         @param mtop {Manta dir}
         """
-        #TODO:XXX If result-set-size > 1000, then we are missing elements. Fix.
-        #   Really should move to always returning `res` from raw APIs. Or
-        #   at least from list_directory().
-        dirents = self.list_directory(mtop)
+        dirents = self.ls(mtop)
 
         mdirs, mnondirs = [], []
-        for dirent in dirents:
+        for dirent in dirents.values():
             if dirent["type"] == "directory":
                 mdirs.append(dirent)
             else:
@@ -448,9 +475,6 @@ class MantaClient(RawMantaClient):
 
         return dirents
 
-    get = RawMantaClient.get_object
-    put = RawMantaClient.put_object
-
     def mkdir(self, mdir, parents=False):
         """Make a directory.
 
@@ -502,4 +526,36 @@ class MantaClient(RawMantaClient):
         """
         return self.mkdir(mdir, parents=True)
 
+    def stat(self, mpath):
+        """Return available dirent info for the given Manta path."""
+        parts = mpath.split('/')
+        if len(parts) == 0:
+            raise errors.MantaError("cannot stat empty manta path: %r" % mpath)
+        elif len(parts) <= 3:
+            raise errors.MantaError(
+                "cannot stat special manta path: %r" % mpath)
+        mparent = udirname(mpath)
+        name = ubasename(mpath)
+        dirents = self.ls(mparent)
+        if name in dirents:
+            return dirents[name]
+        else:
+            raise errors.MantaResourceNotFoundError(
+                "%s: no such object or directory" % mpath)
 
+    def type(self, mpath):
+        """Return the manta type for the given manta path.
+
+        @param mpath {str} The manta path for which to get the type.
+        @returns {str|None} The manta type, e.g. "object" or "directory",
+            or None if the path doesn't exist.
+        """
+        try:
+            return self.stat(mpath)["type"]
+        except errors.MantaResourceNotFoundError, ex:
+            return None
+        except errors.MantaAPIError, ex:
+            if ex.code in ('ResourceNotFound', 'DirectoryDoesNotExist'):
+                return None
+            else:
+                raise

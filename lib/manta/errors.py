@@ -2,7 +2,7 @@
 
 """python-manta errors"""
 
-__all__ = ["MantaError", "MantaAPIError"]
+__all__ = ["MantaError", "MantaResourceNotFoundError", "MantaAPIError"]
 
 import logging
 import json
@@ -18,6 +18,9 @@ log = logging.getLogger('manta.errors')
 #---- exports
 
 class MantaError(Exception):
+    pass
+
+class MantaResourceNotFoundError(Exception):
     pass
 
 class MantaAPIError(MantaError):
