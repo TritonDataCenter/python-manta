@@ -257,21 +257,18 @@ class Mantash(cmdln.Cmdln):
 
         else:
             # Work up to first dir with a glob char.
-            lead = parts[:3]
-            start = 3
-            for start in range(3, len(parts)-1):
-                if self._is_glob_re.search(parts[start]):
+            lead = parts[:3]  # no glob in first two segments allowed
+            for i in range(3, len(parts)-1):
+                if self._is_glob_re.search(parts[i]):
                     break
-                lead.append(parts[start])
-            else:
-                start += 1
+                lead.append(parts[i])
             if DEBUG:
-                print "  non-glob dirs lead: %r (glob start index %d)" % (lead, start)
+                print "  non-glob dirs lead: %r" % lead
 
             # `matches` is a mapping of {match -> dirent} where each
             # match is a base dir for next iteration.
             matches = {'/'.join(lead): {"type": "directory"}}
-            for i in range(start, len(parts)):
+            for i in range(len(lead), len(parts)):
                 p = parts[i]
                 patterns = [unormpath(ujoin(m, p)) for m,dirent in matches.items()
                     if dirent["type"] == "directory"]
@@ -417,16 +414,38 @@ class Mantash(cmdln.Cmdln):
                 return 1
             else:
                 self.cwd = ndir
+        self._update_prompt()
 
     def completedefault(self, text, line, begidx, endidx):
-        # Complete paths in the cwd.
-        XXX
-        start = line[begidx:endidx]
-        parent = udirname(start)
-        res, dirents = _manta_getdir(self._get_manta_url(parent),
-            insecure=self.options.insecure)
-        matches = [m for m in dirents.keys() if m.startswith(start)]
-        return matches
+        """Complete paths in the cwd."""
+        try:
+            DEBUG = False
+            if DEBUG:
+                print "\n-- completedefault:",
+                print "  ", (text, line, begidx, endidx)
+            subcmd = line and line.split(None, 1)[0]
+            start = line[begidx:endidx]
+            parent = unormpath(ujoin(self.cwd, udirname(start)))
+            if DEBUG:
+                print "  subcmd: %r" % subcmd
+                print "  start: %r" % start
+                print "  parent: %r" % parent
+            dirents = self._get_dir(parent)
+            if DEBUG:
+                print "  dirents: %r" % dirents
+            if subcmd in ("cd",):
+                matches = [m for m,d in dirents.items() if m.startswith(start)
+                           and d["type"] == "directory"]
+            else:
+                matches = [m for m in dirents.keys() if m.startswith(start)]
+            if DEBUG:
+                print "  matches: %r" % matches
+            return matches
+        except:
+            if self.options.debug:
+                import traceback
+                traceback.print_exc()
+            raise
 
     def do_cat(self, subcmd, opts, *paths):
         """${cmd_name}: print objects"""
