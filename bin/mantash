@@ -804,6 +804,12 @@ class Mantash(cmdln.Cmdln):
                     remove_thing(dirpath)
         return retval
 
+    def _realpath(self, mpath):
+        """Normalize the given Manta path and make it absolute
+        (relative to cwd).
+        """
+        return unormpath(ujoin(self.cwd, uexpanduser(mpath, self.home)))
+
     @cmdln.option("-v", "--verbose", action="store_true",
         help="show link details as it is being linked")
     def do_ln(self, subcmd, opts, object_path, link_path):
@@ -814,12 +820,11 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        XXX
-        url = self._get_manta_url(link_path)
-        location = "/%s/stor%s" % (
-            self.user, unormpath(ujoin(self.cwd, object_path)))
-        _manta_ln(location, url, opts.verbose and log.info,
-            insecure=self.options.insecure)
+        object_npath = self._realpath(object_path)
+        link_npath = self._realpath(link_path)
+        if opts.verbose:
+            log.info('ln %s %s', object_npath, link_npath)
+        self.client.ln(object_npath, link_npath)
 
     def do_find(self, argv):
         """find paths

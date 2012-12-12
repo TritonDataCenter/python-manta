@@ -366,21 +366,22 @@ class RawMantaClient(object):
             raise errors.MantaAPIError(res, content)
         return res
 
-    def put_link(self, mpath, location):
+    def put_link(self, link_path, object_path):
         """PutLink
         http://apidocs.joyent.com/manta/manta/#PutLink
 
-        @param mpath {str} Required. A manta path, e.g. '/trent/stor/mylink'.
-        @param location {str} Required. The manta path to an existing target
+        @param link_path {str} Required. A manta path, e.g.
+            '/trent/stor/mylink'.
+        @param object_path {str} Required. The manta path to an existing target
             manta object.
         """
-        log.debug('PutLink %r -> %r', mpath, location)
+        log.debug('PutLink %r -> %r', link_path, object_path)
         headers = {
             "Content-Type": "application/json; type=link",
             "Content-Length": "0",   #XXX Needed?
-            "Location": location
+            "Location": object_path
         }
-        res, content = self._request(mpath, "PUT", headers=headers)
+        res, content = self._request(link_path, "PUT", headers=headers)
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
 
@@ -392,6 +393,20 @@ class MantaClient(RawMantaClient):
     get = RawMantaClient.get_object
     put = RawMantaClient.put_object
     rm = RawMantaClient.delete_object
+
+    def ln(self, object_path, link_path):
+        """Create a Manta link.
+
+        This is a light wrapper around `put_link`. Note, however, that the
+        arguments *are* reversed so that `ln` is like the Unix command
+        of the same name (i.e. the existing object is given first).
+
+        @param object_path {str} Required. The manta path to an existing target
+            manta object.
+        @param link_path {str} Required. A manta path, e.g.
+            '/trent/stor/mylink'.
+        """
+        return self.put_link(link_path, object_path)
 
     def walk(self, mtop, topdown=True):
         """`os.walk(path)` for a directory in Manta.
