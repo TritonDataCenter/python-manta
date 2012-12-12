@@ -78,6 +78,15 @@ TODO: describe mantash
 
 MIT. See LICENSE.txt.
 
+Some pure Python dependencies are included in this distribution (to
+reduce install dependency headaches). They are covered by their
+respective licenses:
+
+- paramiko (http://www.lag.net/paramiko/): LGPL
+- httplib2 (http://code.google.com/p/httplib2/): MIT
+- cmdln (https://github.com/trentm/cmdln): MIT
+- appdirs (https://github.com/ActiveState/appdirs): MIT
+
 
 # Limitations
 

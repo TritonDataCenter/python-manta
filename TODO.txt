@@ -14,6 +14,8 @@
 
 # Someday/Maybe
 
+- mantash lcd, lls
+- pipe support in interactive shell to *local* commands
 - import mantash TODOs
 - mantash job ^C support
 - mantash job -W   or something to NOT wait for a job to complete
