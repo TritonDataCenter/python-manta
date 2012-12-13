@@ -72,10 +72,10 @@ release: all
 	@rm -rf $(TMPDIR)
 
 publish: release
-	mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put $(RELEASE_TARBALL) /manta/public/sdk/python/
-	mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put $(RELEASE_TARBALL) /manta/public/sdk/python/python-manta-latest.tgz
-	mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
-		put -t text/plain README.md /manta/public/sdc/python/
+	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+		put -t text/plain README.md /manta/public/sdk/python/
 	@echo "See https://manta-beta.joyentcloud.com/manta/public/sdk/python/README.md"

@@ -47,7 +47,7 @@ some things to try:
 
 ## 2. python-manta
 
-    wget https://manta-beta.joyentcloud.com/trentm/public/python-manta/python-manta-latest.tgz
+    wget https://manta-beta.joyentcloud.com/manta/public/sdk/python-manta-latest.tgz
     tar xzf python-manta-latest.tgz
     cd python-manta-*   # the actual directory is 'python-manta-VERSION'
     export PATH=$PATH:`pwd`/bin
