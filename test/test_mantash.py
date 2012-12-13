@@ -25,10 +25,22 @@ TDIR = "tmp/test_mantash"
 #---- test cases
 
 class OptionsTestCase(MantaTestCase):
+    def test_version(self):
+        code, stdout, stderr = self.mantash(['--version'])
+        self.assertTrue(re.compile("^mantash \d+\.\d+\.\d+$").search(stdout))
+        self.assertEqual(stderr, "")
+        self.assertEqual(code, 0)
+
     def test_help(self):
-        pass
-        ##XXX START HERE
-        #code, stdout, stderr = self.mantash(['--help'])
-        #self.assertTrue("mantash COMMAND" in stdout)
-        #self.assertEqual(stderr, "")
-        #self.assertEqual(code, 0)
+        code, stdout, stderr = self.mantash(['help'])
+        self.assertTrue("mantash COMMAND" in stdout)
+        self.assertEqual(stderr, "")
+        self.assertEqual(code, 0)
+        code, stdout, stderr = self.mantash(['--help'])
+        self.assertTrue("mantash COMMAND" in stdout)
+        self.assertEqual(stderr, "")
+        self.assertEqual(code, 0)
+        code, stdout, stderr = self.mantash(['-h'])
+        self.assertTrue("mantash COMMAND" in stdout)
+        self.assertEqual(stderr, "")
+        self.assertEqual(code, 0)

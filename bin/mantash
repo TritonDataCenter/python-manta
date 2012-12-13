@@ -53,11 +53,14 @@ class MantaObjectDoesNotExist(MantashError):
 
 class Mantash(cmdln.Cmdln):
     name = "mantash"
+    version = manta.__version__
     manta_url = None
     cwd = None  # initialized in `postoptparse`
 
     def get_optparser(self):
         parser = cmdln.Cmdln.get_optparser(self)
+        #parser.add_option("--version", action="store_true",
+        #    help="print mantash version and exit")
         parser.add_option("-d", "--debug", action="store_true",
             help="debug logging")
         parser.add_option("-U", "-m", "--manta-url", dest="manta_url",

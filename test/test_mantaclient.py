@@ -20,11 +20,6 @@ import manta
 
 #---- globals
 
-MANTA_URL = os.environ['MANTA_URL']
-MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-MANTA_USER = os.environ['MANTA_USER']
-MANTA_INSECURE = bool(os.environ.get('MANTA_INSECURE', False))
-
 TDIR = "tmp/test_mantaclient"
 
 

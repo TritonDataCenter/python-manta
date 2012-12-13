@@ -2,7 +2,7 @@
 
 ## 1.0.1 (not yet released)
 
-(nothing yet)
+- `mantash --version`
 
 ## 1.0.0
 

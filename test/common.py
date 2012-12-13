@@ -11,21 +11,13 @@ from posixpath import join as ujoin
 from pprint import pprint
 import unittest
 import subprocess
+from subprocess import PIPE
 
 import manta
 
 
 
-#---- globals
-
-MANTA_URL = os.environ['MANTA_URL']
-MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-MANTA_USER = os.environ['MANTA_USER']
-MANTA_INSECURE = bool(os.environ.get('MANTA_INSECURE', False))
-
-
-
-#---- internal support stuff
+#---- exports
 
 def stor(*subpaths):
     if not subpaths:
@@ -38,6 +30,11 @@ def stor(*subpaths):
 class MantaTestCase(unittest.TestCase):
     _client = None
     def get_client(self):
+        MANTA_URL = os.environ['MANTA_URL']
+        MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
+        MANTA_USER = os.environ['MANTA_USER']
+        MANTA_INSECURE = bool(os.environ.get('MANTA_INSECURE', False))
+
         if not self._client:
             signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
             self._client = manta.MantaClient(url=MANTA_URL, user=MANTA_USER,
@@ -49,4 +46,10 @@ class MantaTestCase(unittest.TestCase):
         mantash = os.path.realpath(
             os.path.join(os.path.dirname(__file__), "..", "bin", "mantash"))
         argv = [sys.executable, mantash] + args
-        XXX # START HERE
+        p = subprocess.Popen(argv, shell=False, stdout=PIPE, stderr=PIPE,
+                             close_fds=True)
+        p.wait()
+        stdout = p.stdout.read()
+        stderr = p.stderr.read()
+        code = p.returncode
+        return code, stdout, stderr
