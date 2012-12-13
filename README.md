@@ -63,7 +63,9 @@ The 'mantash' CLI should now work:
 For Python usage you need to get the 'lib' directory on your Python Path.
 One way is:
 
-    export PYTHONPATH=`pwd`/lib
+    $ export PYTHONPATH=`pwd`/lib
+    $ python -c "import manta; print(manta.__version__)"
+    1.0.0
 
 
 
