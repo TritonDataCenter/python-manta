@@ -1,5 +1,6 @@
 *.pyc
 *.pyo
+/README.html
 /*.tgz
 /build
 /tmp

@@ -41,6 +41,11 @@ TAR := tar
 .PHONY: all
 all:
 
+.PHONY: clean
+clean:
+	rm -f python-manta*.tgz
+	rm -f README.html
+
 .PHONY: test
 test:
 	python test/test.py
@@ -52,13 +57,20 @@ test-kvm6:
 testall:
 	python test/testall.py
 
+
 #.PHONY: package
 #package: all
 #	rm -rf MANIFEST dist
 #	python setup.py sdist --no-defaults
 #	@echo "Created '$(shell ls dist/manta-*.tar.gz)'."
 
-release: all
+README.html: README.md tools/README.html.head tools/README.html.foot
+	cat tools/README.html.head > README.html
+	python $(HOME)/tm/python-markdown2/lib/markdown2.py README.md >> README.html
+	cat tools/README.html.foot >> README.html
+
+.PHONY: release
+release: README.html all
 	@echo "Building $(RELEASE_TARBALL)"
 	mkdir -p $(TMPDIR)/python-manta-$(STAMP)
 	cp -r \
@@ -71,6 +83,7 @@ release: all
 	(cd $(TMPDIR) && $(TAR) -czf $(TOP)/$(RELEASE_TARBALL) python-manta-$(STAMP))
 	@rm -rf $(TMPDIR)
 
+.PHONY: publish
 publish: release
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put $(RELEASE_TARBALL) /manta/public/sdk/python/
@@ -78,4 +91,6 @@ publish: release
 		put $(RELEASE_TARBALL) /manta/public/sdk/python/python-manta-latest.tgz
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put -t text/plain README.md /manta/public/sdk/python/
+	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+		put -t text/html README.html /manta/public/sdk/python/
 	@echo "See https://manta-beta.joyentcloud.com/manta/public/sdk/python/README.md"
