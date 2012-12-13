@@ -13,8 +13,8 @@ import re
 import struct
 from glob import glob
 
-PLAT_LIB = join(dirname(dirname(abspath(__file__))),
-    "plat-%s-py%s" % (sys.platform, '.'.join(map(str, sys.version_info[:2]))))
+PLAT_LIB = join(dirname(abspath(__file__)),
+    "plat-%s-py%s" % (sys.platform, ''.join(map(str, sys.version_info[:2]))))
 if PLAT_LIB not in sys.path:
     sys.path.insert(0, PLAT_LIB)
 from Crypto.PublicKey import RSA
@@ -297,6 +297,3 @@ class SSHAgentSigner(Signer):
         signed = base64.b64encode(signed_raw)
 
         return (algorithm, self.fingerprint, signed)
-
-
-

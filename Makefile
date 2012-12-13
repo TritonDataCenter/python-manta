@@ -50,19 +50,9 @@ test:
 testall:
 	python test/testall.py
 
-# TODO: use distutils' sdist?
-.PHONY: release
-release: all
-	mkdir -p $(TMPDIR)/$(NAME)
-	cp -r \
-		$(TOP)/bin \
-		$(TOP)/lib \
-		$(TOP)/setup.py \
-		$(TOP)/README.md \
-		$(TOP)/LICENSE.txt \
-		$(TOP)/TODO.txt \
-		$(TOP)/test \
-		$(TMPDIR)/$(NAME)
-	(cd $(TMPDIR) && $(TAR) -czf $(TOP)/build/$(RELEASE_TARBALL) $(NAME))
-	@rm -rf $(TMPDIR)
-	@echo "Created 'build/$(RELEASE_TARBALL)'."
+.PHONY: package
+package: all
+	rm -rf MANIFEST dist
+	python setup.py sdist --no-defaults
+	@echo "Created '$(shell ls dist/manta-*.tar.gz)'."
+

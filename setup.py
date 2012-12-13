@@ -31,6 +31,8 @@ Operating System :: OS Independent
 Topic :: Software Development :: Libraries :: Python Modules
 """
 
+packages = [d[0][len('lib/'):].replace('/', '.')
+    for d in os.walk('lib/manta') if "__pycache__" not in d[0]]
 
 script = (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
 #XXX version = manta.__version__ + '-' + 'gcafebab'
@@ -45,8 +47,11 @@ setup(
     url="https://github.com/joyent/python-manta",
     license="MIT",
     platforms=["any"],
-    py_modules=["manta"],
+    packages=packages + ["httplib2", "paramiko"],
     package_dir={"": "lib"},
+    package_data={
+        '': ['*.so', '*.txt'],
+    },
     scripts=[script],
     description="A Python SDK for Manta (Joyent's Object Store and Cloud Compute system)",
     classifiers=filter(None, classifiers.split("\n")),

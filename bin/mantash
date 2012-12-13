@@ -20,9 +20,9 @@ import optparse
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
-import cmdln
-import appdirs
 import manta
+from manta import cmdln
+from manta import appdirs
 del sys.path[0]
 
 
