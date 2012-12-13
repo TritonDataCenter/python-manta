@@ -44,6 +44,9 @@ all:
 .PHONY: test
 test:
 	python test/test.py
+.PHONY: test-kvm6
+test-kvm6:
+	make test MANTA_URL=https://10.2.126.31 MANTA_INSECURE=1 MANTA_USER=trent
 
 .PHONY: testall
 testall:
@@ -69,10 +72,10 @@ release: all
 	@rm -rf $(TMPDIR)
 
 publish: release
-	mantash -u trentm -U https://manta-beta.joyentcloud.com \
-		put $(RELEASE_TARBALL) /trentm/public/python-manta/
-	mantash -u trentm -U https://manta-beta.joyentcloud.com \
-		put $(RELEASE_TARBALL) /trentm/public/python-manta/python-manta-latest.tgz
-	mantash -u trentm -U https://manta-beta.joyentcloud.com \
-		put -t text/plain README.md /trentm/public/python-manta/
-	@echo "See https://manta-beta.joyentcloud.com/trentm/public/python-manta/README.md"
+	mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+		put $(RELEASE_TARBALL) /manta/public/sdk/python/
+	mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+		put $(RELEASE_TARBALL) /manta/public/sdk/python/python-manta-latest.tgz
+	mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+		put -t text/plain README.md /manta/public/sdc/python/
+	@echo "See https://manta-beta.joyentcloud.com/manta/public/sdk/python/README.md"

@@ -13,6 +13,7 @@
 
 # Bugs
 
+- find . -type ?    # -type is broken!
 - ls bug: missing '/'
     [https://10.2.121.193/trent/stor/shakespeare]$ ls */*
     allswellthatendswell
@@ -26,6 +27,8 @@
 # Someday/Maybe
 
 
+- mantash rmdir
+- mantash md5  # a la mmd5
 - mantash job ARGS:  where 'ARGS' is like 'find -type o', i.e. recursive
   and just objects
 - mantash lcd, lls
