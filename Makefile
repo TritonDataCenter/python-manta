@@ -90,6 +90,8 @@ publish: release
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put $(RELEASE_TARBALL) /manta/public/sdk/python/python-manta-latest.tgz
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
+		put -t text/plain CHANGES.md /manta/public/sdk/python/
+	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put -t text/plain README.md /manta/public/sdk/python/
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put -t text/html README.html /manta/public/sdk/python/
