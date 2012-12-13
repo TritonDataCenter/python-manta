@@ -71,11 +71,18 @@ One way is:
 
 # Setup
 
-First setup your environment to match your Joyent Manta account:
+First setup your environment to match your Joyent Manta account. Adjust
+accordingly for your SSH key and username. The SSH key here must match
+one of keys uploaded for your Joyent Public Cloud account.
 
     $ export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
     $ export MANTA_URL=https://manta-beta.joyentcloud.com
     $ export MANTA_USER=trentm
+
+`mantash` uses these environment variables (as does the [Manta Node.js SDK
+CLI](http://wiki.joyent.com/wiki/display/Manta/Manta+CLI+Reference)).
+Alternatively you can specify these parameters to `mantash` via command-line
+options -- see `mantash --help` for details.
 
 
 # Python Usage
