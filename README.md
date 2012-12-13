@@ -8,9 +8,9 @@ and shell.
 Beta stability. Still under active development. Tested mostly on Mac and
 SmartOS using Python 2.6 or 2.7.
 
-The *intention* is to support Windows (if reasonable) and Linux; and Python
->=2.5 and Python 3 (again, if reasonable). Supporting Python 3 might largely
-depend on python-manta's dependencies (paramiko and pycrypto).
+The *intention* is to support Windows (if reasonable) and Linux; and
+Python >=2.5 and Python 3 (again, if reasonable). Supporting Python 3 might
+largely depend on python-manta's dependencies (paramiko and pycrypto).
 
 Please send all feedback to Trent Mick on the <manta-private-beta@joyent.com>.
 
