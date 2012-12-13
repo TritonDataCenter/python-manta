@@ -75,3 +75,4 @@ publish: release
 		put $(RELEASE_TARBALL) /trentm/public/python-manta/python-manta-latest.tgz
 	mantash -u trentm -U https://manta-beta.joyentcloud.com \
 		put -t text/plain README.md /trentm/public/python-manta/
+	@echo "See https://manta-beta.joyentcloud.com/trentm/public/python-manta/README.md"
