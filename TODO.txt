@@ -1,9 +1,7 @@
 # todo
 
-- package build and install notes for installing from tarball
-- testing running large jobs via `mantash job`:
-  - taking keys on stdin
 - mantash job -c JOB-ID   # cancel a job
+- mantash job: taking keys on stdin
 - job support for running a given *script*
 - test suite:
   - moar
@@ -27,6 +25,7 @@
 
 # Someday/Maybe
 
+
 - mantash job ARGS:  where 'ARGS' is like 'find -type o', i.e. recursive
   and just objects
 - mantash lcd, lls
@@ -45,7 +44,8 @@
   conn to ssh-agent?
 - 'datetime=True' option to list_directory to interp the mtime to datetime
   objects
-- mantash jobs (note 'mjobs -s running' to show active jobs)
+- pip/python setup.py install support (hack-i-berry). All deps should be in
+  a lib/manta/deps which gets added to sys.path for manta imports
 - remember visited public folders for tab completion and 'mantash ls /'
   Need an option to drop that cache.
 - Unix-y MantaClient subclass with: mkdir, mkdirp, rmr, etc. a la node-manta.

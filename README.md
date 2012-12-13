@@ -17,27 +17,14 @@ Please send all feedback to Trent Mick on the <manta-private-beta@joyent.com>.
 
 # Installation
 
-    wget https://manta-beta.joyentcloud.com/trentm/public/python-manta/python-manta-latest.tgz
-    tar xzf python-manta-latest.tgz
-    cd python-manta-*   # the actual directory is 'python-manta-VERSION'
-    export PATH=$PATH:`pwd`/bin
+## pycrypto dependency
 
-The 'mantash' CLI should how work:
+The 'pycrypto' (aka 'Crypto') Python module is a binary dependency. If you
+use SmartOS and Python 2.7, then the Crypto module is included already and
+you don't need a separate install.
 
-    $ mantash help
-    ...
-
-For Python usage you need to get the 'lib' directory on your Python Path.
-One way is:
-
-    export PYTHONPATH=`pwd`/lib
-
-
-## pycrypto binary dependency
-
-The 'pycrypto' (aka 'Crypto') Python module is a binary dependency. Python
-module installation is a bit of a gong show, in general, but here are some
-things to try:
+Python module installation is a bit of a gong show, in general, but here are
+some things to try:
 
     # Mac (using system python)
     sudo easy_install pycrypto
@@ -48,12 +35,36 @@ things to try:
     **Please let me know if this binary build fails for you, e.g. dependency
     issue or different Python version.**
 
-    # Any platform using ActivePython
+    # Any platform using the ActivePython distribution of Python
     pypm install pycrypto
 
     # Other
     # Please let me know what works for you so I can add instructions to the
-    # list here.
+    # list here. Often one of the following will do it:
+    easy_install pycrypto
+    pip install pycrypto
+
+
+## python-manta
+
+    wget https://manta-beta.joyentcloud.com/trentm/public/python-manta/python-manta-latest.tgz
+    tar xzf python-manta-latest.tgz
+    cd python-manta-*   # the actual directory is 'python-manta-VERSION'
+    export PATH=$PATH:`pwd`/bin
+
+
+## verify it works
+
+The 'mantash' CLI should now work:
+
+    $ mantash help
+    ...
+
+For Python usage you need to get the 'lib' directory on your Python Path.
+One way is:
+
+    export PYTHONPATH=`pwd`/lib
+
 
 
 # Setup
@@ -181,5 +192,3 @@ For other limitations (also planned work) see TODO.txt.
 
     git clone git@github.com:joyent/python-manta.git
     export PATH=`pwd`/python-manta/bin:$PATH
-
-

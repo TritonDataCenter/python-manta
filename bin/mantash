@@ -55,7 +55,6 @@ class Mantash(cmdln.Cmdln):
     name = "mantash"
     manta_url = None
     cwd = None  # initialized in `postoptparse`
-    lcwd = os.getcwd()
 
     def get_optparser(self):
         parser = cmdln.Cmdln.get_optparser(self)
@@ -118,6 +117,30 @@ class Mantash(cmdln.Cmdln):
 
     def _update_prompt(self):
         self._prompt_str = "[%s%s]$ " % (self.manta_url, self.cwd)
+
+    def do_lpwd(self, subcmd, opts):
+        """${cmd_name}: print the local cwd"""
+        print os.getcwd()
+
+    def do_lcd(self, subcmd, opts, directory=None):
+        """${cmd_name}: change the local cwd
+
+        Usage:
+            ${cmd_name} [DIR]
+        """
+        if not directory:
+            lcwd = os.path.expanduser('~')
+        else:
+            lcwd = os.path.realpath(os.path.expanduser(directory))
+        os.chdir(lcwd)
+
+    def do_lls(self, argv):
+        """${cmd_name}: local ls
+
+        Usage:
+            ${cmd_name} [ARGS]
+        """
+        os.system('ls %s' % ' '.join(argv[1:]))
 
     def do_pwd(self, subcmd, opts):
         """${cmd_name}: print the cwd"""
@@ -690,7 +713,7 @@ class Mantash(cmdln.Cmdln):
         #   put -r file1 dir1 dir2   assert dir2 is a dir
 
         # Get info on dest path
-        dst_normpath = os.path.normpath(os.path.join(self.lcwd,
+        dst_normpath = os.path.normpath(os.path.join(os.getcwd(),
             os.path.expanduser(dst_path)))
         dst_is_existing_dir = os.path.isdir(dst_normpath)
 
