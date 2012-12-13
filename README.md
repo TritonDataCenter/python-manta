@@ -17,7 +17,7 @@ Please send all feedback to Trent Mick on the <manta-private-beta@joyent.com>.
 
 # Installation
 
-## pycrypto dependency
+## 1. pycrypto dependency
 
 The 'pycrypto' (aka 'Crypto') Python module is a binary dependency. If you
 use SmartOS and Python 2.7, then the Crypto module is included already and
@@ -45,7 +45,7 @@ some things to try:
     pip install pycrypto
 
 
-## python-manta
+## 2. python-manta
 
     wget https://manta-beta.joyentcloud.com/trentm/public/python-manta/python-manta-latest.tgz
     tar xzf python-manta-latest.tgz
@@ -53,7 +53,7 @@ some things to try:
     export PATH=$PATH:`pwd`/bin
 
 
-## verify it works
+## 3. verify it works
 
 The 'mantash' CLI should now work:
 
