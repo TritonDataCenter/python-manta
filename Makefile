@@ -67,3 +67,11 @@ release: all
 		$(TMPDIR)/python-manta-$(STAMP)
 	(cd $(TMPDIR) && $(TAR) -czf $(TOP)/$(RELEASE_TARBALL) python-manta-$(STAMP))
 	@rm -rf $(TMPDIR)
+
+publish: release
+	mantash -u trentm -U https://manta-beta.joyentcloud.com \
+		put $(RELEASE_TARBALL) /trentm/public/python-manta/
+	mantash -u trentm -U https://manta-beta.joyentcloud.com \
+		put $(RELEASE_TARBALL) /trentm/public/python-manta/python-manta-latest.tgz
+	mantash -u trentm -U https://manta-beta.joyentcloud.com \
+		put -t text/plain README.md /trentm/public/python-manta/

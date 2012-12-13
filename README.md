@@ -17,10 +17,23 @@ Please send all feedback to Trent Mick on the <manta-private-beta@joyent.com>.
 
 # Installation
 
-For developers:
+    wget https://manta-beta.joyentcloud.com/trentm/public/python-manta/python-manta-latest.tgz
+    tar xzf python-manta-latest.tgz
+    cd python-manta-*   # the actual directory is 'python-manta-VERSION'
+    export PATH=$PATH:`pwd`/bin
 
-    git clone git@github.com:joyent/python-manta.git
-    export PATH=`pwd`/python-manta/bin:$PATH
+The 'mantash' CLI should how work:
+
+    $ mantash help
+    ...
+
+For Python usage you need to get the 'lib' directory on your Python Path.
+One way is:
+
+    export PYTHONPATH=`pwd`/lib
+
+
+## pycrypto binary dependency
 
 The 'pycrypto' (aka 'Crypto') Python module is a binary dependency. Python
 module installation is a bit of a gong show, in general, but here are some
@@ -41,14 +54,6 @@ things to try:
     # Other
     # Please let me know what works for you so I can add instructions to the
     # list here.
-
-Eventually (when packaging and releases are implemented) this:
-
-    pip install path/to/python-manta-VERSION.tgz  # not yet implemented (TODO)
-
-Eventually (when python-manta is published to PyPI) this:
-
-    pip install manta    # not yet working (TODO)
 
 
 # Setup
@@ -170,4 +175,11 @@ for your use case, you could consider the [Manta Node.js
 bindings](https://github.com/joyent/node-manta).
 
 For other limitations (also planned work) see TODO.txt.
+
+
+# Development
+
+    git clone git@github.com:joyent/python-manta.git
+    export PATH=`pwd`/python-manta/bin:$PATH
+
 

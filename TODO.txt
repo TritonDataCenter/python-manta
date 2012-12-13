@@ -60,3 +60,8 @@
   Also include size/content-length -- useful for Apache/Nginx-style dir
   listings.
 
+# Manta bug to report
+
+- this:
+    [https://manta-beta.joyentcloud.com/trentm/public/python-manta]$ ln python-manta-1.0.0.tgz python-manta-latest.tgz
+    mantash: ERROR: (AuthorizationFailed) trentm is not allowed to access /trentm/public/python-manta/python-manta-1.0.0.tgz (/Users/trentm/joy/python-manta/lib/manta/client.py:398 in put_link)
