@@ -15,12 +15,10 @@ TOP := $(shell pwd)
 _AWK := $(shell (which gawk >/dev/null && echo gawk) \
 	|| (which nawk >/dev/null && echo nawk) \
 	|| echo awk)
-BRANCH := $(shell git symbolic-ref HEAD | $(_AWK) -F/ '{print $$3}')
-ifeq ($(TIMESTAMP),)
-	TIMESTAMP := $(shell date -u "+%Y%m%dT%H%M%SZ")
-endif
-_GITDESCRIBE := g$(shell git describe --all --long --dirty | $(_AWK) -F'-g' '{print $$NF}')
-STAMP := $(BRANCH)-$(TIMESTAMP)-$(_GITDESCRIBE)
+VERSION := $(shell grep __version__ lib/manta/version.py  | cut -d'"' -f2)
+_GITDESCRIBE := g$(shell git describe --all --long | $(_AWK) -F'-g' '{print $$NF}')
+#STAMP := $(VERSION)-$(_GITDESCRIBE)
+STAMP := $(VERSION)
 
 #
 # Vars, Tools, Files, Flags
@@ -28,6 +26,7 @@ STAMP := $(BRANCH)-$(TIMESTAMP)-$(_GITDESCRIBE)
 NAME		:= python-manta
 RELEASE_TARBALL	:= $(NAME)-$(STAMP).tgz
 TMPDIR          := /var/tmp/$(STAMP)
+TAR := tar
 
 # TODO: restdown docs
 #DOC_FILES	 = index.restdown
@@ -50,9 +49,21 @@ test:
 testall:
 	python test/testall.py
 
-.PHONY: package
-package: all
-	rm -rf MANIFEST dist
-	python setup.py sdist --no-defaults
-	@echo "Created '$(shell ls dist/manta-*.tar.gz)'."
+#.PHONY: package
+#package: all
+#	rm -rf MANIFEST dist
+#	python setup.py sdist --no-defaults
+#	@echo "Created '$(shell ls dist/manta-*.tar.gz)'."
 
+release: all
+	@echo "Building $(RELEASE_TARBALL)"
+	mkdir -p $(TMPDIR)/python-manta-$(STAMP)
+	cp -r \
+		$(TOP)/*.txt \
+		$(TOP)/*.md \
+		$(TOP)/bin \
+		$(TOP)/lib \
+		$(TOP)/test \
+		$(TMPDIR)/python-manta-$(STAMP)
+	(cd $(TMPDIR) && $(TAR) -czf $(TOP)/$(RELEASE_TARBALL) python-manta-$(STAMP))
+	@rm -rf $(TMPDIR)

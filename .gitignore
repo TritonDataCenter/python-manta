@@ -1,5 +1,6 @@
 *.pyc
 *.pyo
+/*.tgz
 /build
 /tmp
 /play.py
