@@ -13,7 +13,6 @@
 
 # Bugs
 
-- find . -type ?    # -type is broken!
 - ls bug: missing '/'
     [https://10.2.121.193/trent/stor/shakespeare]$ ls */*
     allswellthatendswell
