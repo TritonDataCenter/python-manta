@@ -21,7 +21,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256, SHA, SHA512
 
-import manta.errors as errors
+from manta.errors import MantaError
 
 
 #---- globals
@@ -119,7 +119,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
         if fingerprint_from_ssh_pub_key(pub_key) == fingerprint:
             break
     else:
-        raise errors.MantaError(
+        raise MantaError(
             "no '~/.ssh/*.pub' key found with fingerprint '%s'"
             % fingerprint)
     priv_key_path = os.path.splitext(pub_key_path)[0]
@@ -149,6 +149,100 @@ def signature_from_agent_sign_response(d):
     """h/t <https://github.com/atl/py-http-signature/blob/master/http_signature/sign.py>"""
     return unpack_agent_response(d)[1]
 
+def ssh_key_info_from_key_data(key_id, priv_key=None):
+    """Get/load SSH key info necessary for signing.
+
+    @param key_id {str} Either a private ssh key fingerprint, e.g.
+        'b3:f0:a1:6c:18:3b:42:63:fd:6e:57:42:74:17:d4:bc', or the path to
+        an ssh private key file (like ssh's IdentityFile config option).
+    @param priv_key {str} Optional. SSH private key file data (PEM format).
+    @return {dict} with these keys:
+        - type: "agent"
+        - signer: Crypto signer class (a PKCS#1 v1.5 signer for RSA keys)
+        - fingerprint: key fingerprint
+        - algorithm: 'rsa-sha256'  DSA not current supported. Hash algorithm
+          selection is not exposed.
+        - ... some others added by `load_ssh_key()`
+    """
+    if FINGERPRINT_RE.match(key_id) and priv_key:
+        key_info = {
+            "fingerprint": key_id,
+            "priv_key": priv_key
+        }
+    else:
+        # Otherwise, we attempt to load necessary details from ~/.ssh.
+        key_info = load_ssh_key(key_id)
+
+    # Load an RSA key signer.
+    key = None
+    try:
+        key = RSA.importKey(key_info["priv_key"])
+    except ValueError:
+        if "priv_key_path" in key_info:
+            prompt = "Passphrase [%s]: " % key_info["priv_key_path"]
+        else:
+            prompt = "Passphrase: "
+        for i in range(3):
+            passphrase = getpass(prompt)
+            if not passphrase:
+                break
+            try:
+                key = RSA.importKey(key_info["priv_key"], passphrase)
+            except ValueError:
+                continue
+            else:
+                break
+        if not key:
+            details = ""
+            if "priv_key_path" in key_info:
+                details = " (%s)" % key_info["priv_key_path"]
+            raise MantaError("could not import key" + details)
+    key_info["signer"] = PKCS1_v1_5.new(key)
+
+    key_info["type"] = "ssh_key"
+    key_info["algorithm"] = "rsa-sha256"
+    return key_info
+
+
+def agent_key_info_from_key_id(key_id):
+    """Find a matching key in the ssh-agent.
+
+    @param key_id {str} Either a private ssh key fingerprint, e.g.
+        'b3:f0:a1:6c:18:3b:42:63:fd:6e:57:42:74:17:d4:bc', or the path to
+        an ssh private key file (like ssh's IdentityFile config option).
+    @return {dict} with these keys:
+        - type: "agent"
+        - agent_key: paramiko AgentKey
+        - fingerprint: key fingerprint
+        - algorithm: "rsa-sha1"  Currently don't support DSA agent signing.
+    """
+    # Need the fingerprint of the key we're using for signing. If it
+    # is a path to a priv key, then we need to load it.
+    if not FINGERPRINT_RE.match(key_id):
+        ssh_key = load_ssh_key(key_id, True)
+        fingerprint = ssh_key["fingerprint"]
+    else:
+        fingerprint = key_id
+
+    # Look for a matching fingerprint in the ssh-agent keys.
+    import paramiko
+    keys = paramiko.Agent().get_keys()
+    for key in keys:
+        if fingerprint_from_raw_ssh_pub_key(str(key)) == fingerprint:
+            break
+    else:
+        raise MantaError(
+            'no ssh-agent key with fingerprint "%s"' % fingerprint)
+
+    # TODO:XXX DSA support possible with paramiko?
+    algorithm = 'rsa-sha1'
+
+    return {
+        "type": "agent",
+        "agent_key": key,
+        "fingerprint": fingerprint,
+        "algorithm": algorithm
+    }
 
 
 
@@ -183,70 +277,32 @@ class PrivateKeySigner(Signer):
         self.key_id = key_id
         self.priv_key = priv_key
 
-    _ssh_key_cache = None
-    def _get_ssh_key(self):
-        if self._ssh_key_cache is None:
-            if FINGERPRINT_RE.match(self.key_id) and self.priv_key:
-                self._ssh_key_cache = {
-                    "fingerprint": self.key_id,
-                    "priv_key": self.priv_key
-                }
-            else:
-                # Otherwise, we attempt to load necessary details from ~/.ssh.
-                self._ssh_key_cache = load_ssh_key(self.key_id)
-        return self._ssh_key_cache
-
-    _rsa_signer_cache = None
-    def _get_rsa_signer(self, ssh_key):
-        if self._rsa_signer_cache is None:
-            key = None
-            try:
-                key = RSA.importKey(ssh_key["priv_key"])
-            except ValueError:
-                if "priv_key_path" in ssh_key:
-                    prompt = "Passphrase [%s]: " % ssh_key["priv_key_path"]
-                else:
-                    prompt = "Passphrase: "
-                for i in range(3):
-                    passphrase = getpass(prompt)
-                    if not passphrase:
-                        break
-                    try:
-                        key = RSA.importKey(ssh_key["priv_key"], passphrase)
-                    except ValueError:
-                        continue
-                    else:
-                        break
-                if not key:
-                    details = ""
-                    if "priv_key_path" in ssh_key:
-                        details = " (%s)" % ssh_key["priv_key_path"]
-                    raise errors.MantaError("could not import key" + details)
-            self._rsa_signer_cache = PKCS1_v1_5.new(key)
-        return self._rsa_signer_cache
+    _key_info_cache = None
+    def _get_key_info(self):
+        """Get key info appropriate for signing."""
+        if self._key_info_cache is None:
+            self._key_info_cache = ssh_key_info_from_key_data(
+                self.key_id, self.priv_key)
+        return self._key_info_cache
 
     def sign(self, s):
         assert isinstance(s, str)   # for now, not unicode. Python 3?
 
-        ssh_key = self._get_ssh_key()
+        key_info = self._get_key_info()
 
-        firstline = ssh_key["priv_key"].split('\n', 1)[0]
-        if ' DSA ' in firstline:
-            # TODO:XXX DSA support
-            raise NotImplementedError("'DSA' keys not yet supported")
-        elif ' RSA ' in firstline:
-            algorithm = 'rsa-sha256'
-            hasher = SHA256.new()
-        else:
-            raise errors.MantaError('unknown private key type: "%s..."'
-                % firstline)
-
-        rsa_signer = self._get_rsa_signer(ssh_key)
+        assert key_info["type"] == "ssh_key"
+        hash_algo = key_info["algorithm"].split('-')[1]
+        hash_class = {
+            "sha1": SHA,
+            "sha256": SHA256,
+            "sha512": SHA512
+        }[hash_algo]
+        hasher = hash_class.new()
         hasher.update(s)
-        signed_raw = rsa_signer.sign(hasher)
+        signed_raw = key_info["signer"].sign(hasher)
         signed = base64.b64encode(signed_raw)
 
-        return (algorithm, ssh_key["fingerprint"], signed)
+        return (key_info["algorithm"], key_info["fingerprint"], signed)
 
 class SSHAgentSigner(Signer):
     """Sign Manta requests using an ssh-agent.
@@ -258,42 +314,85 @@ class SSHAgentSigner(Signer):
     def __init__(self, key_id):
         self.key_id = key_id
 
-    _agent_key_cache = None
-    def _get_agent_key(self):
-        """Find a matching key in the ssh-agent.
-
-        Side-effect: `self.fingerprint` is set.
-        """
-        if self._agent_key_cache is None:
-            # Need the fingerprint of the key we're using for signing. If it
-            # a path to a priv key, then we need to load it.
-            if not FINGERPRINT_RE.match(self.key_id):
-                ssh_key = load_ssh_key(self.key_id, True)
-                fingerprint = ssh_key["fingerprint"]
-            else:
-                fingerprint = self.key_id
-            self.fingerprint = fingerprint
-
-            # Look for a matching fingerprint in the ssh-agent keys.
-            import paramiko
-            keys = paramiko.Agent().get_keys()
-            for key in keys:
-                if fingerprint_from_raw_ssh_pub_key(str(key)) == fingerprint:
-                    break
-            else:
-                raise errors.MantaError(
-                    'no ssh-agent key with fingerprint "%s"' % fingerprint)
-            self._agent_key_cache = key
-        return self._agent_key_cache
+    _key_info_cache = None
+    def _get_key_info(self):
+        """Get key info appropriate for signing."""
+        if self._key_info_cache is None:
+            self._key_info_cache = agent_key_info_from_key_id(self.key_id)
+        return self._key_info_cache
 
     def sign(self, s):
         assert isinstance(s, str)   # for now, not unicode. Python 3?
 
-        agent_key = self._get_agent_key()
-        # TODO:XXX DSA support possible with paramiko?
-        algorithm = 'rsa-sha1'
-        response = agent_key.sign_ssh_data(None, s)
+        key_info = self._get_key_info()
+        assert key_info["type"] == "agent"
+        response = key_info["agent_key"].sign_ssh_data(None, s)
         signed_raw = signature_from_agent_sign_response(response)
         signed = base64.b64encode(signed_raw)
 
-        return (algorithm, self.fingerprint, signed)
+        return (key_info["algorithm"], key_info["fingerprint"], signed)
+
+class CLISigner(Signer):
+    """Sign Manta requests using the SSH agent (if available and has the
+    required key) or loading keys from "~/.ssh/*".
+    """
+    def __init__(self, key_id):
+        self.key_id = key_id
+
+    _key_info_cache = None
+    def _get_key_info(self):
+        """Get key info appropriate for signing: either from the ssh agent
+        or from a private key.
+        """
+        if self._key_info_cache is not None:
+            return self._key_info_cache
+
+        errors = []
+
+        # First try the agent.
+        try:
+            key_info = agent_key_info_from_key_id(self.key_id)
+        except MantaError, ex:
+            errors.append(ex)
+        else:
+            self._key_info_cache = key_info
+            return self._key_info_cache
+
+        # Try loading from "~/.ssh/*".
+        try:
+            key_info = ssh_key_info_from_key_data(self.key_id)
+        except MantaError, ex:
+            errors.append(ex)
+        else:
+            self._key_info_cache = key_info
+            return self._key_info_cache
+
+        raise MantaError("could not find key info for signing: %s"
+            % "; ".join(map(unicode, errors)))
+
+    def sign(self, s):
+        assert isinstance(s, str)   # for now, not unicode. Python 3?
+
+        key_info = self._get_key_info()
+
+        if key_info["type"] == "agent":
+            response = key_info["agent_key"].sign_ssh_data(None, s)
+            signed_raw = signature_from_agent_sign_response(response)
+            signed = base64.b64encode(signed_raw)
+        elif key_info["type"] == "ssh_key":
+            hash_algo = key_info["algorithm"].split('-')[1]
+            hash_class = {
+                "sha1": SHA,
+                "sha256": SHA256,
+                "sha512": SHA512
+            }[hash_algo]
+            hasher = hash_class.new()
+            hasher.update(s)
+            signed_raw = key_info["signer"].sign(hasher)
+            signed = base64.b64encode(signed_raw)
+        else:
+            raise MantaError("internal error: unknown key type: %r"
+                % key_info["type"])
+
+        return (key_info["algorithm"], key_info["fingerprint"], signed)
+

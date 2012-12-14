@@ -120,7 +120,7 @@ class Mantash(cmdln.Cmdln):
         self.user = self.options.user
         self.home = "/%s/stor" % self.user
         self.cwd = self.home
-        signer = manta.SSHAgentSigner(self.options.key_id)
+        signer = manta.CLISigner(self.options.key_id)
         self.client = manta.MantaClient(self.manta_url, self.user, signer,
             disable_ssl_certificate_validation=self.options.insecure,
             user_agent=USER_AGENT, debug=self.options.debug)
