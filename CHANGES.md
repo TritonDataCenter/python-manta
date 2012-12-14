@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 1.0.1 (not yet released)
+## 1.1.0 (not yet released)
 
 - Fix a bug where the '-type' argument to 'mantash find' always returned empty
   results.

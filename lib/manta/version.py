@@ -1,3 +1,3 @@
 # Copyright 2012 Joyent, Inc.  All rights reserved.
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
