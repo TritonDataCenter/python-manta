@@ -85,6 +85,11 @@ release: README.html all
 
 .PHONY: publish
 publish: release
+	@echo '#'
+	@echo '# Are you sure you want to publish this to manta-beta?'
+	@echo '# Press <Enter> to continue, <Ctrl+C> to cancel.'
+	@echo '#'
+	@read
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put $(RELEASE_TARBALL) /manta/public/sdk/python/
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
