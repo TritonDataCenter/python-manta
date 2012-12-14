@@ -46,7 +46,11 @@ class MantaTestCase(unittest.TestCase):
     def mantash(self, args):
         mantash = os.path.realpath(
             os.path.join(os.path.dirname(__file__), "..", "bin", "mantash"))
-        argv = [sys.executable, mantash] + args
+        argv = [sys.executable, mantash]
+        MANTA_INSECURE = bool(os.environ.get('MANTA_INSECURE', False))
+        if MANTA_INSECURE:
+            argv.append('-k')
+        argv += args
         p = subprocess.Popen(argv, shell=False, stdout=PIPE, stderr=PIPE,
                              close_fds=True)
         p.wait()

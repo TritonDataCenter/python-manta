@@ -74,4 +74,3 @@ class FindTestCase(MantaTestCase):
         self.assertTrue("obj1.txt" not in stdout)
         self.assertTrue("dir2" in stdout)
         self.assertEqual(code, 0)
-
