@@ -193,6 +193,9 @@ class RawCmdln(cmd.Cmd):
         options.
 
         When called `self.options' holds the results of the option parse.
+
+        If this returns non-zero/non-None, then command processing is stopped
+        and this retval is returned from `main()`.
         """
         pass
 
@@ -244,7 +247,10 @@ class RawCmdln(cmd.Cmd):
                 return 0
         else:
             self.options, args = None, argv[1:]
-        self.postoptparse()
+
+        retval = self.postoptparse()
+        if retval:
+            return retval
 
         if loop == LOOP_ALWAYS:
             if args:

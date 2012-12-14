@@ -20,6 +20,7 @@ import manta
 #---- exports
 
 def stor(*subpaths):
+    MANTA_USER = os.environ['MANTA_USER']
     if not subpaths:
         return '/%s/stor' % MANTA_USER
     subpath = ujoin(*subpaths)

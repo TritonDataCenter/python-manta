@@ -2,6 +2,13 @@
 
 ## 1.0.1 (not yet released)
 
+- Fix a bug where the '-type' argument to 'mantash find' always returned empty
+  results.
+
+- Add 'mantash -C DIRECTORY' to start in the given directory. E.g.:
+
+        mantash -C /trent/public find .
+
 - Add support for MANTASH_PS1 envvar for a fancy prompt. A subset of the
   Bash codes are supported (see "PROMPTING" section in `man bash and
   the `_update_prompt` method in "bin/mantash"). The default is `[\m\w]$ `,

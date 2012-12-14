@@ -74,6 +74,8 @@ class Mantash(cmdln.Cmdln):
         parser.add_option("-i", "--key-id", dest="key_id",
             help="SSH key to use for authenticating with Manta",
             default=os.environ.get("MANTA_KEY_ID"))
+        parser.add_option("-C", dest="cd", metavar="DIRECTORY",
+            help="first change to the given directory")
         parser.add_option("--drop-cache", dest="drop_cache", action="store_true",
             help="drop the current HTTP cache before starting")
         parser.add_option("-k", "--insecure", action="store_true",
@@ -124,7 +126,11 @@ class Mantash(cmdln.Cmdln):
             user_agent=USER_AGENT, debug=self.options.debug)
 
         self.do_help.aliases.append("man")
+
         self._update_prompt()
+
+        if self.options.cd:
+            return self.cmd(["cd", self.options.cd])
 
     def _update_prompt(self):
         """Supported MANTASH_PS1 codes:
@@ -946,7 +952,7 @@ class Mantash(cmdln.Cmdln):
                     "o": "object",
                     "f": "object",
                     "d": "directory",
-                }
+                }[type_char]
             elif opt == "-ls":
                 opts.ls = True
             else:

@@ -6,12 +6,13 @@
 import os
 import sys
 import re
+from posixpath import join as ujoin
 from pprint import pprint
 import unittest
 
 from testlib import TestError, TestSkipped, tag
 
-from common import *
+from common import MantaTestCase, stor
 import manta
 
 
@@ -44,3 +45,33 @@ class OptionsTestCase(MantaTestCase):
         self.assertTrue("mantash COMMAND" in stdout)
         self.assertEqual(stderr, "")
         self.assertEqual(code, 0)
+
+class FindTestCase(MantaTestCase):
+    def setUp(self):
+        self.client = self.get_client()
+        self.base = b = ujoin(TDIR, 'find')
+        self.client.mkdirp(stor(b, "dir1/dir2"))
+        self.client.put(stor(b, "dir1/obj1.txt"), "this is obj1")
+
+    def test_empty(self):
+        code, stdout, stderr = self.mantash(['-C', self.base, 'find'])
+        self.assertTrue("obj1.txt" in stdout)
+        self.assertTrue("dir2" in stdout)
+        self.assertEqual(code, 0)
+
+    def test_type(self):
+        code, stdout, stderr = self.mantash(['-C', self.base, 'find', '-type', 'f'])
+        self.assertTrue("obj1.txt" in stdout)
+        self.assertTrue("dir2" not in stdout)
+        self.assertEqual(code, 0)
+
+        code, stdout, stderr = self.mantash(['-C', self.base, 'find', '-type', 'o'])
+        self.assertTrue("obj1.txt" in stdout)
+        self.assertTrue("dir2" not in stdout)
+        self.assertEqual(code, 0)
+
+        code, stdout, stderr = self.mantash(['-C', self.base, 'find', '-type', 'd'])
+        self.assertTrue("obj1.txt" not in stdout)
+        self.assertTrue("dir2" in stdout)
+        self.assertEqual(code, 0)
+

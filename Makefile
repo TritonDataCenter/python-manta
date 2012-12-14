@@ -48,7 +48,7 @@ clean:
 
 .PHONY: test
 test:
-	python test/test.py
+	python test/test.py $(TAGS)
 .PHONY: test-kvm6
 test-kvm6:
 	make test MANTA_URL=https://10.2.126.31 MANTA_INSECURE=1 MANTA_USER=trent
