@@ -70,7 +70,7 @@ def _indent(s, indent='    '):
 class MantaHttp(httplib2.Http):
     def _request(self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey):
         if log.isEnabledFor(logging.DEBUG):
-            body_str = body or ''
+            body_str = body or '(none)'
             if body and len(body) > 1024:
                 body_str = body[:1021] + '...'
             log.debug("req: %s %s\n%s", method, request_uri,

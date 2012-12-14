@@ -17,6 +17,7 @@ from hashlib import md5
 from operator import itemgetter
 from fnmatch import fnmatchcase
 import optparse
+import urlparse
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
@@ -30,13 +31,15 @@ del sys.path[0]
 #---- globals
 
 log = logging.getLogger("mantash")
-g_cache_dir = appdirs.user_cache_dir("mantash", "Joyent")
-g_http_cache_dir = os.path.join(g_cache_dir, "http")
-g_user_agent = "mantash/%s (%s) Python/%s" % (
+
+CACHE_DIR = appdirs.user_cache_dir("mantash", "Joyent")
+HTTP_CACHE_DIR = os.path.join(CACHE_DIR, "http")
+
+USER_AGENT = "mantash/%s (%s) Python/%s" % (
     manta.__version__, sys.platform, sys.version.split(None, 1)[0])
 
-g_dir_content_type = "application/json; type=directory"
-g_dir_stream_content_type = "application/x-json-stream; type=directory"
+DEFAULT_PS1 = r'[\m\w]$ '
+
 
 
 
@@ -92,22 +95,25 @@ class Mantash(cmdln.Cmdln):
         # TODO: would be preferable to have a '--no-cache' option that
         # just fully disabled using a cache. Perhaps setting the cache dir
         # to /dev/null? Or the MantaClient.no_cache thing above.
-        if self.options.drop_cache and os.path.exists(g_http_cache_dir):
+        if self.options.drop_cache and os.path.exists(HTTP_CACHE_DIR):
             import shutil
-            shutil.rmtree(g_http_cache_dir)
-            assert not os.path.exists(g_http_cache_dir)
+            shutil.rmtree(HTTP_CACHE_DIR)
+            assert not os.path.exists(HTTP_CACHE_DIR)
 
         if not self.options.manta_url:
-            raise MantashError("no Manta URL: use '-U' or 'MANTA_URL' envvar")
+            raise MantashError("no Manta URL: use '-m' or 'MANTA_URL' envvar")
         if not self.options.user:
             raise MantashError("no Manta user: use '-u' or 'MANTA_USER' envvar")
         if not self.options.key_id:
             raise MantashError("no Manta key ID: use '-i' or 'MANTA_KEY_ID' envvar")
         self.manta_url = self.options.manta_url
 
+        self.ps1 = os.environ.get("MANTASH_PS1", DEFAULT_PS1)
+
         if (not self.manta_url.startswith('http://') and
             not self.manta_url.startswith('https://')):
             self.manta_url = 'https://' + self.manta_url
+        self.host = urlparse.urlparse(self.manta_url).hostname
 
         self.user = self.options.user
         self.home = "/%s/stor" % self.user
@@ -115,11 +121,48 @@ class Mantash(cmdln.Cmdln):
         signer = manta.SSHAgentSigner(self.options.key_id)
         self.client = manta.MantaClient(self.manta_url, self.user, signer,
             disable_ssl_certificate_validation=self.options.insecure,
-            debug=self.options.debug)
+            user_agent=USER_AGENT, debug=self.options.debug)
+
+        self.do_help.aliases.append("man")
         self._update_prompt()
 
     def _update_prompt(self):
-        self._prompt_str = "[%s%s]$ " % (self.manta_url, self.cwd)
+        """Supported MANTASH_PS1 codes:
+            \h     the hostname up to the first `.'
+            \H     the hostname
+            \n     newline
+            \r     carriage return
+            \w     the current working directory
+            \W     the basename of the current working directory
+            \e     an ASCII escape character (033)
+            \\     a backslash
+
+        Currently not supported (because I'd need to hack cmdln.py a bit):
+            \t     the current time in 24-hour HH:MM:SS format
+        """
+        if re.search('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', self.host):
+            shorthost = self.host
+        else:
+            shorthost = self.host.split('.')[0]
+        codes = {
+            'm': self.manta_url,
+            'w': self.cwd,
+            'W': ubasename(self.cwd),
+            'u': self.user,
+            'h': shorthost,
+            'H': self.host,
+            'n': '\n',
+            'n': '\r',
+            #'t': time.strftime('%H:%M:%S', time.localtime()),
+            'v': '.'.join(self.version.split('.')[:2]),
+            'V': self.version,
+            'e': '\033',
+            '\\': '\\',
+        }
+        def repl(match):
+            return codes[match.group(1)]
+        allkeys = ''.join(codes.keys()).replace('\\', '\\\\')
+        self._prompt_str = re.sub(r'\\([%s])' % allkeys, repl, self.ps1)
 
     def do_lpwd(self, subcmd, opts):
         """${cmd_name}: print the local cwd"""
@@ -948,7 +991,7 @@ class Mantash(cmdln.Cmdln):
         """
         npath = self._realpath(path)
         base = ubasename(npath)
-        local_path = os.path.join(g_cache_dir, "vi",
+        local_path = os.path.join(CACHE_DIR, "vi",
             "%s-local.%s" % (os.getpid(), base))
         if not os.path.exists(os.path.dirname(local_path)):
             os.makedirs(os.path.dirname(local_path))
