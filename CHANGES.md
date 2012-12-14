@@ -1,6 +1,10 @@
 # python-manta Changelog
 
-## 1.1.0 (not yet released)
+## 1.1.1 (not yet released)
+
+(nothing yet)
+
+## 1.1.0
 
 - Add `manta.CLISigner` for signing appropriate for an CLI tool. It will
   use an ssh-agent if available and fallback to using a given SSH key
