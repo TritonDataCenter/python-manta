@@ -732,18 +732,22 @@ class Mantash(cmdln.Cmdln):
         """get a file from manta
 
         Usage:
-            ${cmd_name} MANTA-PATH LOCAL-PATH
-            ${cmd_name} MANTA-PATH LOCAL-DIRECTORY
+            ${cmd_name} MANTA-PATH [LOCAL-PATH]
+            ${cmd_name} MANTA-PATH [LOCAL-DIRECTORY]
 
         ${cmd_option_list}
         """
-        if len(paths) < 2:
+        if len(paths) < 1:
             log.error("incorrect number of arguments")
             return 1
+        elif len(paths) == 1:
+            src_paths = paths
+            dst_path = '.'
+        else:
+            src_paths = paths[:-1]
+            dst_path = paths[-1]
         if opts.dry_run:
             opts.verbose = True
-        src_paths = paths[:-1]
-        dst_path = paths[-1]
 
         # In all cases we get the normalized dest path.
         # Non-recursive:

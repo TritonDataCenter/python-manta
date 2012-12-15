@@ -2,7 +2,8 @@
 
 ## 1.1.1 (not yet released)
 
-(nothing yet)
+- 'DST-PATH' in `mantash get SRC-PATH DST-PATH` now defaults to the cwd.
+
 
 ## 1.1.0
 
