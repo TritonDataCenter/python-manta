@@ -58,7 +58,8 @@ class Mantash(cmdln.Cmdln):
     name = "mantash"
     version = manta.__version__
     manta_url = None
-    cwd = None  # initialized in `postoptparse`
+    cwd = None          # initialized in `postoptparse`
+    last_cwd = None     # ditto
 
     def get_optparser(self):
         parser = cmdln.Cmdln.get_optparser(self)
@@ -119,7 +120,7 @@ class Mantash(cmdln.Cmdln):
 
         self.user = self.options.user
         self.home = "/%s/stor" % self.user
-        self.cwd = self.home
+        self.last_cwd = self.cwd = self.home
         signer = manta.CLISigner(self.options.key_id)
         self.client = manta.MantaClient(self.manta_url, self.user, signer,
             disable_ssl_certificate_validation=self.options.insecure,
@@ -474,7 +475,11 @@ class Mantash(cmdln.Cmdln):
         """
         ndir = unormpath(ujoin(self.cwd, uexpanduser(directory, self.home)))
         nparts = ndir.split('/')
-        if len(nparts) <= 2:
+        last_cwd = self.cwd
+        if directory == '-':
+            print self.last_cwd
+            self.cwd = self.last_cwd
+        elif len(nparts) <= 2:
             # '/' or '/USER'
             self.cwd = ndir
         elif len(nparts) == 3:
@@ -499,6 +504,7 @@ class Mantash(cmdln.Cmdln):
                 return 1
             else:
                 self.cwd = ndir
+        self.last_cwd = last_cwd
         self._update_prompt()
 
     def completedefault(self, text, line, begidx, endidx):

@@ -2,6 +2,8 @@
 
 ## 1.2.1 (not yet released)
 
+- `cd -` support in mantash shell.
+
 - Fix `mantash find OBJECT-PATH` (as opposed to find on a *DIR*).
 
 
