@@ -1015,12 +1015,22 @@ class Mantash(cmdln.Cmdln):
         #print "find: top=%r, opts=%r" % (top, opts)
 
         def find_all(d):
-            for dirpath, dirents, objents in self.client.walk(d):
-                yield {"type": "directory", "name": ubasename(dirpath),
-                       "path": dirpath}
-                for objent in objents:
-                    objent["path"] = ujoin(dirpath, objent["name"])
-                    yield objent
+            parent = udirname(d)
+            base = ubasename(d)
+            dirents = self._get_dir(parent)
+            if dirents is None or base not in dirents:
+                log.error("%s: no such remote directory", d)
+            elif dirents[base]["type"] == "directory":
+                for dirpath, dirents, objents in self.client.walk(d):
+                    yield {"type": "directory", "name": ubasename(dirpath),
+                           "path": dirpath}
+                    for objent in objents:
+                        objent["path"] = ujoin(dirpath, objent["name"])
+                        yield objent
+            else:
+                objent = dirents[base]
+                objent["path"] = d
+                yield objent
 
         # Do the find and filtering.
         ntop = self._realpath(top)

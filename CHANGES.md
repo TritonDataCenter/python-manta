@@ -2,7 +2,7 @@
 
 ## 1.2.1 (not yet released)
 
-(nothing yet)
+- Fix `mantash find OBJECT-PATH` (as opposed to find on a *DIR*).
 
 
 ## 1.2.0
