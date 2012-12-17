@@ -190,8 +190,6 @@ respective licenses:
 - httplib2 (http://code.google.com/p/httplib2/): MIT
 - cmdln (https://github.com/trentm/cmdln): MIT
 - appdirs (https://github.com/ActiveState/appdirs): MIT
-- pycrypto build for sunos: public domain
-  (https://github.com/dlitz/pycrypto/blob/master/COPYRIGHT)
 
 
 # Limitations
