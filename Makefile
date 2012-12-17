@@ -26,7 +26,16 @@ STAMP := $(VERSION)
 NAME		:= python-manta
 RELEASE_TARBALL	:= $(NAME)-$(STAMP).tgz
 TMPDIR          := /var/tmp/$(STAMP)
-TAR := tar
+
+ifeq ($(shell uname -s),Darwin)
+	# http://superuser.com/questions/61185
+	# http://forums.macosxhints.com/archive/index.php/t-43243.html
+	# This is an Apple customization to `tar` to avoid creating
+	# '._foo' files for extended-attributes for archived files.
+	TAR := COPYFILE_DISABLE=true COPY_EXTENDED_ATTRIBUTES_DISABLE=true tar
+else
+	TAR := tar
+endif
 
 # TODO: restdown docs
 #DOC_FILES	 = index.restdown
@@ -80,13 +89,17 @@ release: README.html all
 		$(TOP)/lib \
 		$(TOP)/test \
 		$(TMPDIR)/python-manta-$(STAMP)
-	(cd $(TMPDIR) && $(TAR) -czf $(TOP)/$(RELEASE_TARBALL) python-manta-$(STAMP))
+	(cd $(TMPDIR) && $(TAR) -v --exclude-from=$(TOP)/tools/release.exclude \
+		-czf $(TOP)/$(RELEASE_TARBALL) python-manta-$(STAMP))
 	@rm -rf $(TMPDIR)
 
 .PHONY: publish
 publish: release
 	@echo '#'
-	@echo '# Are you sure you want to publish this to manta-beta?'
+	@echo '# Are you sure you want to publish'
+	@echo '#      $(RELEASE_TARBALL)'
+	@echo '# et al to manta-beta?'
+	@echo '#'
 	@echo '# Press <Enter> to continue, <Ctrl+C> to cancel.'
 	@echo '#'
 	@read
