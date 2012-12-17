@@ -2,6 +2,9 @@
 
 ## 1.2.0 (not yet released)
 
+- [issue #1] Drop the binary Crypto build for sunos-py27 (32-bit) and give
+  instructions to install PyCrypto with pkgin et al on SmartOS.
+
 - Improve tab-completion in the mantash interactive shell. It should now
   properly do manta path (e.g. `ls`), manta dir (e.g. `cd`), local path (e.g.
   `lls`), or local dir completion (e.g. `lcd`) depending on the command being

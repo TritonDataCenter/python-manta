@@ -92,6 +92,7 @@ release: README.html all
 	(cd $(TMPDIR) && $(TAR) -v --exclude-from=$(TOP)/tools/release.exclude \
 		-czf $(TOP)/$(RELEASE_TARBALL) python-manta-$(STAMP))
 	@rm -rf $(TMPDIR)
+	@echo "Created $(RELEASE_TARBALL)"
 
 .PHONY: publish
 publish: release

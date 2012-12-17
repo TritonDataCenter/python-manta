@@ -29,13 +29,21 @@ some things to try:
     # Mac (using system python)
     sudo easy_install pycrypto
 
-    # SmartOS
-    # - `pkgin in py27-crypto-2.4.1` is insufficient (DATASET-627)
-    # - a binary build for SunOS/Python-2.7 is included
-    **Please let me know if this binary build fails for you, e.g. dependency
-    issue or different Python version.**
+    # SmartOS with recent pkgsrc has a working Crypto package:
+    #       py27-crypto-2.6
+    pkgin install py27-crypto
 
-    # Any platform using the ActivePython distribution of Python
+    # Older pkgsrc repositories have a crypto package that is insufficient
+    # (the `Crypto.Signature)
+    #       py27-crypto-2.4.1
+    # To get a working Crypto for mantash you can do the following, or
+    # similarly for other Python versions:
+    pkgin rm py27-crypto   # must get this out of the way
+    pkgin install py27-setuptools
+    easy_install-2.7 pycrypto
+
+    # Any platform using the ActivePython distribution of Python (available
+    # for most platforms).
     pypm install pycrypto
 
     # Other

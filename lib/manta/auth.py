@@ -13,13 +13,23 @@ import re
 import struct
 from glob import glob
 
-PLAT_LIB = join(dirname(abspath(__file__)),
-    "plat-%s-py%s" % (sys.platform, ''.join(map(str, sys.version_info[:2]))))
-if PLAT_LIB not in sys.path:
-    sys.path.insert(0, PLAT_LIB)
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
-from Crypto.Hash import SHA256, SHA, SHA512
+try:
+    from Crypto.PublicKey import RSA
+    from Crypto.Signature import PKCS1_v1_5
+    from Crypto.Hash import SHA256, SHA, SHA512
+except ImportError:
+    sys.stderr.write(
+        "* * *\n"
+        "See <https://github.com/joyent/python-manta#1-pycrypto-dependency>\n"
+        "for help installing PyCrypto (the Python 'Crypto' package)\n"
+        "* * *\n")
+    raise
+
+LOCAL_LIB = join(dirname(dirname(abspath(__file__))))
+if LOCAL_LIB not in sys.path:
+    sys.path.insert(0, LOCAL_LIB)
+import paramiko
+sys.path.remove(LOCAL_LIB)
 
 from manta.errors import MantaError
 
@@ -395,4 +405,3 @@ class CLISigner(Signer):
                 % key_info["type"])
 
         return (key_info["algorithm"], key_info["fingerprint"], signed)
-
