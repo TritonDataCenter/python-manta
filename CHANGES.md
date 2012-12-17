@@ -1,6 +1,11 @@
 # python-manta Changelog
 
-## 1.2.0 (not yet released)
+## 1.2.1 (not yet released)
+
+(nothing yet)
+
+
+## 1.2.0
 
 - [issue #1] Drop the binary Crypto build for sunos-py27 (32-bit) and give
   instructions to install PyCrypto with pkgin et al on SmartOS.
