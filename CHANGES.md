@@ -1,6 +1,17 @@
 # python-manta Changelog
 
-## 1.1.1 (not yet released)
+## 1.2.0 (not yet released)
+
+- Improve tab-completion in the mantash interactive shell. It should now
+  properly do manta path (e.g. `ls`), manta dir (e.g. `cd`), local path (e.g.
+  `lls`), or local dir completion (e.g. `lcd`) depending on the command being
+  used.
+
+  Note that `get` does manta path completion and `put` does local path
+  completion even though that is the inappropriate context for the *last* arg
+  to those commands. The problem is that both `get` and `put` can accept
+  multiple source paths if the last arg is a target *directory*. There is no
+  good way to recognize when the last arg is being tab-completed.
 
 - 'DST-PATH' in `mantash get SRC-PATH DST-PATH` now defaults to the cwd.
 

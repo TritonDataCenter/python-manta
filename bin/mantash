@@ -515,14 +515,58 @@ class Mantash(cmdln.Cmdln):
                 print "  subcmd: %r" % subcmd
                 print "  start: %r" % start
                 print "  parent: %r" % parent
-            dirents = self._get_dir(parent)
-            if DEBUG:
-                print "  dirents: %r" % dirents
-            if subcmd in ("cd",):
-                matches = [m for m,d in dirents.items() if m.startswith(start)
-                           and d["type"] == "directory"]
-            else:
-                matches = [m for m in dirents.keys() if m.startswith(start)]
+            mode = {
+                "cat": "manta-path",
+                "cd": "manta-dir",
+                "find": "manta-dir",
+                # The *last* arg for 'get' is a local path, but there can
+                # be N leading manta-paths, so no perfect completion answer
+                # here. Could complete both styles for second+ arg, but that
+                # is confusing.
+                "get": "manta-path",
+                "job": "manta-path",
+                "lcd": "local-dir",
+                "lls": "local-path",
+                "ln": "manta-path",
+                "ls": "manta-path",
+                "mkdir": "manta-dir",
+                # Similar to 'get', no good way to know when changing from
+                # local path(s) to manta path.
+                "put": "local-path",
+                "rm": "manta-path",
+                "vi": "manta-path"
+            }.get(subcmd, "manta-path")
+
+            if mode in ("manta-path", "manta-dir"):
+                dirents = self._get_dir(parent)
+                if DEBUG:
+                    print "  dirents: %r" % dirents
+                startdir = udirname(start)
+                startbase = ubasename(start)
+                if mode == "manta-dir":
+                    matches = [ujoin(startdir, n) for n,d in dirents.items()
+                               if n.startswith(startbase)
+                               and n.startswith('.') == startbase.startswith('.')
+                               and d["type"] == "directory"]
+                else:
+                    matches = [ujoin(startdir, n) for n in dirents.keys()
+                               if n.startswith(startbase)
+                               and n.startswith('.') == startbase.startswith('.')]
+            elif mode in ("local-path", "local-dir"):
+                startdir = os.path.dirname(start)
+                startbase = os.path.basename(start)
+                parent = os.path.join(os.getcwd(), startdir)
+                matches = [os.path.join(startdir, n) for n in os.listdir(parent)
+                           if n.startswith(startbase)
+                           and not n.startswith('.')]
+                if mode == "local-dir":
+                    matches = [m for m in matches if os.path.isdir(m)]
+            if startbase == '.':
+                matches.append('.')
+                matches.append('..')
+            elif startbase == '..':
+                matches.append('..')
+            matches.sort()
             if DEBUG:
                 print "  matches: %r" % matches
             return matches
@@ -533,7 +577,13 @@ class Mantash(cmdln.Cmdln):
             raise
 
     def do_cat(self, subcmd, opts, *paths):
-        """${cmd_name}: print objects"""
+        """Download Manta objects and print them to stdout.
+
+        Usage:
+            ${cmd_name} [MANTA-PATHS...]
+
+        ${cmd_option_list}
+        """
         retval = None
         content = None
         for path in paths:
@@ -601,8 +651,8 @@ class Mantash(cmdln.Cmdln):
         """put a local file to manta
 
         Usage:
-            ${cmd_name} LOCAL-PATH MANTA-PATH
-            ${cmd_name} LOCAL-PATH ... MANTA-DIRECTORY
+            ${cmd_name} [OPTIONS] LOCAL-PATH MANTA-PATH
+            ${cmd_name} [OPTIONS] LOCAL-PATH ... MANTA-DIRECTORY
 
         ${cmd_option_list}
         """
@@ -732,8 +782,8 @@ class Mantash(cmdln.Cmdln):
         """get a file from manta
 
         Usage:
-            ${cmd_name} MANTA-PATH [LOCAL-PATH]
-            ${cmd_name} MANTA-PATH [LOCAL-DIRECTORY]
+            ${cmd_name} [OPTIONS] MANTA-PATH [LOCAL-PATH]
+            ${cmd_name} [OPTIONS] MANTA-PATHS... LOCAL-DIRECTORY
 
         ${cmd_option_list}
         """
