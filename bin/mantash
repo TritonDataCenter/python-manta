@@ -516,11 +516,9 @@ class Mantash(cmdln.Cmdln):
                 print "  ", (text, line, begidx, endidx)
             subcmd = line and line.split(None, 1)[0]
             start = line[begidx:endidx]
-            parent = unormpath(ujoin(self.cwd, udirname(start)))
             if DEBUG:
                 print "  subcmd: %r" % subcmd
                 print "  start: %r" % start
-                print "  parent: %r" % parent
             mode = {
                 "cat": "manta-path",
                 "cd": "manta-dir",
@@ -543,7 +541,16 @@ class Mantash(cmdln.Cmdln):
                 "vi": "manta-path"
             }.get(subcmd, "manta-path")
 
-            if mode in ("manta-path", "manta-dir"):
+            startbase = None
+            if start in ("~", "~/"):
+                if mode.startswith("manta"):
+                    matches = [self.home + '/']
+                else:
+                    matches = [os.path.expanduser(start) + os.sep]
+            elif mode in ("manta-path", "manta-dir"):
+                if start.startswith("~"):
+                    start = uexpanduser(start, self.home)
+                parent = unormpath(ujoin(self.cwd, udirname(start)))
                 dirents = self._get_dir(parent)
                 if DEBUG:
                     print "  dirents: %r" % dirents
@@ -559,6 +566,7 @@ class Mantash(cmdln.Cmdln):
                                if n.startswith(startbase)
                                and n.startswith('.') == startbase.startswith('.')]
             elif mode in ("local-path", "local-dir"):
+                start = os.path.expanduser(start)
                 startdir = os.path.dirname(start)
                 startbase = os.path.basename(start)
                 parent = os.path.join(os.getcwd(), startdir)
@@ -577,7 +585,7 @@ class Mantash(cmdln.Cmdln):
                 print "  matches: %r" % matches
             return matches
         except:
-            if self.options.debug:
+            if DEBUG or self.options.debug:
                 import traceback
                 traceback.print_exc()
             raise
