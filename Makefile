@@ -115,3 +115,7 @@ publish: release
 	./bin/mantash -u trent.mick -U https://manta-beta.joyentcloud.com \
 		put -t text/html README.html /manta/public/sdk/python/
 	@echo "See https://manta-beta.joyentcloud.com/manta/public/sdk/python/README.md"
+
+.PHONY: tag
+tag:
+	git tag -a -m "$(VERSION) release" "$(VERSION)"
