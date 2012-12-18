@@ -291,12 +291,9 @@ class Mantash(cmdln.Cmdln):
             # Get the dirent for this path.
             if len(absparts) == 3:
                 # '/USER/{stor,public,jobs,reports}'
-                if absparts[1] == self.user:
-                    if absparts[2] not in ("stor", "public", "jobs", "reports"):
-                        raise MantashError("%s: invalid manta path" %
-                            (path or '/'))
-                elif absparts[2] != "public":
-                    raise MantashError("%s: invalid manta path" % (path or '/'))
+                if absparts[2] not in ("stor", "public", "jobs", "reports"):
+                    raise MantashError("%s: invalid manta path" %
+                        (path or '/'))
                 dirent = {"name": absparts[2], "type": "directory"}
             else:
                 # Ensure it exists.
