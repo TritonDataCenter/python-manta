@@ -2,7 +2,7 @@
 
 ## 1.2.2 (not yet released)
 
-(nothing yet)
+- [issue #4] Fix possible infinite loop on `ls /:user/jobs`.
 
 
 ## 1.2.1

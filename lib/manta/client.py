@@ -399,7 +399,7 @@ class RawMantaClient(object):
 
     def create_job(self, phases, name=None, input=None):
         """CreateJob
-        XXX
+        http://apidocs.joyent.com/manta/manta/#CreateJob
         """
         log.debug('CreateJob')
         path = '/%s/jobs' % self.user
@@ -420,7 +420,7 @@ class RawMantaClient(object):
 
     def add_job_keys(self, job_id, keys):
         """AddJobKeys
-        XXX
+        http://apidocs.joyent.com/manta/manta/#AddJobKeys
         """
         log.debug("AddJobKeys %r", job_id)
         path = "/%s/jobs/%s/in" % (self.user, job_id)
@@ -435,7 +435,7 @@ class RawMantaClient(object):
 
     def end_job_input(self, job_id):
         """EndJobInput
-        XXX
+        http://apidocs.joyent.com/manta/manta/#EndJobInput
         """
         log.debug("EndJobInput %r", job_id)
         path = "/%s/jobs/%s/in/end" % (self.user, job_id)
@@ -448,7 +448,7 @@ class RawMantaClient(object):
 
     def cancel_job(self, job_id):
         """CancelJob
-        XXX
+        http://apidocs.joyent.com/manta/manta/#CancelJob
         """
         log.debug("CancelJob %r", job_id)
         path = "/%s/jobs/%s/cancel" % (self.user, job_id)
@@ -459,12 +459,14 @@ class RawMantaClient(object):
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
 
-    def list_jobs(self, state=None):
+    def list_jobs(self, state=None, limit=None, marker=None):
         """ListJobs
-        XXX
+        http://apidocs.joyent.com/manta/manta/#ListJobs
 
         @param state {str} Only return jobs in the given state, e.g.
             "running", "done", etc.
+        @param limit TODO
+        @param marker TODO
         @returns jobs {list}
         """
         log.debug('ListJobs')
@@ -473,6 +475,10 @@ class RawMantaClient(object):
         query = {}
         if state:
             query["state"] = state
+        if limit:
+            query["limit"] = limit
+        if marker:
+            query["marker"] = marker
 
         res, content = self._request(path, "GET", query=query)
         if res["status"] != "200":
@@ -490,7 +496,7 @@ class RawMantaClient(object):
 
     def get_job(self, job_id):
         """GetJob
-        XXX
+        http://apidocs.joyent.com/manta/manta/#GetJob
         """
         log.debug("GetJob %r", job_id)
         path = "/%s/jobs/%s" % (self.user, job_id)
@@ -504,7 +510,7 @@ class RawMantaClient(object):
 
     def get_job_output(self, job_id):
         """GetJobOutput
-        XXX
+        http://apidocs.joyent.com/manta/manta/#GetJobOutput
         """
         log.debug("GetJobOutput %r", job_id)
         path = "/%s/jobs/%s/out" % (self.user, job_id)
@@ -516,7 +522,7 @@ class RawMantaClient(object):
 
     def get_job_input(self, job_id):
         """GetJobInput
-        XXX
+        http://apidocs.joyent.com/manta/manta/#GetJobInput
         """
         log.debug("GetJobInput", job_id)
         path = "/%s/jobs/%s/in" % (self.user, job_id)
@@ -528,7 +534,7 @@ class RawMantaClient(object):
 
     def get_job_failures(self, job_id):
         """GetJobFailures
-        XXX
+        http://apidocs.joyent.com/manta/manta/#GetJobFailures
         """
         log.debug("GetJobFailures %r", job_id)
         path = "/%s/jobs/%s/fail" % (self.user, job_id)
@@ -540,7 +546,7 @@ class RawMantaClient(object):
 
     def get_job_errors(self, job_id):
         """GetJobErrors
-        XXX
+        http://apidocs.joyent.com/manta/manta/#GetJobErrors
         """
         log.debug("GetJobErrors %r", job_id)
         path = "/%s/jobs/%s/err" % (self.user, job_id)
@@ -655,11 +661,17 @@ class MantaClient(RawMantaClient):
                 if marker:
                     entries.pop(0)  # first one is a repeat (the marker)
                 for entry in entries:
-                    dirents[entry["name"]] = entry
+                    if "id" in entry:  # GET /:user/jobs
+                        dirents[entry["id"]] = entry
+                    else:
+                        dirents[entry["name"]] = entry
                 if len(dirents) >= result_set_size:
                     break
                 else:
-                    marker = entries[-1]["name"]
+                    if "id" in entries[-1]:
+                        marker = entries[-1]["id"]  # jobs
+                    else:
+                        marker = entries[-1]["name"]
 
         return dirents
 

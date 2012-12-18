@@ -22,6 +22,7 @@ import urlparse
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
 import manta
+from manta import MantaError
 from manta import cmdln
 from manta import appdirs
 del sys.path[0]
@@ -310,7 +311,7 @@ class Mantash(cmdln.Cmdln):
             if DEBUG:
                 print "  dirent: %r" % dirent
 
-            if dirent["type"] == "directory":
+            if dirent.get("type") == "directory":
                 is_dir = True
                 if listDirs:
                     dirents = {
@@ -425,7 +426,7 @@ class Mantash(cmdln.Cmdln):
         for path in paths:
             try:
                 to_print = self._ls_path(path, opts.dir)
-            except MantashError, ex:
+            except (MantaError, MantashError), ex:
                 log.error(ex)
                 retval = 1
             else:
@@ -457,7 +458,7 @@ class Mantash(cmdln.Cmdln):
                 "link": "@"
             }.get(dirent["type"], "")
         if long:
-            sz = dirent.get("size", 0)
+            sz = dirent.get("size", '-')
             # Note: Don't have a strong reason to show the "asctime"
             # format here, rather than just parroting the RFC 3339
             # format. IOW, if others have opinions on the time format here,
@@ -467,7 +468,7 @@ class Mantash(cmdln.Cmdln):
                 mtime = time.asctime(
                     time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%SZ"))
             print "%9s  %s  %8s  %24s  %s" % (
-                dirent["type"], self.user, sz, mtime, name)
+                dirent.get("type", "unknown"), self.user, sz, mtime, name)
         else:
             print name
 
@@ -491,10 +492,6 @@ class Mantash(cmdln.Cmdln):
             if nparts[2] not in ("stor", "public", "reports", "jobs"):
                 log.error("%s: no such directory", directory)
                 return 1
-            if nparts[1] != self.user and nparts[2] != "public":
-                log.error("%s: no access to other user's directory",
-                    directory)
-                return 1
             self.cwd = ndir
         else:
             parent = udirname(ndir)
@@ -503,7 +500,7 @@ class Mantash(cmdln.Cmdln):
             if name not in dirents:
                 log.error("%s: no such directory", directory)
                 return 1
-            elif dirents[name]["type"] != "directory":
+            elif dirents[name].get("type") != "directory":
                 log.error("%s: not a directory", directory)
                 return 1
             else:
@@ -542,11 +539,14 @@ class Mantash(cmdln.Cmdln):
                 # local path(s) to manta path.
                 "put": "local-path",
                 "rm": "manta-path",
-                "vi": "manta-path"
+                "vi": "manta-path",
+                "jobinfo": "job-id"
             }.get(subcmd, "manta-path")
 
             startbase = None
-            if start in ("~", "~/"):
+            if mode == "job-id":
+                matches = [j["id"] for j in self.client.list_jobs(limit=100)]
+            elif start in ("~", "~/"):
                 if mode.startswith("manta"):
                     matches = [self.home + '/']
                 else:
