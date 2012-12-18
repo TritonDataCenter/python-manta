@@ -1162,7 +1162,11 @@ class Mantash(cmdln.Cmdln):
         """Run a Manta job
 
         Usage:
-            ${cmd_name} [OPTIONS...] [PATHS...] ^ MAP-PHASE [^ MAP-PHASES...]
+            ${cmd_name} [OPTIONS...] [PATHS...] PHASES...
+
+        Phases:
+            ^ MAP-PHASE         A map phase command to run.
+            ^^ REDUCE-PHASE     A reduce phase command to run.
 
         Options:
             -h, --help          show this help message and exit
@@ -1175,14 +1179,14 @@ class Mantash(cmdln.Cmdln):
                                 Give your job a name. Default's to 'job-$timestamp'
                                 for now.
 
-        You can use '|' instead of '^'. The latter is provided so you don't
-        have to escape '|' from your shell. Back in the old school '^' was
-        a synonym for '|' in the shell
+        For the time being, you can use '|' instead of '^'. The latter is
+        provided so you don't have to escape '|' from your shell. Back in the
+        old school '^' was a synonym for '|' in the shell
         (http://en.wikipedia.org/wiki/Thompson_shell).
 
         Examples:
-            mantash job words.txt ^ grep foo
-            mantash job words.txt \| grep foo
+            job words.txt ^ grep foo
+            job a.log b.log c.log ^ grep bar ^^ wc -l
         """
         #TODO: job `find . -name "email*.txt"` ^ grep foo
         #    Update cmdln.py's line2argv parsing for this? Need a *more*
@@ -1246,12 +1250,12 @@ class Mantash(cmdln.Cmdln):
                 retval = 1
             else:
                 for is_dir, p, dirents in paths:
-                    for dirent in dirents.values():
+                    for pname, dirent in dirents.items():
                         if dirent["type"] != "object":
                             raise MantashError(
                                 "'%s' is a %s (can only process objects)" % (
                                 pname, dirent["type"]))
-                        keys.append(unormpath(ujoin(self.cwd, dirent["name"])))
+                        keys.append(unormpath(ujoin(self.cwd, pname)))
 
         if DEBUG:
             print "-- CreateJob"

@@ -2,10 +2,20 @@
 
 ## 1.2.1 (not yet released)
 
+- Fix `job` handling of PATHS: relative paths within a dir, e.g.:
+
+        $ job a-dir/a-file.txt ^ cat
+
+  resulted bogus manta object paths (keys) being added to the job.
+
 - Mantash `find` takes multiple DIRS, e.g. `find foo bar -type o`.
+
 - Mantash `ls` fixes.
+
 - Get tab-completion of paths to handle '~' properly.
+
 - `cd -` support in mantash shell.
+
 - Fix `mantash find OBJECT-PATH` (as opposed to find on a *DIR*).
 
 
