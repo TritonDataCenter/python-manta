@@ -2,10 +2,9 @@
 
 ## 1.2.1 (not yet released)
 
+- Mantash `ls` fixes.
 - Get tab-completion of paths to handle '~' properly.
-
 - `cd -` support in mantash shell.
-
 - Fix `mantash find OBJECT-PATH` (as opposed to find on a *DIR*).
 
 
