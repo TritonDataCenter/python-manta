@@ -6,7 +6,7 @@
 import os
 import sys
 import re
-from posixpath import dirname as udirname, basename as ubasename
+from posixpath import dirname as udirname, basename as ubasename, join as ujoin
 from pprint import pprint
 import unittest
 import codecs

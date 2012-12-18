@@ -29,16 +29,18 @@ def stor(*subpaths):
     return "/%s/stor/%s" % (MANTA_USER, subpath)
 
 class MantaTestCase(unittest.TestCase):
+    def __init__(self, *args):
+        self.user = os.environ["MANTA_USER"]
+        unittest.TestCase.__init__(self, *args)
+
     _client = None
     def get_client(self):
         MANTA_URL = os.environ['MANTA_URL']
         MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-        MANTA_USER = os.environ['MANTA_USER']
         MANTA_INSECURE = bool(os.environ.get('MANTA_INSECURE', False))
-
         if not self._client:
             signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
-            self._client = manta.MantaClient(url=MANTA_URL, user=MANTA_USER,
+            self._client = manta.MantaClient(url=MANTA_URL, user=self.user,
                 signer=signer,
                 disable_ssl_certificate_validation=MANTA_INSECURE)
         return self._client

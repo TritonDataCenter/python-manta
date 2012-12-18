@@ -74,3 +74,40 @@ class FindTestCase(MantaTestCase):
         self.assertTrue("obj1.txt" not in stdout)
         self.assertTrue("dir2" in stdout)
         self.assertEqual(code, 0)
+
+class LsTestCase(MantaTestCase):
+    def setUp(self):
+        self.client = self.get_client()
+        self.base = b = ujoin(TDIR, 'ls')
+        self.client.mkdirp(stor(b, "a1"))
+        self.client.put(stor(b, "a1/a2.txt"), "this is a1/a2.txt")
+        self.client.mkdirp(stor(b, "a1/b2"))
+        self.client.put(stor(b, "a1/b2/a3.txt"), "this is a1/b2/a3.txt")
+        self.client.mkdirp(stor(b, "b1"))
+        self.client.put(stor(b, "c1.txt"), "this is c1.txt")
+
+    def test_bare(self):
+        code, stdout, stderr = self.mantash(['-C', self.base, 'ls'])
+        self.assertEqual(stdout, 'a1\nb1\nc1.txt\n')
+        self.assertEqual(code, 0)
+
+        code, stdout, stderr = self.mantash(['-C', self.base, 'ls', '-l'])
+        lines = stdout.splitlines()
+        self.assertEqual(len(lines), 3)
+        for line in lines:
+            self.assertTrue(self.user in line)
+        self.assertEqual(code, 0)
+
+        code, stdout, stderr = self.mantash(['-C', self.base, 'ls', '-F'])
+        self.assertEqual(stdout, 'a1/\nb1/\nc1.txt\n')
+        self.assertEqual(code, 0)
+
+    def test_dir(self):
+        code, stdout, stderr = self.mantash(['-C', self.base, 'ls', 'a1'])
+        self.assertEqual(stdout, 'a2.txt\nb2\n')
+        self.assertEqual(code, 0)
+
+    def test_dirstar(self):
+        code, stdout, stderr = self.mantash(['-C', self.base, 'ls', 'a1/*'])
+        self.assertEqual(stdout, 'a1/a2.txt\n\na1/b2:\na3.txt\n')
+        self.assertEqual(code, 0)

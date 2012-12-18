@@ -234,16 +234,13 @@ class Mantash(cmdln.Cmdln):
               {'bar.py': {'mtime': 1341422663102L, 'type': 'object'},
                'baz': {'mtime': 1341422663102L, 'type': 'directory'}})]
         """
-        npath = unormpath(uexpanduser(path, self.home))  # normalized
-        if npath == '.':
-            is_abs = False
-            abspath = self.cwd
-        else:
-            is_abs = npath.startswith('/')
-            abspath = unormpath(ujoin(self.cwd, npath))
-        parts = abspath.split('/')
+        upath = uexpanduser(path, self.home)    # user-expanded
+        npath = unormpath(upath)                # normalized
+        abspath = unormpath(ujoin(self.cwd, npath))
+        absparts = abspath.split('/')
+        parts = upath.split('/')
         is_glob = self._is_glob_re.search(path) is not None
-        head = '/'.join(parts[:3])
+        head = '/'.join(absparts[:3])
         if self._is_glob_re.search(head):
             raise MantashError("cannot use glob chars in first two parts "
                 "of a Manta path: %r" % head)
@@ -252,10 +249,11 @@ class Mantash(cmdln.Cmdln):
         if DEBUG:
             print "-- _ls_path"
             print "  path: %r" % path
-            print "  npath: %r" % npath
-            print "  is_abs: %r" % is_abs
-            print "  abspath: %r" % abspath
+            print "  upath: %r" % upath
             print "  parts: %r" % parts
+            print "  npath: %r" % npath
+            print "  abspath: %r" % abspath
+            print "  absparts: %r" % absparts
             print "  is_glob: %r" % is_glob
             print "  head: %r" % head
 
@@ -269,17 +267,14 @@ class Mantash(cmdln.Cmdln):
                 dirents = {
                     self.user: {"name": self.user, "type": "directory"}
                 }
-            hits = [(is_dir, path, dirents)]
+            hits = [(is_dir, upath, dirents)]
 
-        elif len(parts) == 2:   # '/USER'
+        elif len(absparts) == 2:   # '/USER'
             # '/USER'. Just presume that user exists for now.
             is_dir = True
             if listDirs:
-                if is_abs:
-                    dirents = {abspath: {"name": abspath, "type": "directory"}}
-                else:
-                    dirents = {abspath: {"name": parts[1], "type": "directory"}}
-            elif parts[1] == self.user:
+                dirents = {abspath: {"name": absparts[1], "type": "directory"}}
+            elif absparts[1] == self.user:
                 dirents = {
                     "stor": {"name": "stor", "type": "directory"},
                     "public": {"name": "public", "type": "directory"},
@@ -290,19 +285,19 @@ class Mantash(cmdln.Cmdln):
                 dirents = {
                     "public": {"name": "public", "type": "directory"}
                 }
-            hits = [(is_dir, path, dirents)]
+            hits = [(is_dir, upath, dirents)]
 
         elif not is_glob:
             # Get the dirent for this path.
-            if len(parts) == 3:
+            if len(absparts) == 3:
                 # '/USER/{stor,public,jobs,reports}'
-                if parts[1] == self.user:
-                    if parts[2] not in ("stor", "public", "jobs", "reports"):
+                if absparts[1] == self.user:
+                    if absparts[2] not in ("stor", "public", "jobs", "reports"):
                         raise MantashError("%s: invalid manta path" %
                             (path or '/'))
-                elif parts[2] != "public":
+                elif absparts[2] != "public":
                     raise MantashError("%s: invalid manta path" % (path or '/'))
-                dirent = {"name": parts[2], "type": "directory"}
+                dirent = {"name": absparts[2], "type": "directory"}
             else:
                 # Ensure it exists.
                 parent = udirname(abspath)
@@ -321,37 +316,44 @@ class Mantash(cmdln.Cmdln):
             if dirent["type"] == "directory":
                 is_dir = True
                 if listDirs:
-                    if is_abs:
-                        dirent["name"] = abspath
                     dirents = {
-                        path: dirent
+                        upath: dirent
                     }
                 else:
                     dirents = self.client.ls(abspath)
             else:
                 is_dir = False
-                if is_abs:
-                    dirent["name"] = abspath
                 dirents = {
-                    path: dirent
+                    upath: dirent
                 }
-            hits = [(is_dir, path, dirents)]
+            hits = [(is_dir, upath, dirents)]
 
         else:
             # Work up to first dir with a glob char.
-            lead = parts[:3]  # no glob in first two segments allowed
-            for i in range(3, len(parts)-1):
+            lead = absparts[:3]  # no glob in first two segments allowed
+            for i in range(3, len(absparts)-1):
+                if self._is_glob_re.search(absparts[i]):
+                    break
+                lead.append(absparts[i])
+            absprefix = '/'.join(lead) + '/'
+            prefix = []
+            for i in range(len(parts)):
                 if self._is_glob_re.search(parts[i]):
                     break
-                lead.append(parts[i])
+                prefix.append(parts[i])
+            prefix = '/'.join(prefix)
+            if prefix:
+                prefix += '/'
             if DEBUG:
                 print "  non-glob dirs lead: %r" % lead
+                print "  absprefix: %r" % absprefix
+                print "  prefix: %r" % prefix
 
             # `matches` is a mapping of {match -> dirent} where each
             # match is a base dir for next iteration.
             matches = {'/'.join(lead): {"type": "directory"}}
-            for i in range(len(lead), len(parts)):
-                p = parts[i]
+            for i in range(len(lead), len(absparts)):
+                p = absparts[i]
                 patterns = [unormpath(ujoin(m, p)) for m,dirent in matches.items()
                     if dirent["type"] == "directory"]
                 if DEBUG:
@@ -362,7 +364,7 @@ class Mantash(cmdln.Cmdln):
                     basepat = ubasename(pattern)
                     dirents = self._get_dir(ujoin(self.cwd, parent))
                     if DEBUG:
-                        print "    pattern %r: parent %r, basepat %r, dirents %r" % (pattern, parent, basepat, dirents)
+                        print "    pattern %r:\n\tparent %r\n\tbasepat %r\n\tdirents %r" % (pattern, parent, basepat, dirents)
                     if dirents:
                         for name, dirent in dirents.items():
                             if fnmatchcase(name, basepat):
@@ -376,6 +378,9 @@ class Mantash(cmdln.Cmdln):
                         (path or '/'))
 
             # Any leaf directories are recursed into... unless `ls -d`.
+            #
+            # Note: We did globbing on the abspath, make the paths relative
+            # again (if the given start path was relative).
             hits = []
             if not listDirs:
                 for name,dirent in matches.items():
@@ -384,12 +389,15 @@ class Mantash(cmdln.Cmdln):
                             print "    descend into dir %r" % name
                         del matches[name]
                         dirents = self._get_dir(name)
-                        hits.append((True, name, dirents))
+                        relname = name.replace(absprefix, prefix, 1)
+                        hits.append((True, relname, dirents))
             if matches:
-                if is_abs:
-                    for m in matches:
-                        matches[m]["name"] = m
-                hits.append((False, path, matches))
+                relmatches = {}
+                for key in matches.keys():
+                    if key.startswith(absprefix):
+                        relkey = key.replace(absprefix, prefix, 1)
+                        relmatches[relkey] = matches[key]
+                hits.append((False, upath, relmatches))
 
         if DEBUG:
             print "  hits:\n%s" % _indent(pformat(hits))
@@ -401,7 +409,7 @@ class Mantash(cmdln.Cmdln):
     @cmdln.option("-d", action="store_true", dest="dir",
         help="list directory names, do not search recursively")
     @cmdln.option("-F", action="store_true", dest="format",
-        help="display a '/' after a directory name, a '@' after a link name")
+        help="display a '/' after a directory name")
     @cmdln.option("-j", "--json", action="store_true",
         help="display the listing in JSON")
     def do_ls(self, subcmd, opts, *paths):
@@ -438,15 +446,14 @@ class Mantash(cmdln.Cmdln):
                 if i > 0:
                     print
                 print "%s:" % path
-            for name_, dirent in sorted(dirents.iteritems()):
-                self._ls_print_dirent(dirent, long=opts.long,
+            for name, dirent in sorted(dirents.iteritems()):
+                self._ls_print_dirent(name, dirent, long=opts.long,
                     format=opts.format)
         if opts.json:
             print json.dumps(listing, indent=2)
         return retval
 
-    def _ls_print_dirent(self, dirent, long=False, format=False):
-        name = dirent["name"]
+    def _ls_print_dirent(self, name, dirent, long=False, format=False):
         if format:
             name += {
                 "directory": "/",
@@ -1057,8 +1064,7 @@ class Mantash(cmdln.Cmdln):
                     continue
             path = top + dirent["path"][len(ntop):]
             if opts.ls:
-                dirent["name"] = path
-                self._ls_print_dirent(dirent, long=True)
+                self._ls_print_dirent(path, dirent, long=True)
             else:
                 print path
 

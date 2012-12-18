@@ -1,5 +1,8 @@
 # todo
 
+- job:
+  - keys via 'find $args -type o'
+  - multi-args to 'find $args -type o'. Currently only takes one.
 - mantash job -c JOB-ID   # cancel a job
 - mantash job: taking keys on stdin
 - job support for running a given *script*
@@ -10,18 +13,14 @@
   - OS compat tests
 - unicode data tests: and filenames too
 - restdown docs (Philip?)
+- signed URLs
+
 
 # Bugs
 
-- ls bug: missing '/'
-    [https://10.2.121.193/trent/stor/shakespeare]$ ls */*
-    allswellthatendswell
-    asyoulikeit
-    comedyoferrors
-    cymbeline
-    loveslabourslost
-    measureforemeasure
-    merchantofvenice
+- job:
+    [trentm@manta-beta /trentm/stor]$ job tmp ^ zonename
+    mantash: ERROR: global name 'pname' is not defined (/Users/trentm/joy/python-manta/bin/mantash:1158 in do_job)
 
 # Someday/Maybe
 
@@ -40,7 +39,6 @@
 - mantash job ^C support
 - mantash job -W   or something to NOT wait for a job to complete
 - retries
-- auth.cliSigner -- have all the pieces there
 - Cache the Authorization header for the same Date second. Bryan has been
   able to get ECONNREFUSED using the ssh-agent. Also keep a persistent
   conn to ssh-agent?
