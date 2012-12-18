@@ -2,6 +2,7 @@
 
 ## 1.2.1 (not yet released)
 
+- Mantash `find` takes multiple DIRS, e.g. `find foo bar -type o`.
 - Mantash `ls` fixes.
 - Get tab-completion of paths to handle '~' properly.
 - `cd -` support in mantash shell.

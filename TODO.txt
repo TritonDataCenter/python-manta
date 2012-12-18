@@ -1,8 +1,8 @@
 # todo
 
+- find globbing of given DIR(s)
 - job:
   - keys via 'find $args -type o'
-  - multi-args to 'find $args -type o'. Currently only takes one.
 - mantash job -c JOB-ID   # cancel a job
 - mantash job: taking keys on stdin
 - job support for running a given *script*
