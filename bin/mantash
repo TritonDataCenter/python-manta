@@ -626,6 +626,42 @@ class Mantash(cmdln.Cmdln):
             sys.stdout.write('\n')
         return retval
 
+    def do_gzcat(self, subcmd, opts, *paths):
+        """Download Manta objects, gunzip and print them to stdout.
+
+        Usage:
+            ${cmd_name} [MANTA-PATHS...]
+
+        ${cmd_option_list}
+        """
+        from cStringIO import StringIO
+        import gzip
+
+        retval = None
+        content = None
+        for path in paths:
+            #TODO: check its dir to make sure it is an object
+            npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
+            parent = udirname(npath)
+            name = ubasename(npath)
+            dirents = self._get_dir(parent)
+            if name not in dirents:
+                log.error("%s: no such object or directory", path)
+                retval = 1
+                continue
+            elif dirents[name]["type"] == "directory":
+                log.error("%s: is a directory", path)
+                retval = 1
+                continue
+            content = self.client.get(npath)
+            f = StringIO(content)
+            unzipper = gzip.GzipFile(npath, 'rb', fileobj=f)
+            sys.stdout.write(unzipper.read())
+            f.close()
+        if content and not content.endswith('\n'):
+            sys.stdout.write('\n')
+        return retval
+
     def do_exit(self, subcmd, opts):
         """${cmd_name}: exit the shell"""
         print "exit"

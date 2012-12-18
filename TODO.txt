@@ -1,6 +1,6 @@
 # todo
 
-- find globbing of given DIR(s)
+- find globbing of given DIR(s), cat globbing, gzcat globbing: client.glob()
 - job:
   - keys via 'find $args -type o'
 - mantash job -c JOB-ID   # cancel a job

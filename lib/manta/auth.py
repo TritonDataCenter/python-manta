@@ -384,6 +384,8 @@ class CLISigner(Signer):
         assert isinstance(s, str)   # for now, not unicode. Python 3?
 
         key_info = self._get_key_info()
+        log.debug("sign %r with %s key (algo %s, fp %s)", s, key_info["type"],
+            key_info["algorithm"], key_info["fingerprint"])
 
         if key_info["type"] == "agent":
             response = key_info["agent_key"].sign_ssh_data(None, s)

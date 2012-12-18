@@ -131,6 +131,8 @@ class RawMantaClient(object):
             # TODO: log should be `self.log`
             global log
             log.setLevel(logging.DEBUG)
+            import manta.auth
+            manta.auth.log.setLevel(logging.DEBUG)
 
     _http_cache = None
     def _get_http(self):
@@ -140,9 +142,6 @@ class RawMantaClient(object):
             self._http_cache = MantaHttp(self.cache_dir,
                 disable_ssl_certificate_validation=self.disable_ssl_certificate_validation)
         return self._http_cache
-
-    def _sign_request(self, headers):
-        pass
 
     def _request(self, path, method="GET", query=None, body=None, headers=None):
         """Make a Manta request

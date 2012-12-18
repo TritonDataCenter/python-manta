@@ -2,6 +2,8 @@
 
 ## 1.2.2 (not yet released)
 
+- `mantash gzcat PATHS...`
+
 - [issue #4] Fix possible infinite loop on `ls /:user/jobs`.
 
 
