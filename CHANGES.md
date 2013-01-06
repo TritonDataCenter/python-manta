@@ -1,6 +1,11 @@
 # python-manta Changelog
 
-## 1.2.2 (not yet released)
+## 1.2.3 (not yet released)
+
+(nothing yet)
+
+
+## 1.2.2
 
 - [pull #5] Add `-h` support for human readable sizes to `mantash ls`.
   (by Bill Pijewski).
