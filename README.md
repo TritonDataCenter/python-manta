@@ -34,7 +34,7 @@ some things to try:
     pkgin install py27-crypto
 
     # Older pkgsrc repositories have a crypto package that is insufficient
-    # (the `Crypto.Signature)
+    # (the `Crypto.Signature` subpackage is missing).
     #       py27-crypto-2.4.1
     # To get a working Crypto for mantash you can do the following, or
     # similarly for other Python versions:
