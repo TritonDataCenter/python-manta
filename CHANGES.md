@@ -2,6 +2,9 @@
 
 ## 1.2.2 (not yet released)
 
+- [pull #5] Add `-h` support for human readable sizes to `mantash ls`.
+  (by Bill Pijewski).
+
 - `mantash gzcat PATHS...`
 
 - [issue #4] Fix possible infinite loop on `ls /:user/jobs`.

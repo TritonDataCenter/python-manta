@@ -18,6 +18,12 @@
 
 # Bugs
 
+- find:
+    $ mbeta find . -ls       # fails
+    mantash: ERROR: /trentm/stor: no such remote directory
+    $ mbeta find tmp -ls     # works
+    directory  trentm           -                            tmp
+    ...
 - job:
     [trentm@manta-beta /trentm/stor]$ job tmp ^ zonename
     mantash: ERROR: global name 'pname' is not defined (/Users/trentm/joy/python-manta/bin/mantash:1158 in do_job)

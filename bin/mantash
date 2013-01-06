@@ -55,6 +55,19 @@ class MantaObjectDoesNotExist(MantashError):
 
 #---- the shell
 
+
+def optparser_setattr(**kwargs):
+    """Set attrs on the function's `optparser` attribute.
+
+    This is modelled off `cmdln.option()`."""
+    def decorate(f):
+        if not hasattr(f, "optparser"):
+            f.optparser = SubCmdOptionParser()
+        for k,v in kwargs.items():
+            setattr(f.optparser, k, v)
+        return f
+    return decorate
+
 class Mantash(cmdln.Cmdln):
     name = "mantash"
     version = manta.__version__
@@ -401,6 +414,8 @@ class Mantash(cmdln.Cmdln):
             print "  hits:\n%s" % _indent(pformat(hits))
         return hits
 
+    @cmdln.option("-h", action="store_true", dest="human",
+        help="display human-readable sizes")
     @cmdln.option("-a", action="store_true", help=optparse.SUPPRESS_HELP)
     @cmdln.option("-l", action="store_true", dest="long",
         help="list in long format")
@@ -408,6 +423,7 @@ class Mantash(cmdln.Cmdln):
         help="list directory names, do not search recursively")
     @cmdln.option("-F", action="store_true", dest="format",
         help="display a '/' after a directory name")
+    @optparser_setattr(conflict_handler="resolve")
     @cmdln.option("-j", "--json", action="store_true",
         help="display the listing in JSON")
     def do_ls(self, subcmd, opts, *paths):
@@ -446,19 +462,28 @@ class Mantash(cmdln.Cmdln):
                 print "%s:" % path
             for name, dirent in sorted(dirents.iteritems()):
                 self._ls_print_dirent(name, dirent, long=opts.long,
-                    format=opts.format)
+                    format=opts.format, human=opts.human)
         if opts.json:
             print json.dumps(listing, indent=2)
         return retval
 
-    def _ls_print_dirent(self, name, dirent, long=False, format=False):
+    def _ls_print_dirent(self, name, dirent,
+      long=False, format=False, human=False):
         if format:
             name += {
                 "directory": "/",
                 "link": "@"
             }.get(dirent["type"], "")
         if long:
+            if human:
+                dirent_fmt = "%9s  %s  %04s  %24s  %s"
+            else:
+                dirent_fmt = "%9s  %s  %10s  %24s  %s"
+
             sz = dirent.get("size", '-')
+            if (sz != "-" and human):
+                sz = self._ls_human_size(sz)
+
             # Note: Don't have a strong reason to show the "asctime"
             # format here, rather than just parroting the RFC 3339
             # format. IOW, if others have opinions on the time format here,
@@ -467,10 +492,27 @@ class Mantash(cmdln.Cmdln):
             if "mtime" in dirent:
                 mtime = time.asctime(
                     time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%SZ"))
-            print "%9s  %s  %8s  %24s  %s" % (
+            print dirent_fmt % (
                 dirent.get("type", "unknown"), self.user, sz, mtime, name)
         else:
             print name
+
+    def _ls_human_size(self, nbytes):
+        suffixes = ['', 'K', 'M', 'G', 'T', 'P', 'E']
+
+        size = float(nbytes)
+        for suffix in suffixes:
+            if size < 1024:
+                break
+            size /= 1024.0
+
+        # If size < 10, show a single decimal value.  Otherwise don't show any.
+        if size < 10 and suffix:
+            size = '%.1f' % size
+        else:
+            size = '%d' % size
+
+        return size + suffix
 
     def do_cd(self, subcmd, opts, directory='~'):
         """change directory
@@ -1028,8 +1070,14 @@ class Mantash(cmdln.Cmdln):
         Usage:
             ${cmd_name} [DIRS...] [-name PATTERN] [-type TYPE] [-ls]
 
-        Where "DIRS" are Manta dirs, "PATTERN" is a glob pattern and "TYPE"
-        is one of 'd' (for directories), 'o' or 'f' (for objects).
+        Where "DIRS" are Manta dirs.
+
+        Options:
+            -h, --help      show this help message and exit
+            -name PATTERN   "PATTERN" is a glob pattern
+            -type TYPE      "TYPE" is one of 'd' (for directories),
+                            'o' (for objects) or 'f' (for objects).
+            -ls             Print the long `ls` output for each entry.
         """
         class Options:
             def __init__(self, *opts):
@@ -1048,7 +1096,7 @@ class Mantash(cmdln.Cmdln):
                 break
             tops.append(argv.pop(0))
         if not tops:
-            tops.push('.')
+            tops.append('.')
         # Handle globs
         #XXX
 
@@ -1073,6 +1121,9 @@ class Mantash(cmdln.Cmdln):
                 }[type_char]
             elif opt == "-ls":
                 opts.ls = True
+            elif opt in ("-h", "--help"):
+                self.do_help(['', 'find'])
+                return 0
             else:
                 log.error("unknown option: %r", opt)
                 return 1
