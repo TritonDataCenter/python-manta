@@ -95,7 +95,7 @@ release: README.html all
 	@echo "Created $(RELEASE_TARBALL)"
 
 .PHONY: publish
-publish: release
+publish: release tag
 	@echo '#'
 	@echo '# Are you sure you want to publish'
 	@echo '#      $(RELEASE_TARBALL)'
