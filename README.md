@@ -12,7 +12,7 @@ The *intention* is to support Windows (if reasonable) and Linux; and
 Python >=2.5 and Python 3 (again, if reasonable). Supporting Python 3 might
 largely depend on python-manta's dependencies (paramiko and pycrypto).
 
-Please send all feedback to Trent Mick at <manta-private-beta@joyent.com>.
+Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 
 
 # Installation
@@ -52,32 +52,6 @@ some things to try:
     easy_install pycrypto
     pip install pycrypto
 
-### Troubleshooting: `ImportError: No module named Signature`
-
-If you see this attempting to run mantash on SmartOS:
-
-    $ ./bin/mantash
-    * * *
-    See <https://github.com/joyent/python-manta#1-pycrypto-dependency>
-    for help installing PyCrypto (the Python 'Crypto' package)
-    * * *
-    Traceback (most recent call last):
-      File "./bin/mantash", line 24, in <module>
-        import manta
-      File "/root/joy/python-manta/lib/manta/__init__.py", line 7, in <module>
-        from .auth import PrivateKeySigner, SSHAgentSigner, CLISigner
-      File "/root/joy/python-manta/lib/manta/auth.py", line 18, in <module>
-        from Crypto.Signature import PKCS1_v1_5
-    ImportError: No module named Signature
-
-then you have an insufficient PyCrypto package, likely from an old pkgsrc.
-For example, the old "sdc6/2011Q4" pkgsrc is not supported:
-
-    $ cat /opt/local/etc/pkg_install.conf
-    PKG_PATH=http://pkgsrc.joyent.com/sdc6/2011Q4/i386/All
-
-
-
 ## 2. python-manta
 
     git clone git://github.com/joyent/python-manta.git
@@ -107,7 +81,6 @@ One way is:
 
     $ python -c "import manta; print(manta.__version__)"
     1.4.0
-
 
 
 # Setup
@@ -216,6 +189,7 @@ Manta:
 
 
 
+
 # License
 
 MIT. See LICENSE.txt.
@@ -230,6 +204,33 @@ respective licenses:
 - appdirs (https://github.com/ActiveState/appdirs): MIT
 
 
+# Troubleshooting
+
+### `ImportError: No module named Signature`
+
+If you see this attempting to run mantash on SmartOS:
+
+    $ ./bin/mantash
+    * * *
+    See <https://github.com/joyent/python-manta#1-pycrypto-dependency>
+    for help installing PyCrypto (the Python 'Crypto' package)
+    * * *
+    Traceback (most recent call last):
+      File "./bin/mantash", line 24, in <module>
+        import manta
+      File "/root/joy/python-manta/lib/manta/__init__.py", line 7, in <module>
+        from .auth import PrivateKeySigner, SSHAgentSigner, CLISigner
+      File "/root/joy/python-manta/lib/manta/auth.py", line 18, in <module>
+        from Crypto.Signature import PKCS1_v1_5
+    ImportError: No module named Signature
+
+then you have an insufficient PyCrypto package, likely from an old pkgsrc.
+For example, the old "sdc6/2011Q4" pkgsrc is not supported:
+
+    $ cat /opt/local/etc/pkg_install.conf
+    PKG_PATH=http://pkgsrc.joyent.com/sdc6/2011Q4/i386/All
+
+
 # Limitations
 
 The python-manta Python API isn't currently well-suited to huge objects
@@ -239,9 +240,3 @@ for your use case, you could consider the [Manta Node.js
 bindings](https://github.com/joyent/node-manta).
 
 For other limitations (also planned work) see TODO.txt.
-
-
-# Development
-
-    git clone git@github.com:joyent/python-manta.git
-    export PATH=`pwd`/python-manta/bin:$PATH
