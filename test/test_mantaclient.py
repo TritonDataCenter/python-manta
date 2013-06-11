@@ -114,7 +114,7 @@ class LinkTestCase(MantaTestCase):
         content = 'foo\nbar\nbaz'
         client.put_object(obj_path, content=content)
         link_path = stor(TDIR, 'link.txt')
-        client.put_link(link_path, obj_path)
+        client.put_snaplink(link_path, obj_path)
         got = client.get_object(link_path)
         self.assertEqual(content, got)
         client.delete_object(obj_path)

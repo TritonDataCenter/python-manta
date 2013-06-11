@@ -69,7 +69,7 @@ def optparser_setattr(**kwargs):
     return decorate
 
 class Mantash(cmdln.Cmdln):
-    """${name} -- a Manta shell
+    r"""${name} -- a Manta shell
 
     Usage:
         ${name} [<options>] <command> [<args>]
@@ -88,6 +88,7 @@ class Mantash(cmdln.Cmdln):
         export MANTA_URL=https://us-east.manta.joyent.com
         export MANTA_USER=jill
         export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\\n'`
+        export MANTASH_PS1='\e[90m[\u@\h \e[34m\w\e[90m]$\e[0m '
 
     ${command_list}
     ${help_list}
