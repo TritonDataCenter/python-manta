@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 1.3.1 (not yet released)
+
+(nothing yet)
+
+
 ## 1.3.0
 
 - [MANTA-1299] Backward incompatible change. Update to the new http-signature
