@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 1.3.0 (not yet released)
+## 1.3.0
 
 - [MANTA-1299] Backward incompatible change. Update to the new http-signature
   signing scheme. <http://tools.ietf.org/html/draft-cavage-http-signatures-00>
