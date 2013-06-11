@@ -1,8 +1,14 @@
 # python-manta Changelog
 
-## 1.2.3 (not yet released)
+## 1.3.0 (not yet released)
 
-(nothing yet)
+- [MANTA-1299] Backward incompatible change. Update to the new http-signature
+  signing scheme. <http://tools.ietf.org/html/draft-cavage-http-signatures-00>
+
+- Backward incompatible change. Update `manta.MantaClient` "user" field to
+  "account" and `mantash` top-level options to mimic (as much as possible)
+  the [node-manta](https://github.com/joyent/node-manta)
+  CLI tools (e.g. `mls -h`).
 
 
 ## 1.2.2

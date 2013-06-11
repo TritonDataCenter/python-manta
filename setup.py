@@ -8,7 +8,7 @@ import distutils
 from distutils.core import setup
 
 assert False, 'python-manta install via setup.py is disabled (not working yet)'
-assert sys.version_info > (2, 3), \
+assert sys.version_info > (2, 4), \
     "python-manta does not support this Python version: %s" % sys.version
 
 _top_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +24,6 @@ Intended Audience :: Developers
 License :: OSI Approved :: MIT License
 Programming Language :: Python
 Programming Language :: Python :: 2
-Programming Language :: Python :: 2.4
 Programming Language :: Python :: 2.5
 Programming Language :: Python :: 2.6
 Programming Language :: Python :: 2.7
@@ -36,7 +35,6 @@ packages = [d[0][len('lib/'):].replace('/', '.')
     for d in os.walk('lib/manta') if "__pycache__" not in d[0]]
 
 script = (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
-#XXX version = manta.__version__ + '-' + 'gcafebab'
 version = manta.__version__
 setup(
     name="manta",
@@ -51,12 +49,12 @@ setup(
     packages=packages + ["httplib2", "paramiko"],
     package_dir={"": "lib"},
     package_data={
-        '': ['*.so', '*.txt'],
+        '': ['*.txt'],
     },
     scripts=[script],
-    description="A Python SDK for Manta (Joyent's Object Store and Cloud Compute system)",
+    description="A Python SDK for Manta",
     classifiers=filter(None, classifiers.split("\n")),
-    long_description="""A Python SDK for Manta (Joyent's Object Store and Cloud Compute system).
+    long_description="""A Python SDK for Manta (Joyent's object stor and cloud compute system).
 
 This provides a Python 'manta' package and a 'mantash' (Manta Shell) CLI
 and shell.

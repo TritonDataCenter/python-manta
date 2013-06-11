@@ -1,4 +1,4 @@
-A Python SDK for Manta (Joyent's Object Store and Cloud Compute system).
+A Python SDK for Manta (Joyent's object store and cloud compute system).
 This provides a Python 'manta' package and a 'mantash' (Manta Shell) CLI
 and shell.
 
@@ -52,13 +52,47 @@ some things to try:
     easy_install pycrypto
     pip install pycrypto
 
+### Troubleshooting: `ImportError: No module named Signature`
+
+If you see this attempting to run mantash on SmartOS:
+
+    $ ./bin/mantash
+    * * *
+    See <https://github.com/joyent/python-manta#1-pycrypto-dependency>
+    for help installing PyCrypto (the Python 'Crypto' package)
+    * * *
+    Traceback (most recent call last):
+      File "./bin/mantash", line 24, in <module>
+        import manta
+      File "/root/joy/python-manta/lib/manta/__init__.py", line 7, in <module>
+        from .auth import PrivateKeySigner, SSHAgentSigner, CLISigner
+      File "/root/joy/python-manta/lib/manta/auth.py", line 18, in <module>
+        from Crypto.Signature import PKCS1_v1_5
+    ImportError: No module named Signature
+
+then you have an insufficient PyCrypto package, likely from an old pkgsrc.
+For example, the old "sdc6/2011Q4" pkgsrc is not supported:
+
+    $ cat /opt/local/etc/pkg_install.conf
+    PKG_PATH=http://pkgsrc.joyent.com/sdc6/2011Q4/i386/All
+
+
 
 ## 2. python-manta
 
-    wget https://manta-beta.joyentcloud.com/manta/public/sdk/python/python-manta-latest.tgz
-    tar xzf python-manta-latest.tgz
-    cd python-manta-*   # the actual directory is 'python-manta-VERSION'
+    git clone git://github.com/joyent/python-manta.git
+    # or `git clone git@github.com:joyent/python-manta.git`
+    cd python-manta
+
+The `mantash` CLI and `manta` Python module can be used directly out of this
+install:
+
     export PATH=$PATH:`pwd`/bin
+    export PYTHONPATH=$PYTHONPATH:`pwd`/lib
+
+Or you should be able to install to your Python prefix via:
+
+    python setup.py install
 
 
 ## 3. verify it works
@@ -71,26 +105,29 @@ The 'mantash' CLI should now work:
 For Python usage you need to get the 'lib' directory on your Python Path.
 One way is:
 
-    $ export PYTHONPATH=`pwd`/lib
     $ python -c "import manta; print(manta.__version__)"
-    1.0.0
+    1.4.0
 
 
 
 # Setup
 
 First setup your environment to match your Joyent Manta account. Adjust
-accordingly for your SSH key and username. The SSH key here must match
+accordingly for your SSH key and Manta login. The SSH key here must match
 one of keys uploaded for your Joyent Public Cloud account.
 
-    $ export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
-    $ export MANTA_URL=https://manta-beta.joyentcloud.com
-    $ export MANTA_USER=trentm
+    export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
+    export MANTA_URL=https://us-east.manta.joyent.com
+    export MANTA_USER=jill
 
 `mantash` uses these environment variables (as does the [Manta Node.js SDK
 CLI](http://wiki.joyent.com/wiki/display/Manta/Manta+CLI+Reference)).
 Alternatively you can specify these parameters to `mantash` via command-line
 options -- see `mantash --help` for details.
+
+For a colourful `mantash` prompt you can also set:
+
+    export MANTASH_PS1='\e[90m[\u@\h \e[34m\w\e[90m]$\e[0m '
 
 
 # Python Usage
@@ -103,17 +140,17 @@ options -- see `mantash --help` for details.
     logging.basicConfig()
 
     url = os.environ['MANTA_URL']
-    user = os.environ['MANTA_USER']
+    account = os.environ['MANTA_USER']
     key_id = os.environ['MANTA_KEY_ID']
 
     # This handles ssh-key signing of requests to Manta. Manta uses
     # the HTTP Signature scheme for auth.
-    # https://github.com/joyent/node-http-signature/blob/master/http_signing.md
+    # http://tools.ietf.org/html/draft-cavage-http-signatures-00
     signer = manta.SSHAgentSigner(key_id)
 
-    client = manta.MantaClient(url, user, signer)
+    client = manta.MantaClient(url, account, signer)
 
-    content = client.get_object('/trent/stor/foo.txt')
+    content = client.get_object('/%s/stor/foo.txt' % account)
     print content
 
     print dir(client)   # list all methods, better documentation coming (TODO)
@@ -146,12 +183,12 @@ Manta:
     # Or you can enter the mantash interactive shell and run commands from
     # there. Let's do that:
     $ mantash
-    [https://manta-beta.joyentcloud.com/trent/stor]$ ls
-    [.../trent/stor]$                       # our stor is empty for now
-    [.../trent/stor]$ put numbers.txt ./    # upload local file
-    [.../trent/stor]$ ls
+    [jill@us-east /jill/stor]$ ls
+    [jill@us-east /jill/stor]$                      # our stor is empty
+    [jill@us-east /jill/stor]$ put numbers.txt ./   # upload local file
+    [jill@us-east /jill/stor]$ ls
     numbers.txt
-    [.../trent/stor]$ cat numbers.txt
+    [jill@us-east /jill/stor]$ cat numbers.txt
     one
     two
     three
@@ -159,7 +196,7 @@ Manta:
 
     # List available commands. A number of the typical Unix-y commands are
     # there.
-    [.../trent/stor]$ help
+    [jill@us-east /jill/stor]$ help
     ...
 
     # Manta jobs.
@@ -169,13 +206,14 @@ Manta:
     # one-off `mantash job ...` commands in Bash.
 
     # Run a Manta job. Here `grep t` is our map phase.
-    [.../trent/stor]$ job numbers.txt ^ grep t
+    [jill@us-east /jill/stor]$ job numbers.txt ^ grep t
     two
     three
 
     # Add a reduce phase, indicated by '^^'.
-    [.../trent/stor]$ job numbers.txt ^ grep t ^^ wc -l
+    [jill@us-east /jill/stor]$ job numbers.txt ^ grep t ^^ wc -l
     2
+
 
 
 # License

@@ -30,7 +30,7 @@ TDIR = "tmp/test_mantaclient"
 #---- Test cases
 #
 # We need to run these tests in order. We'll be creating a test area:
-#   /$user/stor/tmp/test_mantaclient/
+#   /$account/stor/tmp/test_mantaclient/
 # and working in there.
 #
 

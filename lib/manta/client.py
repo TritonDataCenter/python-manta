@@ -102,7 +102,7 @@ class RawMantaClient(object):
     http://apidocs.joyent.com/manta/pythonsdk/
 
     @param url {str} The Manta URL
-    @param user {str} The Manta username.
+    @param account {str} The Manta account (login name).
     @param signer {Signer instance} A python-manta Signer class instance
         that handles signing request to Manta using the http-signature
         auth scheme.
@@ -110,24 +110,24 @@ class RawMantaClient(object):
     @param cache_dir {str} Optional. A dir to use for HTTP caching. It will
         be created as needed.
     @param disable_ssl_certificate_validation {bool} Default false.
-    @param debug {bool} Optional. Default false. If true, then will log
+    @param verbose {bool} Optional. Default false. If true, then will log
         debugging info.
     """
-    def __init__(self, url, user, sign=None, signer=None,
+    def __init__(self, url, account, sign=None, signer=None,
             user_agent=None, cache_dir=None,
             disable_ssl_certificate_validation=False,
-            debug=False):
-        assert user, 'user'
+            verbose=False):
+        assert account, 'account'
         # Prefer 'signer', but accept 'sign' a la node-manta.
         assert signer or sign, 'signer'
         self.url = url
         assert not url.endswith('/'), "don't want trailing '/' on url: %r" % url
-        self.user = user
+        self.account = account
         self.signer = signer or sign
         self.cache_dir = cache_dir or DEFAULT_HTTP_CACHE_DIR
         self.user_agent = user_agent or DEFAULT_USER_AGENT
         self.disable_ssl_certificate_validation = disable_ssl_certificate_validation
-        if debug:
+        if verbose:
             # TODO: log should be `self.log`
             global log
             log.setLevel(logging.DEBUG)
@@ -166,10 +166,11 @@ class RawMantaClient(object):
         # Signature auth.
         if "Date" not in headers:
             headers["Date"] = http_date()
-        algorithm, fingerprint, signature = self.signer.sign(headers["Date"])
+        sigstr = 'date: ' + headers["Date"]
+        algorithm, fingerprint, signature = self.signer.sign(sigstr)
         headers["Authorization"] = \
-            'Signature keyId="/%s/keys/%s",algorithm="%s" %s' % (
-                self.user, fingerprint, algorithm, signature)
+            'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
+                self.account, fingerprint, algorithm, signature)
 
         return http.request(url, method, ubody, headers)
 
@@ -220,7 +221,7 @@ class RawMantaClient(object):
         res, content = self._request(mdir, "GET", query=query)
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
-        lines = content.split('\r\n')
+        lines = content.split('\n')
         dirents = []
         for line in lines:
             if not line.strip():
@@ -377,9 +378,9 @@ class RawMantaClient(object):
             raise errors.MantaAPIError(res, content)
         return res
 
-    def put_link(self, link_path, object_path):
-        """PutLink
-        http://apidocs.joyent.com/manta/manta/#PutLink
+    def put_snaplink(self, link_path, object_path):
+        """PutSnapLink
+        https://mo.joyent.com/docs/muskie/master/api.html#putsnaplink
 
         @param link_path {str} Required. A manta path, e.g.
             '/trent/stor/mylink'.
@@ -389,7 +390,7 @@ class RawMantaClient(object):
         log.debug('PutLink %r -> %r', link_path, object_path)
         headers = {
             "Content-Type": "application/json; type=link",
-            "Content-Length": "0",   #XXX Needed?
+            #"Content-Length": "0",   #XXX Needed?
             "Location": object_path
         }
         res, content = self._request(link_path, "PUT", headers=headers)
@@ -401,7 +402,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#CreateJob
         """
         log.debug('CreateJob')
-        path = '/%s/jobs' % self.user
+        path = '/%s/jobs' % self.account
         body = {"phases": phases}
         if name: body["name"] = name
         if input: body["input"] = input
@@ -417,12 +418,12 @@ class RawMantaClient(object):
         job_id = res["location"].rsplit('/', 1)[-1]
         return job_id
 
-    def add_job_keys(self, job_id, keys):
-        """AddJobKeys
-        http://apidocs.joyent.com/manta/manta/#AddJobKeys
+    def add_job_inputs(self, job_id, keys):
+        """AddJobInputs
+        http://apidocs.joyent.com/manta/manta/#AddJobInputs
         """
-        log.debug("AddJobKeys %r", job_id)
-        path = "/%s/jobs/%s/in" % (self.user, job_id)
+        log.debug("AddJobInputs %r", job_id)
+        path = "/%s/jobs/%s/live/in" % (self.account, job_id)
         body = '\r\n'.join(keys) + '\r\n'
         headers = {
             "Content-Type": "text/plain",
@@ -434,15 +435,15 @@ class RawMantaClient(object):
 
     def end_job_input(self, job_id):
         """EndJobInput
-        http://apidocs.joyent.com/manta/manta/#EndJobInput
+        https://mo.joyent.com/docs/muskie/master/api.html#EndJobInput
         """
         log.debug("EndJobInput %r", job_id)
-        path = "/%s/jobs/%s/in/end" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/in/end" % (self.account, job_id)
         headers = {
-            "Content-Length": "0"
+            # "Content-Length": "0"   #XXX needed?
         }
         res, content = self._request(path, "POST", headers=headers)
-        if res["status"] != '204':
+        if res["status"] != '202':
             raise errors.MantaAPIError(res, content)
 
     def cancel_job(self, job_id):
@@ -450,7 +451,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#CancelJob
         """
         log.debug("CancelJob %r", job_id)
-        path = "/%s/jobs/%s/cancel" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/cancel" % (self.account, job_id)
         headers = {
             "Content-Length": "0"
         }
@@ -470,7 +471,7 @@ class RawMantaClient(object):
         """
         log.debug('ListJobs')
 
-        path = "/%s/jobs" % self.user
+        path = "/%s/jobs" % self.account
         query = {}
         if state:
             query["state"] = state
@@ -498,7 +499,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#GetJob
         """
         log.debug("GetJob %r", job_id)
-        path = "/%s/jobs/%s" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/status" % (self.account, job_id)
         res, content = self._request(path, "GET")
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
@@ -512,7 +513,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#GetJobOutput
         """
         log.debug("GetJobOutput %r", job_id)
-        path = "/%s/jobs/%s/out" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/out" % (self.account, job_id)
         res, content = self._request(path, "GET")
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
@@ -524,7 +525,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#GetJobInput
         """
         log.debug("GetJobInput", job_id)
-        path = "/%s/jobs/%s/in" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/in" % (self.account, job_id)
         res, content = self._request(path, "GET")
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
@@ -536,7 +537,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#GetJobFailures
         """
         log.debug("GetJobFailures %r", job_id)
-        path = "/%s/jobs/%s/fail" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/fail" % (self.account, job_id)
         res, content = self._request(path, "GET")
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
@@ -548,7 +549,7 @@ class RawMantaClient(object):
         http://apidocs.joyent.com/manta/manta/#GetJobErrors
         """
         log.debug("GetJobErrors %r", job_id)
-        path = "/%s/jobs/%s/err" % (self.user, job_id)
+        path = "/%s/jobs/%s/live/err" % (self.account, job_id)
         res, content = self._request(path, "GET")
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
@@ -575,7 +576,7 @@ class MantaClient(RawMantaClient):
     def ln(self, object_path, link_path):
         """Create a Manta link.
 
-        This is a light wrapper around `put_link`. Note, however, that the
+        This is a light wrapper around `put_snaplink`. Note, however, that the
         arguments *are* reversed so that `ln` is like the Unix command
         of the same name (i.e. the existing object is given first).
 
@@ -584,7 +585,7 @@ class MantaClient(RawMantaClient):
         @param link_path {str} Required. A manta path, e.g.
             '/trent/stor/mylink'.
         """
-        return self.put_link(link_path, object_path)
+        return self.put_snaplink(link_path, object_path)
 
     def walk(self, mtop, topdown=True):
         """`os.walk(path)` for a directory in Manta.
@@ -660,7 +661,7 @@ class MantaClient(RawMantaClient):
                 if marker:
                     entries.pop(0)  # first one is a repeat (the marker)
                 for entry in entries:
-                    if "id" in entry:  # GET /:user/jobs
+                    if "id" in entry:  # GET /:account/jobs
                         dirents[entry["id"]] = entry
                     else:
                         dirents[entry["name"]] = entry

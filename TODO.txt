@@ -1,5 +1,6 @@
 # todo
 
+- https://mo.joyent.com/docs/muskie/master/api.html#putsnaplink-put-loginstordirectorylink
 - find globbing of given DIR(s), cat globbing, gzcat globbing: client.glob()
 - job:
   - keys via 'find $args -type o'

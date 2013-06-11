@@ -69,6 +69,29 @@ def optparser_setattr(**kwargs):
     return decorate
 
 class Mantash(cmdln.Cmdln):
+    """${name} -- a Manta shell
+
+    Usage:
+        ${name} [<options>] <command> [<args>]
+        ${name} help [<command>]
+        ${name}                        # interactive shell
+
+    ${option_list}
+    Note on -k/MANTA_KEY_ID: node-manta (and possibly other manta tools) do
+    not support the key id being a *path*. The advantage of a path is that a
+    key path other than "~/.ssh/id_rsa" can be used without it being in your
+    ssh-agent. Use a fingerprint (calculate as in the example below) if you
+    are able, for compatibility.
+
+    A reasonable starter environment might be:
+
+        export MANTA_URL=https://us-east.manta.joyent.com
+        export MANTA_USER=jill
+        export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\\n'`
+
+    ${command_list}
+    ${help_list}
+    """
     name = "mantash"
     version = manta.__version__
     manta_url = None
@@ -79,27 +102,31 @@ class Mantash(cmdln.Cmdln):
         parser = cmdln.Cmdln.get_optparser(self)
         #parser.add_option("--version", action="store_true",
         #    help="print mantash version and exit")
-        parser.add_option("-d", "--debug", action="store_true",
-            help="debug logging")
-        parser.add_option("-U", "-m", "--manta-url", dest="manta_url",
-            help="manta base URL", default=os.environ.get("MANTA_URL"))
-        parser.add_option("-u", "--user", "--account", dest="user",
-            help="manta user/account name or UUID",
+        parser.add_option("-v", "--verbose", dest="verbose",
+            action="store_true", help="Verbose/debug logging.")
+        parser.add_option("-u", "--url", dest="manta_url",
+            help="Manta URL. Environment: MANTA_URL=URL",
+            default=os.environ.get("MANTA_URL"))
+        parser.add_option("-a", "--account", dest="account",
+            help="Manta account (login name). Environment: MANTA_USER=ACCOUNT",
             default=os.environ.get("MANTA_USER"))
-        parser.add_option("-i", "--key-id", dest="key_id",
-            help="SSH key to use for authenticating with Manta",
+        parser.add_option("-k", "--keyId", dest="key_id",
+            help="SSH key fingerprint (or path to private key file). See "
+                "note below. Environment: MANTA_KEY_ID=FINGERPRINT",
             default=os.environ.get("MANTA_KEY_ID"))
+        parser.add_option("-i", "--insecure", action="store_true",
+            dest="insecure",
+            help="Do not validate SSL/TLS certificate. Not recommended but "
+                "useful for dev. Environment: MANTA_TLS_INSECURE=1",
+            default=(os.environ.get("MANTA_TLS_INSECURE") == "1"))
         parser.add_option("-C", dest="cd", metavar="DIRECTORY",
             help="first change to the given directory")
         parser.add_option("--drop-cache", dest="drop_cache", action="store_true",
             help="drop the current HTTP cache before starting")
-        parser.add_option("-k", "--insecure", action="store_true",
-            help="skip certificate validation (not recommended but useful for dev)",
-            default=False)
         return parser
 
     def postoptparse(self):
-        if self.options.debug:
+        if self.options.verbose:
             log.setLevel(logging.DEBUG)
         #log.debug("cache dir: %s", g_cache_dir)
 
@@ -118,9 +145,9 @@ class Mantash(cmdln.Cmdln):
             assert not os.path.exists(HTTP_CACHE_DIR)
 
         if not self.options.manta_url:
-            raise MantashError("no Manta URL: use '-m' or 'MANTA_URL' envvar")
-        if not self.options.user:
-            raise MantashError("no Manta user: use '-u' or 'MANTA_USER' envvar")
+            raise MantashError("no Manta URL: use '--url' or 'MANTA_URL' envvar")
+        if not self.options.account:
+            raise MantashError("no Manta account: use '--account' or 'MANTA_USER' envvar")
         if not self.options.key_id:
             raise MantashError("no Manta key ID: use '-i' or 'MANTA_KEY_ID' envvar")
         self.manta_url = self.options.manta_url
@@ -132,13 +159,13 @@ class Mantash(cmdln.Cmdln):
             self.manta_url = 'https://' + self.manta_url
         self.host = urlparse.urlparse(self.manta_url).hostname
 
-        self.user = self.options.user
-        self.home = "/%s/stor" % self.user
+        self.account = self.options.account
+        self.home = "/%s/stor" % self.account
         self.last_cwd = self.cwd = self.home
         signer = manta.CLISigner(self.options.key_id)
-        self.client = manta.MantaClient(self.manta_url, self.user, signer,
+        self.client = manta.MantaClient(self.manta_url, self.account, signer,
             disable_ssl_certificate_validation=self.options.insecure,
-            user_agent=USER_AGENT, debug=self.options.debug)
+            user_agent=USER_AGENT, verbose=self.options.verbose)
 
         self.do_help.aliases.append("man")
 
@@ -146,6 +173,16 @@ class Mantash(cmdln.Cmdln):
 
         if self.options.cd:
             return self.cmd(["cd", self.options.cd])
+
+    def do_help(self, argv):
+        if self.cmdlooping and len(argv) <= 1:
+            doc = "${command_list}"
+            doc = self._help_preprocess(doc, None)
+            doc = doc.rstrip('\n')
+            print doc
+        else:
+            cmdln.Cmdln.do_help(self, argv)
+    do_help.aliases = cmdln.Cmdln.do_help.aliases
 
     def _update_prompt(self):
         """Supported MANTASH_PS1 codes:
@@ -169,7 +206,7 @@ class Mantash(cmdln.Cmdln):
             'm': self.manta_url,
             'w': self.cwd,
             'W': ubasename(self.cwd),
-            'u': self.user,
+            'u': self.account,
             'h': shorthost,
             'H': self.host,
             'n': '\n',
@@ -279,7 +316,7 @@ class Mantash(cmdln.Cmdln):
                 # TODO: Just the user for now. Add cached visited public
                 # users eventually.
                 dirents = {
-                    self.user: {"name": self.user, "type": "directory"}
+                    self.account: {"name": self.account, "type": "directory"}
                 }
             hits = [(is_dir, upath, dirents)]
 
@@ -288,7 +325,7 @@ class Mantash(cmdln.Cmdln):
             is_dir = True
             if listDirs:
                 dirents = {abspath: {"name": absparts[1], "type": "directory"}}
-            elif absparts[1] == self.user:
+            elif absparts[1] == self.account:
                 dirents = {
                     "stor": {"name": "stor", "type": "directory"},
                     "public": {"name": "public", "type": "directory"},
@@ -467,8 +504,8 @@ class Mantash(cmdln.Cmdln):
             print json.dumps(listing, indent=2)
         return retval
 
-    def _ls_print_dirent(self, name, dirent,
-      long=False, format=False, human=False):
+    def _ls_print_dirent(self, name, dirent, long=False, format=False,
+                         human=False):
         if format:
             name += {
                 "directory": "/",
@@ -480,7 +517,7 @@ class Mantash(cmdln.Cmdln):
             else:
                 dirent_fmt = "%9s  %s  %10s  %24s  %s"
 
-            sz = dirent.get("size", '-')
+            sz = dirent.get("size", 0)
             if (sz != "-" and human):
                 sz = self._ls_human_size(sz)
 
@@ -488,12 +525,13 @@ class Mantash(cmdln.Cmdln):
             # format here, rather than just parroting the RFC 3339
             # format. IOW, if others have opinions on the time format here,
             # I'm fine changing.
-            mtime = ''
-            if "mtime" in dirent:
-                mtime = time.asctime(
-                    time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%SZ"))
+            mtime = dirent.get('mtime', '')
+            #if "mtime" in dirent:
+            #    # AFAIK Python's strptime doesn't support milliseconds.
+            #    mtime = time.asctime(
+            #        time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%S.721Z"))
             print dirent_fmt % (
-                dirent.get("type", "unknown"), self.user, sz, mtime, name)
+                dirent.get("type", "unknown"), self.account, sz, mtime, name)
         else:
             print name
 
@@ -1330,8 +1368,7 @@ class Mantash(cmdln.Cmdln):
                 # list of (<is-dir>, <path>, <dirents>)
                 paths = self._ls_path(pp, True)
             except MantashError, ex:
-                log.error(ex)
-                retval = 1
+                raise MantaError("'%s' does not exist" % pp)
             else:
                 for is_dir, p, dirents in paths:
                     for pname, dirent in dirents.items():
@@ -1350,7 +1387,7 @@ class Mantash(cmdln.Cmdln):
             print "  job_id: %s" % job_id
         if opts.verbose:
             sys.stderr.write("Created job %s\n" % job_id)
-        self.client.add_job_keys(job_id, keys)
+        self.client.add_job_inputs(job_id, keys)
         self.client.end_job_input(job_id)
         #TODO: support cancel_job on ^C
         if opts.verbose:
@@ -1365,7 +1402,7 @@ class Mantash(cmdln.Cmdln):
 
     def _wait_for_job(self, job_id, timeout=30):
         start_time = time.time()
-        url = ujoin(self.manta_url, self.user, 'jobs', job_id)
+        url = ujoin(self.manta_url, self.account, 'jobs', job_id)
         successive_errors = 0
         #time.sleep(2)
         while True:

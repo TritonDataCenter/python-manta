@@ -30,19 +30,20 @@ def stor(*subpaths):
 
 class MantaTestCase(unittest.TestCase):
     def __init__(self, *args):
-        self.user = os.environ["MANTA_USER"]
+        self.account = os.environ["MANTA_USER"]
         unittest.TestCase.__init__(self, *args)
 
     _client = None
     def get_client(self):
         MANTA_URL = os.environ['MANTA_URL']
         MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-        MANTA_INSECURE = bool(os.environ.get('MANTA_INSECURE', False))
+        MANTA_TLS_INSECURE = bool(os.environ.get('MANTA_TLS_INSECURE', False))
         if not self._client:
             signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
-            self._client = manta.MantaClient(url=MANTA_URL, user=self.user,
+            self._client = manta.MantaClient(url=MANTA_URL,
+                account=self.account,
                 signer=signer,
-                disable_ssl_certificate_validation=MANTA_INSECURE)
+                disable_ssl_certificate_validation=MANTA_TLS_INSECURE)
         return self._client
 
     def mantash(self, args):

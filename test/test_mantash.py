@@ -34,15 +34,15 @@ class OptionsTestCase(MantaTestCase):
 
     def test_help(self):
         code, stdout, stderr = self.mantash(['help'])
-        self.assertTrue("mantash COMMAND" in stdout)
+        self.assertTrue("mantash help" in stdout)
         self.assertEqual(stderr, "")
         self.assertEqual(code, 0)
         code, stdout, stderr = self.mantash(['--help'])
-        self.assertTrue("mantash COMMAND" in stdout)
+        self.assertTrue("mantash help" in stdout)
         self.assertEqual(stderr, "")
         self.assertEqual(code, 0)
         code, stdout, stderr = self.mantash(['-h'])
-        self.assertTrue("mantash COMMAND" in stdout)
+        self.assertTrue("mantash help" in stdout)
         self.assertEqual(stderr, "")
         self.assertEqual(code, 0)
 
@@ -95,7 +95,7 @@ class LsTestCase(MantaTestCase):
         lines = stdout.splitlines()
         self.assertEqual(len(lines), 3)
         for line in lines:
-            self.assertTrue(self.user in line)
+            self.assertTrue(self.account in line)
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(['-C', self.base, 'ls', '-F'])

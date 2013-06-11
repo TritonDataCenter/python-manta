@@ -380,15 +380,15 @@ class CLISigner(Signer):
         raise MantaError("could not find key info for signing: %s"
             % "; ".join(map(unicode, errors)))
 
-    def sign(self, s):
-        assert isinstance(s, str)   # for now, not unicode. Python 3?
+    def sign(self, sigstr):
+        assert isinstance(sigstr, str)   # for now, not unicode. Python 3?
 
         key_info = self._get_key_info()
-        log.debug("sign %r with %s key (algo %s, fp %s)", s, key_info["type"],
-            key_info["algorithm"], key_info["fingerprint"])
+        log.debug("sign %r with %s key (algo %s, fp %s)", sigstr,
+            key_info["type"], key_info["algorithm"], key_info["fingerprint"])
 
         if key_info["type"] == "agent":
-            response = key_info["agent_key"].sign_ssh_data(None, s)
+            response = key_info["agent_key"].sign_ssh_data(None, sigstr)
             signed_raw = signature_from_agent_sign_response(response)
             signed = base64.b64encode(signed_raw)
         elif key_info["type"] == "ssh_key":
@@ -399,7 +399,7 @@ class CLISigner(Signer):
                 "sha512": SHA512
             }[hash_algo]
             hasher = hash_class.new()
-            hasher.update(s)
+            hasher.update(sigstr)
             signed_raw = key_info["signer"].sign(hasher)
             signed = base64.b64encode(signed_raw)
         else:

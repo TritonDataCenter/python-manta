@@ -6,6 +6,6 @@ include LICENSE.txt
 include CHANGES.md
 include Makefile
 include setup.py
-recursive-include lib *.py *.txt *.so
+recursive-include lib *.py *.txt
 recursive-include bin *
 recursive-include test *.py
