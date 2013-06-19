@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 1.3.1 (not yet released)
+## 1.3.1
 
 - Fix parsing of DSA pubkeys when generating a pubkey fingerprint
   for `MANTA_KEY_ID=<path to ssh private key>` usage.
