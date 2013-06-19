@@ -61,7 +61,7 @@ def fingerprint_from_ssh_pub_key(data):
     #   'AAAAB3NzaC1yc2EAAAABIwAA...2l24uq9Lfw=='
     # - the full ssh pub key file content, e.g.:
     #   'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAA...2l24uq9Lfw== my comment'
-    if (re.search(r'^ssh-[rd]sa ', data)):
+    if (re.search(r'^ssh-(?:rsa|dss) ', data)):
         data = data.split(None, 1)[1]
 
     key = base64.b64decode(data)

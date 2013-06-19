@@ -7,7 +7,6 @@ import sys
 import distutils
 from distutils.core import setup
 
-assert False, 'python-manta install via setup.py is disabled (not working yet)'
 assert sys.version_info > (2, 4), \
     "python-manta does not support this Python version: %s" % sys.version
 
