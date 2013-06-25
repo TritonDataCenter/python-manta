@@ -9,17 +9,28 @@ from os.path import exists, join
 from posixpath import join as ujoin, dirname as udirname, basename as ubasename
 import json
 from pprint import pprint, pformat
-from urllib import urlencode
 import hashlib
 import datetime
 import base64
 
-import httplib2
-import appdirs
+from . import appdirs
 
 from manta.version import __version__
 import manta.errors as errors
 
+
+
+#---- Python version compat
+
+try:
+    from urllib.parse import urlencode # python3
+except ImportError:
+    from urllib import urlencode # python2
+
+if sys.version_info[0] >= 3:
+    from python3 import httplib2
+else:
+    from python2 import httplib2
 
 
 #---- globals
@@ -705,7 +716,8 @@ class MantaClient(RawMantaClient):
                 d = '/'.join(parts[:idx])
                 try:
                     self.put_directory(d)
-                except errors.MantaAPIError, ex:
+                except errors.MantaAPIError:
+                    _, ex, _ = sys.exc_info()
                     if ex.code == 'DirectoryDoesNotExist':
                         end = idx
                     else:
@@ -752,9 +764,10 @@ class MantaClient(RawMantaClient):
         """
         try:
             return self.stat(mpath)["type"]
-        except errors.MantaResourceNotFoundError, ex:
+        except errors.MantaResourceNotFoundError:
             return None
-        except errors.MantaAPIError, ex:
+        except errors.MantaAPIError:
+            _, ex, _ = sys.exc_info()
             if ex.code in ('ResourceNotFound', 'DirectoryDoesNotExist'):
                 return None
             else:

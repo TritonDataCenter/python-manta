@@ -362,7 +362,8 @@ class CLISigner(Signer):
         # First try the agent.
         try:
             key_info = agent_key_info_from_key_id(self.key_id)
-        except MantaError, ex:
+        except MantaError:
+            _, ex, _ = sys.exc_info()
             errors.append(ex)
         else:
             self._key_info_cache = key_info
@@ -371,7 +372,8 @@ class CLISigner(Signer):
         # Try loading from "~/.ssh/*".
         try:
             key_info = ssh_key_info_from_key_data(self.key_id)
-        except MantaError, ex:
+        except MantaError:
+            _, ex, _ = sys.exc_info()
             errors.append(ex)
         else:
             self._key_info_cache = key_info

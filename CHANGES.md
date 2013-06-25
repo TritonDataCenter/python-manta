@@ -2,7 +2,8 @@
 
 ## 1.3.2 (not yet released)
 
-(nothing yet)
+- [issue #8] A start at Python 3 support. This is **incomplete**. Paramiko
+  doesn't support Python 3 so we are stuck. Update to httplib2 0.8.
 
 
 ## 1.3.1
