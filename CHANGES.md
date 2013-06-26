@@ -1,6 +1,10 @@
 # python-manta Changelog
 
-## 1.3.2 (not yet released)
+## 1.4.0 (not yet released)
+
+- Add 'mantash open MANTA-PATH' to open a file in Manta in your browser.
+
+- Rename 'mantash gzcat ...' to 'mantash zcat ...' as it should have been.
 
 - [issue #8] A start at Python 3 support. This is **incomplete**. Paramiko
   doesn't support Python 3 so we are stuck. Update to httplib2 0.8.

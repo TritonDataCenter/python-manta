@@ -1,7 +1,7 @@
 # todo
 
 - https://mo.joyent.com/docs/muskie/master/api.html#putsnaplink-put-loginstordirectorylink
-- find globbing of given DIR(s), cat globbing, gzcat globbing: client.glob()
+- find globbing of given DIR(s), cat globbing, zcat globbing, open globbing: client.glob()
 - job:
   - keys via 'find $args -type o'
 - mantash job -c JOB-ID   # cancel a job

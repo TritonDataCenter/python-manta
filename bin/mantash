@@ -16,6 +16,7 @@ import mimetypes
 from hashlib import md5
 from operator import itemgetter
 from fnmatch import fnmatchcase
+import webbrowser
 import optparse
 
 sys.path.insert(0, os.path.join(
@@ -717,7 +718,7 @@ class Mantash(cmdln.Cmdln):
             sys.stdout.write('\n')
         return retval
 
-    def do_gzcat(self, subcmd, opts, *paths):
+    def do_zcat(self, subcmd, opts, *paths):
         """Download Manta objects, gunzip and print them to stdout.
 
         Usage:
@@ -752,6 +753,18 @@ class Mantash(cmdln.Cmdln):
         if content and not content.endswith('\n'):
             sys.stdout.write('\n')
         return retval
+
+    def do_open(self, subcmd, opts, path):
+        """open the given manta path in your browser
+
+        Usage:
+            ${cmd_name} [OPTIONS...] MANTA-PATH
+
+        ${cmd_option_list}
+        """
+        npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
+        url = self.manta_url + npath
+        webbrowser.open(url)
 
     def do_exit(self, subcmd, opts):
         """${cmd_name}: exit the shell"""
