@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 1.4.0 (not yet released)
+## 1.4.0
 
 - [MANTA-1478] Properly handle paging through ListDirectory results. Before
   this, `<MantaClient>.ls(...)` and `mantash ls` would not return all
