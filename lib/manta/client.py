@@ -663,26 +663,29 @@ class MantaClient(RawMantaClient):
                 dirents[entry["name"]] = entry
 
         else:
-            # TODO: think through this with a dir adding/removing entries
-            # *while* we are paging through results.
             marker = None
             while True:
-                res, entries = self.list_directory2(mdir, marker=marker)
-                result_set_size = int(res.get("result-set-size", 0))
+                res, entries = self.list_directory2(
+                    mdir, marker=marker)
                 if marker:
                     entries.pop(0)  # first one is a repeat (the marker)
+                if not entries:
+                    # Only the marker was there, we've got them all.
+                    break
                 for entry in entries:
                     if "id" in entry:  # GET /:account/jobs
                         dirents[entry["id"]] = entry
                     else:
                         dirents[entry["name"]] = entry
-                if len(dirents) >= result_set_size:
-                    break
+                if marker is None:
+                    # See if got all results in one go (quick out).
+                    result_set_size = int(res.get("result-set-size", 0))
+                    if len(entries) == result_set_size:
+                        break
+                if "id" in entries[-1]:
+                    marker = entries[-1]["id"]  # jobs
                 else:
-                    if "id" in entries[-1]:
-                        marker = entries[-1]["id"]  # jobs
-                    else:
-                        marker = entries[-1]["name"]
+                    marker = entries[-1]["name"]
 
         return dirents
 

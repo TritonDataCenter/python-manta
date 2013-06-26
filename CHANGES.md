@@ -2,6 +2,10 @@
 
 ## 1.4.0 (not yet released)
 
+- [MANTA-1478] Properly handle paging through ListDirectory results. Before
+  this, `<MantaClient>.ls(...)` and `mantash ls` would not return all
+  entries in a directory with greater than ~256 entries.
+
 - Add 'mantash open MANTA-PATH' to open a file in Manta in your browser.
 
 - Rename 'mantash gzcat ...' to 'mantash zcat ...' as it should have been.

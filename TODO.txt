@@ -31,7 +31,7 @@
 
 # Someday/Maybe
 
-
+- mantash touch
 - mantash rmdir
 - mantash md5  # a la mmd5
 - mantash job ARGS:  where 'ARGS' is like 'find -type o', i.e. recursive

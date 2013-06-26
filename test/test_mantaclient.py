@@ -58,7 +58,13 @@ class CleanTestAreaTestCase(MantaTestCase):
                 return
             else:
                 raise
+        # Don't totally wipe, to save time on test re-runs... though
+        # I'm sure this will surprise at some point.
+        skips = [stor(TDIR), stor(TDIR, 'manyfiles')]
         for mdir, dirs, nondirs in client.walk(stor(TDIR), False):
+            if mdir in skips:
+                print 'XXX skip', mdir, dirs, nondirs
+                continue
             for nondir in nondirs:
                 client.delete_object(ujoin(mdir, nondir["name"]))
             client.delete_object(mdir)
@@ -124,3 +130,22 @@ class LinkTestCase(MantaTestCase):
         dirents = [e for e in client.list_directory(stor(TDIR))
             if e["name"] in ("obj.txt", "link.txt")]
         self.assertEqual(len(dirents), 0)
+
+
+class ManyFilesTestCase(MantaTestCase):
+    __tags__ = ['slow']
+
+    def setUp(self):
+        self.client = self.get_client()
+        self.base = b = ujoin(TDIR, "manyfiles")
+        # If this dir exists already, then save time, don't rebuild it (i.e.
+        # presuming all the files were left in place).
+        if self.client.type(stor(b)) != "directory":
+            self.client.mkdirp(stor(b))
+            for i in range(1100):
+                self.client.put(stor(b, "f%05d" % i), "index %d" % i)
+
+    def test_hi(self):
+        print "hi"
+        ls = self.client.ls(stor(self.base))
+        self.assertEqual(len(ls), 1100)
