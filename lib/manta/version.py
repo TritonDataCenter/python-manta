@@ -1,4 +1,4 @@
-# Copyright 2012 Joyent, Inc.  All rights reserved.
+# Copyright 2013 Joyent, Inc.  All rights reserved.
 
-__version_info__ = (1, 4, 0)
+__version_info__ = (1, 4, 1)
 __version__ = ".".join(map(str, __version_info__))

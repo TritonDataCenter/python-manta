@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 1.4.1 (not yet released)
+
+(nothing yet)
+
+
 ## 1.4.0
 
 - [MANTA-1478] Properly handle paging through ListDirectory results. Before
