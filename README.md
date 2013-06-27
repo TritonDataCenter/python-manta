@@ -1,6 +1,9 @@
-A Python SDK for Manta (Joyent's object store and cloud compute system).
-This provides a Python 'manta' package and a 'mantash' (Manta Shell) CLI
-and shell.
+A Python SDK for [the Joyent Manta
+Service](http://www.joyent.com/products/manta) (a.k.a. Manta). This provides
+a Python 'manta' package (for using the [Manta REST
+API](http://apidocs.joyent.com/manta/api.html) and a 'mantash' (MANTA SHell)
+CLI and shell. For an introduction to Manta in general, see [Manta getting
+started docs](http://apidocs.joyent.com/manta/index.html).
 
 
 # Current Status
@@ -24,7 +27,7 @@ you don't need a separate install.
 Python module installation is a bit of a gong show, in general, but here are
 some things to try:
 
-    # Mac (using system python)
+    # Mac (using the system python at /usr/bin/python)
     sudo easy_install pycrypto
 
     # SmartOS with recent pkgsrc has a working Crypto package:
@@ -45,10 +48,16 @@ some things to try:
     pypm install pycrypto
 
     # Other
-    # Please let me know what works for you so I can add instructions to the
-    # list here. Often one of the following will do it:
+    # Often one of the following will do it:
     easy_install pycrypto
     pip install pycrypto
+
+
+Please [let me
+know](https://github.com/joyent/python-manta/issues/new?title=PyCrypto+install+notes+for+XXX)
+if there are better instructions that I can provide for your system, so I can
+add them here.
+
 
 ## 2. python-manta
 
