@@ -112,28 +112,31 @@ For a colourful `mantash` prompt you can also set:
 
 # Python Usage
 
-    import os
-    import logging
-    import manta
 
-    # Manta logs at the debug level, so the logging env needs to be setup.
-    logging.basicConfig()
+```python
+import os
+import logging
+import manta
 
-    url = os.environ['MANTA_URL']
-    account = os.environ['MANTA_USER']
-    key_id = os.environ['MANTA_KEY_ID']
+# Manta logs at the debug level, so the logging env needs to be setup.
+logging.basicConfig()
 
-    # This handles ssh-key signing of requests to Manta. Manta uses
-    # the HTTP Signature scheme for auth.
-    # http://tools.ietf.org/html/draft-cavage-http-signatures-00
-    signer = manta.SSHAgentSigner(key_id)
+url = os.environ['MANTA_URL']
+account = os.environ['MANTA_USER']
+key_id = os.environ['MANTA_KEY_ID']
 
-    client = manta.MantaClient(url, account, signer)
+# This handles ssh-key signing of requests to Manta. Manta uses
+# the HTTP Signature scheme for auth.
+# http://tools.ietf.org/html/draft-cavage-http-signatures-00
+signer = manta.SSHAgentSigner(key_id)
 
-    content = client.get_object('/%s/stor/foo.txt' % account)
-    print content
+client = manta.MantaClient(url, account, signer)
 
-    print dir(client)   # list all methods, better documentation coming (TODO)
+content = client.get_object('/%s/stor/foo.txt' % account)
+print content
+
+print dir(client)   # list all methods, better documentation coming (TODO)
+```
 
 
 # CLI
@@ -141,59 +144,60 @@ For a colourful `mantash` prompt you can also set:
 This package also provides a `mantash` (MANTA SHell) CLI for working with
 Manta:
 
-    $ mantash help
-    Usage:
-        mantash COMMAND [ARGS...]
-        mantash help [COMMAND]
-    ...
-    Commands:
-        cat            print objects
-        cd             change directory
-        find           find paths
-        get            get a file from manta
-        job            Run a Manta job
-    ...
+```shell
+$ mantash help
+Usage:
+    mantash COMMAND [ARGS...]
+    mantash help [COMMAND]
+...
+Commands:
+    cat            print objects
+    cd             change directory
+    find           find paths
+    get            get a file from manta
+    job            Run a Manta job
+...
 
-    # This is a local file.
-    $ ls
-    numbers.txt
+# This is a local file.
+$ ls
+numbers.txt
 
-    # Mantash single commands can be run like:
-    #       mantash ls
-    # Or you can enter the mantash interactive shell and run commands from
-    # there. Let's do that:
-    $ mantash
-    [jill@us-east /jill/stor]$ ls
-    [jill@us-east /jill/stor]$                      # our stor is empty
-    [jill@us-east /jill/stor]$ put numbers.txt ./   # upload local file
-    [jill@us-east /jill/stor]$ ls
-    numbers.txt
-    [jill@us-east /jill/stor]$ cat numbers.txt
-    one
-    two
-    three
-    four
+# Mantash single commands can be run like:
+#       mantash ls
+# Or you can enter the mantash interactive shell and run commands from
+# there. Let's do that:
+$ mantash
+[jill@us-east /jill/stor]$ ls
+[jill@us-east /jill/stor]$                      # our stor is empty
+[jill@us-east /jill/stor]$ put numbers.txt ./   # upload local file
+[jill@us-east /jill/stor]$ ls
+numbers.txt
+[jill@us-east /jill/stor]$ cat numbers.txt
+one
+two
+three
+four
 
-    # List available commands. A number of the typical Unix-y commands are
-    # there.
-    [jill@us-east /jill/stor]$ help
-    ...
+# List available commands. A number of the typical Unix-y commands are
+# there.
+[jill@us-east /jill/stor]$ help
+...
 
-    # Manta jobs.
-    #
-    # Note: The '^' is used as an alternative pipe separator to '|'.
-    # The primary reason is to avoid Bash eating the pipe when running
-    # one-off `mantash job ...` commands in Bash.
+# Manta jobs.
+#
+# Note: The '^' is used as an alternative pipe separator to '|'.
+# The primary reason is to avoid Bash eating the pipe when running
+# one-off `mantash job ...` commands in Bash.
 
-    # Run a Manta job. Here `grep t` is our map phase.
-    [jill@us-east /jill/stor]$ job numbers.txt ^ grep t
-    two
-    three
+# Run a Manta job. Here `grep t` is our map phase.
+[jill@us-east /jill/stor]$ job numbers.txt ^ grep t
+two
+three
 
-    # Add a reduce phase, indicated by '^^'.
-    [jill@us-east /jill/stor]$ job numbers.txt ^ grep t ^^ wc -l
-    2
-
+# Add a reduce phase, indicated by '^^'.
+[jill@us-east /jill/stor]$ job numbers.txt ^ grep t ^^ wc -l
+2
+```
 
 
 
