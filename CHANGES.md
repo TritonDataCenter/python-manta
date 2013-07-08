@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 1.5.0 (not yet released)
+## 1.5.0
 
 - [issue #9, MANTA-1593] Proper URI encoding (RFC3986).
 
