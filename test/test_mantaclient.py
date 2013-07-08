@@ -63,7 +63,6 @@ class CleanTestAreaTestCase(MantaTestCase):
         skips = [stor(TDIR), stor(TDIR, 'manyfiles')]
         for mdir, dirs, nondirs in client.walk(stor(TDIR), False):
             if mdir in skips:
-                print 'XXX skip', mdir, dirs, nondirs
                 continue
             for nondir in nondirs:
                 client.delete_object(ujoin(mdir, nondir["name"]))
@@ -79,23 +78,25 @@ class DirTestCase(MantaTestCase):
 
     def test_listheaddel(self):
         client = self.get_client()
-        client.mkdirp(stor(TDIR))
+        client.mkdirp(stor(TDIR, 'dir'))
         for d in ['a', 'b', 'c']:
-            client.mkdirp(stor(TDIR, d))
-        dirents = client.list_directory(stor(TDIR))
-        self.assertEqual(len(dirents), 3)
-        dirents = client.list_directory(stor(TDIR), limit=2)
+            client.mkdirp(stor(TDIR, 'dir', d))
+        dirents = client.list_directory(stor(TDIR, 'dir'))
+        self.assertEqual(len(dirents), 3,
+            'unexpected number of dirents: got %d, expected 3, dirents %r' % (
+                len(dirents), dirents))
+        dirents = client.list_directory(stor(TDIR, 'dir'), limit=2)
         self.assertEqual(len(dirents), 2)
-        dirents = client.list_directory(stor(TDIR), marker=dirents[-1]["name"])
+        dirents = client.list_directory(stor(TDIR, 'dir'), marker=dirents[-1]["name"])
         self.assertEqual(len(dirents), 2)
         self.assertEqual(dirents[1]["name"], "c")
 
-        res = client.head_directory(stor(TDIR))
+        res = client.head_directory(stor(TDIR, 'dir'))
         self.assertEqual(int(res['result-set-size']), 3)
 
         for d in ['a', 'b', 'c']:
-            client.delete_directory(stor(TDIR, d))
-        dirents = client.list_directory(stor(TDIR))
+            client.delete_directory(stor(TDIR, 'dir', d))
+        dirents = client.list_directory(stor(TDIR, 'dir'))
         self.assertEqual(len(dirents), 0)
 
 class ObjectTestCase(MantaTestCase):
@@ -145,7 +146,6 @@ class ManyFilesTestCase(MantaTestCase):
             for i in range(1100):
                 self.client.put(stor(b, "f%05d" % i), "index %d" % i)
 
-    def test_hi(self):
-        print "hi"
+    def test_count(self):
         ls = self.client.ls(stor(self.base))
         self.assertEqual(len(ls), 1100)

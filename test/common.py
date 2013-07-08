@@ -43,6 +43,8 @@ class MantaTestCase(unittest.TestCase):
             self._client = manta.MantaClient(url=MANTA_URL,
                 account=self.account,
                 signer=signer,
+                # Uncomment this for verbose client output for test run.
+                #verbose=True,
                 disable_ssl_certificate_validation=MANTA_TLS_INSECURE)
         return self._client
 
