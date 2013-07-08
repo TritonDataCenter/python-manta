@@ -31,6 +31,7 @@
 
 # Someday/Maybe
 
+- mantash less
 - mantash touch
 - mantash rmdir
 - mantash md5  # a la mmd5
