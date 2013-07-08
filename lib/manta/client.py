@@ -23,9 +23,13 @@ import manta.errors as errors
 #---- Python version compat
 
 try:
-    from urllib.parse import urlencode # python3
+    # Python 3
+    from urllib.parse import urlencode
+    from urllib.parse import quote as urlquote
 except ImportError:
-    from urllib import urlencode # python2
+    # Python 2
+    from urllib import urlencode
+    from urllib import quote as urlquote
 
 if sys.version_info[0] >= 3:
     from python3 import httplib2
@@ -162,9 +166,10 @@ class RawMantaClient(object):
         """
         assert path.startswith('/'), "bogus path: %r" % path
 
+        qpath = urlquote(path)
         if query:
-            path += '?' + urlencode(query)
-        url = self.url + path
+            qpath += '?' + urlencode(query)
+        url = self.url + qpath
         http = self._get_http()
 
         ubody = body
