@@ -53,6 +53,7 @@ setup(
         "paramiko >= 1.7.7.2",
         "httplib2==0.8",
     ],
+    scripts=[script],
     
     description="A Python SDK for Manta",
     classifiers=filter(None, classifiers.split("\n")),
