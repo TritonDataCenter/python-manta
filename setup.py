@@ -4,18 +4,16 @@
 
 import os
 import sys
-import distutils
-from distutils.core import setup
+#import distutils
+#from distutils.core import setup
+from setuptools import setup
 
 assert sys.version_info > (2, 4), \
     "python-manta does not support this Python version: %s" % sys.version
 
 _top_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(_top_dir, "lib"))
-try:
-    import manta
-finally:
-    del sys.path[0]
+
 
 classifiers = """\
 Development Status :: 4 - Beta
@@ -34,7 +32,7 @@ packages = [d[0][len('lib/'):].replace('/', '.')
     for d in os.walk('lib/manta') if "__pycache__" not in d[0]]
 
 script = (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
-version = manta.__version__
+version = "1.5.1"
 setup(
     name="manta",
     version=version,
@@ -45,12 +43,17 @@ setup(
     url="https://github.com/joyent/python-manta",
     license="MIT",
     platforms=["any"],
-    packages=packages + ["httplib2", "paramiko"],
+    packages=packages,
     package_dir={"": "lib"},
     package_data={
         '': ['*.txt'],
     },
-    scripts=[script],
+    install_requires=[
+        "pycrypto == 2.6.0",
+        "paramiko >= 1.7.7.2",
+        "httplib2==0.8",
+    ],
+    
     description="A Python SDK for Manta",
     classifiers=filter(None, classifiers.split("\n")),
     long_description="""A Python SDK for Manta (Joyent's object stor and cloud compute system).
