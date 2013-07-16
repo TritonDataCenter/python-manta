@@ -100,6 +100,24 @@ one of keys uploaded for your Joyent Public Cloud account.
     export MANTA_URL=https://us-east.manta.joyent.com
     export MANTA_USER=jill
 
+
+## ssh-agent setup
+
+python-manta requires ssh-agent to by running and have your registerd manta key loaded. To Place the following in your .bash_profile 
+
+    SSHAGENT=/usr/bin/ssh-agent
+    SSHAGENTARGS="-s"
+    if [ -z "$SSH_AUTH_SOCK" -a -x "$SSHAGENT" ]; then
+      eval `$SSHAGENT $SSHAGENTARGS`
+      trap "kill $SSH_AGENT_PID" 0
+    fi
+
+next 
+
+    source ~/.bash_profile
+    ssh-add .ssh/<YOUR_KEY_NAME>
+
+
 `mantash` uses these environment variables (as does the [Manta Node.js SDK
 CLI](http://wiki.joyent.com/wiki/display/Manta/Manta+CLI+Reference)).
 Alternatively you can specify these parameters to `mantash` via command-line
