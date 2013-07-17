@@ -310,7 +310,7 @@ class RawMantaClient(object):
         if len(methods) != 1:
             raise errors.MantaError("exactly one of 'content', 'path' or "
                 "'file' must be provided")
-        if content:
+        if content is not None:
             pass
         elif path:
             f = open(path)
@@ -319,7 +319,7 @@ class RawMantaClient(object):
             finally:
                 f.close()
         else:
-            content = f.read()
+            content = file.read()
         if not isinstance(content, bytes):
             raise errors.MantaError("'content' must be bytes, not unicode")
 
