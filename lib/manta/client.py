@@ -12,6 +12,7 @@ from pprint import pprint, pformat
 import hashlib
 import datetime
 import base64
+import httplib2
 
 from . import appdirs
 
@@ -30,11 +31,6 @@ except ImportError:
     # Python 2
     from urllib import urlencode
     from urllib import quote as urlquote
-
-if sys.version_info[0] >= 3:
-    from python3 import httplib2
-else:
-    from python2 import httplib2
 
 
 #---- globals
