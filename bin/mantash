@@ -19,13 +19,16 @@ from fnmatch import fnmatchcase
 import webbrowser
 import optparse
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib"))
+# Use the local manta package if we're in the dev layout.
+_dev_package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _dev_package_dir)
 import manta
 from manta import MantaError
 from manta import cmdln
 from manta import appdirs
-del sys.path[0]
+if _dev_package_dir in sys.path:
+    sys.path.remove(_dev_package_dir)
+del _dev_package_dir
 
 
 

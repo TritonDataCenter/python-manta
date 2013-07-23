@@ -4,58 +4,67 @@
 
 import os
 import sys
-import distutils
-from distutils.core import setup
 
-assert sys.version_info > (2, 4), \
+assert sys.version_info > (2, 5), \
     "python-manta does not support this Python version: %s" % sys.version
 
-_top_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(_top_dir, "lib"))
 try:
-    import manta
-finally:
-    del sys.path[0]
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
-classifiers = """\
-Development Status :: 4 - Beta
-Intended Audience :: Developers
-License :: OSI Approved :: MIT License
-Programming Language :: Python
-Programming Language :: Python :: 2
-Programming Language :: Python :: 2.5
-Programming Language :: Python :: 2.6
-Programming Language :: Python :: 2.7
-Operating System :: OS Independent
-Topic :: Software Development :: Libraries :: Python Modules
-"""
 
-packages = [d[0][len('lib/'):].replace('/', '.')
-    for d in os.walk('lib/manta') if "__pycache__" not in d[0]]
+TOP = os.path.dirname(os.path.abspath(__file__))
 
-script = (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
-version = manta.__version__
+def get_version():
+    """Get the python-manta version without having to import the manta package,
+    which requires deps to already be installed.
+    """
+    _globals = {}
+    _locals = {}
+    print(TOP + "/manta/version.py")
+    execfile(TOP + "/manta/version.py", _globals, _locals)
+    return _locals["__version__"]
+
+
 setup(
     name="manta",
-    version=version,
-    maintainer="Joyent",
-    maintainer_email="support@joyent.com",
-    author="Joyent",
-    author_email="support@joyent.com",
-    url="https://github.com/joyent/python-manta",
-    license="MIT",
-    platforms=["any"],
-    packages=packages + ["httplib2", "paramiko"],
-    package_dir={"": "lib"},
-    package_data={
-        '': ['*.txt'],
-    },
-    scripts=[script],
+    version=get_version(),
     description="A Python SDK for Manta",
-    classifiers=filter(None, classifiers.split("\n")),
-    long_description="""A Python SDK for Manta (Joyent's object stor and cloud compute system).
+    long_description="""A Python SDK for Manta (Joyent's object store and cloud compute system).
 
 This provides a Python 'manta' package and a 'mantash' (Manta Shell) CLI
 and shell.
 """,
+    author="Joyent",
+    author_email="support@joyent.com",
+    maintainer="Joyent",
+    maintainer_email="support@joyent.com",
+    url="https://github.com/joyent/python-manta",
+    license="MIT",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 2.7",
+        "Operating System :: OS Independent",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+    ],
+
+    # Python Packaging voodoo.
+    packages=["manta"],
+    package_dir={"manta": "manta"},
+    package_data={
+        '': ['*.txt'],
+    },
+    include_package_data=True,
+    install_requires=open(TOP + '/requirements.txt').read().splitlines(),
+    platform="any",
+    scripts=[
+        (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
+    ],
+    zip_safe=False,
 )

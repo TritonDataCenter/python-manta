@@ -25,9 +25,11 @@ all:
 
 .PHONY: clean
 clean:
-	find lib -name "*.pyc" | xargs rm
-	find lib -name "*.pyo" | xargs rm
-	find lib -name "__pycache__" | xargs rm -rf
+	find lib test -name "*.pyc" | xargs rm
+	find lib test -name "*.pyo" | xargs rm
+	find lib test -name "__pycache__" | xargs rm -rf
+	rm -rf dist
+	rm -rf manta.egg-info
 
 .PHONY: test
 test:
@@ -52,4 +54,4 @@ testall:
 
 .PHONY: cutarelease
 cutarelease:
-	./tools/cutarelease.py -f lib/manta/version.py
+	./tools/cutarelease.py -f manta/version.py

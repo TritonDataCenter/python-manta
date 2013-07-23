@@ -7,6 +7,6 @@ include AUTHORS
 include CHANGES.md
 include Makefile
 include setup.py
-recursive-include lib *.py *.txt
+recursive-include manta *.py *.txt
 recursive-include bin *
 recursive-include test *.py

@@ -1,8 +1,14 @@
 # python-manta Changelog
 
-## 1.5.2 (not yet released)
+## 2.0.0 (not yet released)
 
-(nothing yet)
+**Warning: This is still experimental until pypi/pip/packaging
+wrinkles are worked out. Currently this is on the 'pkg' repo
+branch.**
+
+- Rework the packaging for `pip install manta` et al to work.
+  Drop siloed 3rd party deps. This work inspired and mostly
+  copied from [deserat's](https://github.com/deserat) pull #10.
 
 
 ## 1.5.1

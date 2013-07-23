@@ -1,10 +1,9 @@
 *.pyc
 *.pyo
 __pycache__
-/README.html
 /*.tgz
 /build
 /tmp
-/play.py
 /dist
 /MANIFEST
+/manta.egg-info
