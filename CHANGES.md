@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 1.5.2 (not yet released)
+
+(nothing yet)
+
+
 ## 1.5.1
 
 - [issue #12] Fixes for `MantaClient.put_object`.
