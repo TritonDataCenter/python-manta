@@ -25,6 +25,9 @@ all:
 
 .PHONY: clean
 clean:
+	find lib -name "*.pyc" | xargs rm
+	find lib -name "*.pyo" | xargs rm
+	find lib -name "__pycache__" | xargs rm -rf
 
 .PHONY: test
 test:
