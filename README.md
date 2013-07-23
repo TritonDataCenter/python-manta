@@ -203,7 +203,7 @@ three
 
 # License
 
-MIT. See LICENSE.txt.
+MIT. See [LICENSE](./LICENSE).
 
 Some pure Python dependencies are included in this distribution (to
 reduce install dependency headaches). They are covered by their

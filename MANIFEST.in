@@ -2,7 +2,8 @@ include MANIFEST
 include MANIFEST.in
 include README.md
 include TODO.txt
-include LICENSE.txt
+include LICENSE
+include AUTHORS
 include CHANGES.md
 include Makefile
 include setup.py

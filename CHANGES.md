@@ -2,7 +2,7 @@
 
 ## 1.5.1 (not yet released)
 
-(nothing yet)
+- [issue #12] Fixes for `MantaClient.put_object`.
 
 
 ## 1.5.0
