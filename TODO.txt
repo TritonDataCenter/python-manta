@@ -9,11 +9,9 @@
 - job support for running a given *script*
 - test suite:
   - moar
-  - python version compat (add Python 3 classifiers), clarify supported
-    python verions
   - OS compat tests
 - unicode data tests: and filenames too
-- restdown docs (Philip?)
+- restdown docs
 - signed URLs
 
 
