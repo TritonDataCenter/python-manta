@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.0.2 (not yet released)
+
+(nothing yet)
+
+
 ## 2.0.1
 
 - Packaging tweaks, improved README, clean rev for pypi.
