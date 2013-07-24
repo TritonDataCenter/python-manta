@@ -14,9 +14,10 @@ import datetime
 import base64
 
 from . import appdirs
+from .version import __version__
+from . import errors
 
-from manta.version import __version__
-import manta.errors as errors
+import httplib2
 
 
 
@@ -31,10 +32,6 @@ except ImportError:
     from urllib import urlencode
     from urllib import quote as urlquote
 
-if sys.version_info[0] >= 3:
-    from python3 import httplib2
-else:
-    from python2 import httplib2
 
 
 #---- globals

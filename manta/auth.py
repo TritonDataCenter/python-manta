@@ -24,14 +24,10 @@ except ImportError:
         "for help installing PyCrypto (the Python 'Crypto' package)\n"
         "* * *\n")
     raise
-
-LOCAL_LIB = join(dirname(dirname(abspath(__file__))))
-if LOCAL_LIB not in sys.path:
-    sys.path.insert(0, LOCAL_LIB)
 import paramiko
-sys.path.remove(LOCAL_LIB)
 
 from manta.errors import MantaError
+
 
 
 #---- globals
