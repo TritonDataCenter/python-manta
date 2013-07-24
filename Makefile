@@ -42,16 +42,6 @@ test-kvm6:
 testall:
 	python test/testall.py
 
-#.PHONY: package
-#package: all
-#	rm -rf MANIFEST dist
-#	python setup.py sdist --no-defaults
-#	@echo "Created '$(shell ls dist/manta-*.tar.gz)'."
-
-#.PHONY: tag
-#tag:
-#	git tag -a -m "$(VERSION) release" "$(VERSION)"
-
 .PHONY: cutarelease
 cutarelease:
 	./tools/cutarelease.py -f manta/version.py
