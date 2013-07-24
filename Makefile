@@ -55,3 +55,9 @@ testall:
 .PHONY: cutarelease
 cutarelease:
 	./tools/cutarelease.py -f manta/version.py
+
+# Only have this around to retry package uploads on a tag created by
+# 'make cutarelease' because PyPI upload is super-flaky (at least for me).
+.PHONY: pypi-upload
+pypi-upload:
+	COPY_EXTENDED_ATTRIBUTES_DISABLE=1 python setup.py sdist --formats zip upload
