@@ -30,11 +30,16 @@ def get_version():
 setup(
     name="manta",
     version=get_version(),
-    description="A Python SDK for Manta",
-    long_description="""A Python SDK for Manta (Joyent's object store and cloud compute system).
+    description="A Python SDK for Joyent's Manta service",
+    long_description="""A Python SDK for Manta
 
-This provides a Python 'manta' package and a 'mantash' (Manta Shell) CLI
-and shell.
+`Manta <http://www.joyent.com/products/manta>`_ is Joyent's object storage
+service with integrate compute.
+
+This module provides a Python 'manta' package and a 'mantash' (MANTA SHell) CLI
+and shell. The project is `hosted on GitHub
+<https://github.com/trentm/python-manta#readme>`_. Please `file any issues here
+<https://github.com/trentm/python-manta/issues>`_.
 """,
     author="Joyent",
     author_email="support@joyent.com",
