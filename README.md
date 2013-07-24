@@ -18,76 +18,60 @@ Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 
 # Installation
 
-## 1. pycrypto dependency
-
-The 'pycrypto' (aka 'Crypto') Python module is a binary dependency. If you
-use SmartOS and Python 2.7, then the Crypto module is included already and
-you don't need a separate install.
-
-Python module installation is a bit of a gong show, in general, but here are
-some things to try:
-
-    # Mac (using the system python at /usr/bin/python)
-    sudo easy_install pycrypto
-
-    # SmartOS with recent pkgsrc has a working Crypto package:
-    #       py27-crypto-2.6
-    pkgin install py27-crypto
-
-    # Older pkgsrc repositories have a crypto package that is insufficient
-    # (the `Crypto.Signature` subpackage is missing).
-    #       py27-crypto-2.4.1
-    # To get a working Crypto for mantash you can do the following, or
-    # similarly for other Python versions:
-    pkgin rm py27-crypto   # must get this out of the way
-    pkgin install py27-setuptools
-    easy_install-2.7 pycrypto
-
-    # Any platform using the ActivePython distribution of Python (available
-    # for most platforms).
-    pypm install pycrypto
-
-    # Other
-    # Often one of the following will do it:
-    easy_install pycrypto
-    pip install pycrypto
+tl;dr: `pip install manta`
 
 
-Please [let me
-know](https://github.com/joyent/python-manta/issues/new?title=PyCrypto+install+notes+for+XXX)
+## 0. install `pip` (and maybe PyCrypto)
+
+**SmartOS**:
+
+    pkgin install py27-pip py27-crypto
+
+**Mac**:
+
+    # See <http://www.pip-installer.org/en/latest/installing.html>
+    curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
+    sudo python get-pip.py
+
+**Ubuntu**:
+
+    sudo apt-get install python-pip
+
+Others? Please [let me
+know](https://github.com/joyent/python-manta/issues/new?title=pip+and+pycrypto+install+notes+for+XXX)
 if there are better instructions that I can provide for your system, so I can
 add them here.
 
 
-## 2. python-manta
+## 1. install python-manta
 
-    git clone git://github.com/joyent/python-manta.git
-    # or `git clone git@github.com:joyent/python-manta.git`
+The preferred way is:
+
+    pip install manta
+
+If you don't have pip (see above), but have `easy_install` then:
+
+    easy_install manta
+
+You should also be able to install from source:
+
+    git clone https://github.com/joyent/python-manta.git
     cd python-manta
-
-The `mantash` CLI and `manta` Python module can be used directly out of this
-install:
-
-    export PATH=$PATH:`pwd`/bin
-    export PYTHONPATH=$PYTHONPATH:`pwd`/lib
-
-Or you should be able to install to your Python prefix via:
-
-    python setup.py install
+    python setup.py install    # might require a 'sudo' prefix
 
 
-## 3. verify it works
+## 2. verify it works
 
 The 'mantash' CLI should now work:
 
     $ mantash help
     ...
 
-For Python usage you need to get the 'lib' directory on your Python Path.
-One way is:
+And `import manta` should now work:
 
     $ python -c "import manta; print(manta.__version__)"
-    1.4.0
+    2.0.0
+
 
 
 # Setup
@@ -110,8 +94,8 @@ For a colourful `mantash` prompt you can also set:
     export MANTASH_PS1='\e[90m[\u@\h \e[34m\w\e[90m]$\e[0m '
 
 
-# Python Usage
 
+# Python Usage
 
 ```python
 import os
@@ -217,6 +201,8 @@ respective licenses:
 
 # Troubleshooting
 
+
+
 ### `ImportError: No module named Signature`
 
 If you see this attempting to run mantash on SmartOS:
@@ -240,6 +226,46 @@ For example, the old "sdc6/2011Q4" pkgsrc is not supported:
 
     $ cat /opt/local/etc/pkg_install.conf
     PKG_PATH=http://pkgsrc.joyent.com/sdc6/2011Q4/i386/All
+
+
+### 1. pycrypto dependency
+
+The 'pycrypto' (aka 'Crypto') Python module is a binary dependency of
+python-manta. Typically `pip install manta` (per the install instructions
+above) will install this for you. If not, here are some platform-specific notes
+for getting there. Please [let me
+know](https://github.com/joyent/python-manta/issues/new?title=PyCrypto+install+notes+for+XXX)
+if there are better instructions that I can provide for your system, so I can
+add them here.
+
+Typically one of the following will do it if you have `pip` (preferred) or
+`easy_install`:
+
+    pip install pycrypto
+    easy_install pycrypto
+
+**Mac** (using the system python at /usr/bin/python):
+
+    sudo easy_install pycrypto
+
+**SmartOS** with recent pkgsrc has a working Crypto package named
+"py27-crypto-2.6*":
+
+    pkgin install -y py27-crypto
+
+**Older SmartOS** pkgsrc versions with a pycrypto version <2.6 (e.g.
+"py27-crypto-2.4.1"). PyCrypto <2.6 is insufficient, the `Crypto.Signature`
+subpackage is missing. To get a working Crypto for mantash you can do the
+following, or similarly for other Python versions:
+
+    pkgin rm py27-crypto   # must get this out of the way
+    pkgin install py27-setuptools
+    easy_install-2.7 pycrypto
+
+**Any platform using the ActivePython** distribution of Python (available
+for most platforms).
+    pypm install pycrypto
+
 
 
 # Limitations
