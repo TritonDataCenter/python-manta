@@ -22,7 +22,6 @@ def get_version():
     """
     _globals = {}
     _locals = {}
-    print(TOP + "/manta/version.py")
     execfile(TOP + "/manta/version.py", _globals, _locals)
     return _locals["__version__"]
 
@@ -31,15 +30,12 @@ setup(
     name="manta",
     version=get_version(),
     description="A Python SDK for Joyent's Manta service",
-    long_description="""A Python SDK for Manta
-
-`Manta <http://www.joyent.com/products/manta>`_ is Joyent's object storage
-service with integrate compute.
-
-This module provides a Python 'manta' package and a 'mantash' (MANTA SHell) CLI
-and shell. The project is `hosted on GitHub
-<https://github.com/trentm/python-manta#readme>`_. Please `file any issues here
-<https://github.com/trentm/python-manta/issues>`_.
+    long_description="""`Manta <http://www.joyent.com/products/manta>`_
+is Joyent's object storage service with integrate compute.  This module
+provides a Python 'manta' package and a 'mantash' (MANTA SHell) CLI and
+shell. The project is `hosted on GitHub
+<https://github.com/trentm/python-manta#readme>`_.  Please `file any
+issues here <https://github.com/trentm/python-manta/issues>`_.
 """,
     author="Joyent",
     author_email="support@joyent.com",
@@ -67,7 +63,7 @@ and shell. The project is `hosted on GitHub
     },
     include_package_data=True,
     install_requires=open(TOP + '/requirements.txt').read().splitlines(),
-    platform="any",
+    platforms="any",
     scripts=[
         (sys.platform == "win32" and "bin\\mantash" or "bin/mantash")
     ],
