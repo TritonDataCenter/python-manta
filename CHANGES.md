@@ -1,10 +1,11 @@
 # python-manta Changelog
 
-## 2.0.0 (not yet released)
+## 2.0.1 (not yet released)
 
-**Warning: This is still experimental until pypi/pip/packaging
-wrinkles are worked out. Currently this is on the 'pkg' repo
-branch.**
+- Packaging tweaks, improved README, clean rev for pypi.
+
+
+## 2.0.0
 
 - Rework the packaging for `pip install manta` et al to work.
   Drop siloed 3rd party deps. This work inspired and mostly
