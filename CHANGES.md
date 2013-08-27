@@ -1,8 +1,10 @@
 # python-manta Changelog
 
-## 2.0.2 (not yet released)
+## 2.1.0 (not yet released)
 
-(nothing yet)
+- Add support to 'mantash' to remember user areas visited for future
+  tab completion. For example, if you are "bob" and you've visited
+  "/sue/public/..." then "cd /s<TAB>" will complete to "cd /sue" for you.
 
 
 ## 2.0.1

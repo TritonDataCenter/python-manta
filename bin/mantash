@@ -17,6 +17,7 @@ from hashlib import md5
 from operator import itemgetter
 from fnmatch import fnmatchcase
 import webbrowser
+import codecs
 import optparse
 
 # Use the local manta package if we're in the dev layout.
@@ -50,6 +51,7 @@ HTTP_CACHE_DIR = os.path.join(CACHE_DIR, "http")
 
 USER_AGENT = "mantash/%s (%s) Python/%s" % (
     manta.__version__, sys.platform, sys.version.split(None, 1)[0])
+KNOWN_USERS_PATH = os.path.join(CACHE_DIR, 'known-users.json')
 
 DEFAULT_PS1 = r'[\m\w]$ '
 
@@ -182,6 +184,17 @@ class Mantash(cmdln.Cmdln):
 
         self.do_help.aliases.append("man")
 
+        f = None
+        self._known_users = {}
+        try:
+            f = codecs.open(KNOWN_USERS_PATH, 'r', 'utf8')
+            self._known_users = json.load(f, encoding='utf8')
+        except Exception, ex:
+            pass
+        finally:
+            if f:
+                f.close()
+
         self._update_prompt()
 
         if self.options.cd:
@@ -275,9 +288,10 @@ class Mantash(cmdln.Cmdln):
             return self.client.ls(mdir)
         except manta.MantaAPIError:
             _, ex, _ = sys.exc_info()
-            if ex.code == 'UserDoesNotExist':
+            code = hasattr(ex, 'code') and ex.code
+            if code == 'UserDoesNotExist':
                 raise MantashError(str(ex))
-            elif ex.code == 'ResourceNotFound':
+            elif code == 'ResourceNotFound':
                 return None
             else:
                 raise
@@ -461,6 +475,8 @@ class Mantash(cmdln.Cmdln):
                         relmatches[relkey] = matches[key]
                 hits.append((False, upath, relmatches))
 
+        if hits and hits[0][-1]:
+            self._visited_known_mpath(abspath)
         if DEBUG:
             print("  hits:\n%s" % _indent(pformat(hits)))
         return hits
@@ -567,6 +583,25 @@ class Mantash(cmdln.Cmdln):
 
         return size + suffix
 
+    def _visited_known_mpath(self, mpath):
+        """Subcommands should call this whenever having learned that a given
+        Manta path exists. It is used to assist with tab-completion of Manta
+        paths -- currently just for completion of user dirs (the first
+        path component).
+        """
+        user = mpath.split('/')[1]
+        if user and user not in self._known_users:
+            self._known_users[user] = True
+            f = None
+            try:
+                f = codecs.open(KNOWN_USERS_PATH, 'w', 'utf8')
+                json.dump(self._known_users, f)
+            except Exception:
+                pass
+            finally:
+                if f:
+                    f.close()
+
     def do_cd(self, subcmd, opts, directory='~'):
         """change directory
 
@@ -599,6 +634,7 @@ class Mantash(cmdln.Cmdln):
                 log.error("%s: not a directory", directory)
                 return 1
             else:
+                self._visited_known_mpath(ndir)
                 self.cwd = ndir
         self.last_cwd = last_cwd
         self._update_prompt()
@@ -649,23 +685,31 @@ class Mantash(cmdln.Cmdln):
             elif mode in ("manta-path", "manta-dir"):
                 if start.startswith("~"):
                     start = uexpanduser(start, self.home)
-                parent = unormpath(ujoin(self.cwd, udirname(start)))
-                dirents = self._get_dir(parent)
-                if DEBUG:
-                    print("  dirents: %r" % dirents)
                 startdir = udirname(start)
                 startbase = ubasename(start)
-                if not dirents:
-                    matches = []
-                elif mode == "manta-dir":
-                    matches = [ujoin(startdir, n) for n,d in dirents.items()
-                               if n.startswith(startbase)
-                               and n.startswith('.') == startbase.startswith('.')
-                               and d["type"] == "directory"]
+                parent = unormpath(ujoin(self.cwd, udirname(start)))
+                if parent == '/':
+                    matches = ['/' + u for u in self._known_users.keys()
+                        if u.startswith(startbase)]
+                elif parent.count('/') == 1:
+                    # Note: op should get jobs, stor, reports as well.
+                    matches = [ujoin(startdir, n) for n in ['public']
+                        if n.startswith(startbase)]
                 else:
-                    matches = [ujoin(startdir, n) for n in dirents.keys()
-                               if n.startswith(startbase)
-                               and n.startswith('.') == startbase.startswith('.')]
+                    dirents = self._get_dir(parent)
+                    if DEBUG:
+                        print("  dirents: %r" % dirents)
+                    if not dirents:
+                        matches = []
+                    elif mode == "manta-dir":
+                        matches = [ujoin(startdir, n) for n,d in dirents.items()
+                                   if n.startswith(startbase)
+                                   and n.startswith('.') == startbase.startswith('.')
+                                   and d["type"] == "directory"]
+                    else:
+                        matches = [ujoin(startdir, n) for n in dirents.keys()
+                                   if n.startswith(startbase)
+                                   and n.startswith('.') == startbase.startswith('.')]
             elif mode in ("local-path", "local-dir"):
                 start = os.path.expanduser(start)
                 startdir = os.path.dirname(start)
@@ -803,7 +847,7 @@ class Mantash(cmdln.Cmdln):
     @cmdln.option("-d", "--durability-level",
         help="Tell Manta the number of copies to keep. Default is 2.")
     @cmdln.option("-t", "--content-type",
-        help="specify content-type, else cp will attempt to guess based "
+        help="specify content-type, else this will attempt to guess based "
             "on the filename. This 'wins' over '-b'.")
     @cmdln.option("-b", "--binary", action="store_true",
         help="disable content-type guessing and use 'application/octet-stream'")
