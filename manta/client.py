@@ -704,6 +704,8 @@ class MantaClient(RawMantaClient):
             method to which to write
         """
         assert mdir.startswith('/'), "%s: invalid manta path" % mdir
+        if not mdir.endswith('/'):
+            mdir += '/'
         parts = mdir.split('/')
         assert len(parts) > 3, "%s: cannot create top-level dirs" % mdir
         if not parents:
