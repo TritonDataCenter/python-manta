@@ -17,6 +17,13 @@
 
 # Bugs
 
+- listing empty files:
+    [trentm@us-east /trentm/jobs/f8e9e83c-bc69-4c70-f23c-8ae15906f75c]$ cat err.txt
+    mantash: ERROR: 'content-md5' (/Users/trentm/joy/python-manta/manta/client.py:366 in get_object2)
+    [20:41:09 trentm@grape:~/joy/sdcnode (master)]
+    $ m -C /trentm/jobs/f8e9e83c-bc69-4c70-f23c-8ae15906f75c
+    [trentm@us-east /trentm/jobs/f8e9e83c-bc69-4c70-f23c-8ae15906f75c]$ cat fail.txt
+    mantash: ERROR: 'content-md5' (/Users/trentm/joy/python-manta/manta/client.py:366 in get_object2)
 - find:
     $ mbeta find . -ls       # fails
     mantash: ERROR: /trentm/stor: no such remote directory

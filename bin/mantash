@@ -1250,7 +1250,7 @@ class Mantash(cmdln.Cmdln):
                 for dirpath, dirents, objents in self.client.walk(d):
                     yield {"type": "directory", "name": ubasename(dirpath),
                            "path": dirpath}
-                    for objent in objents:
+                    for objent in sorted(objents, key=itemgetter("name")):
                         objent["path"] = ujoin(dirpath, objent["name"])
                         yield objent
             else:

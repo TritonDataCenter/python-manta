@@ -9,6 +9,7 @@ from os.path import exists, join
 from posixpath import join as ujoin, dirname as udirname, basename as ubasename
 import json
 from pprint import pprint, pformat
+from operator import itemgetter
 import hashlib
 import datetime
 import base64
@@ -626,7 +627,7 @@ class MantaClient(RawMantaClient):
         dirents = self.ls(mtop)
 
         mdirs, mnondirs = [], []
-        for dirent in dirents.values():
+        for dirent in sorted(dirents.values(), key=itemgetter("name")):
             if dirent["type"] == "directory":
                 mdirs.append(dirent)
             else:

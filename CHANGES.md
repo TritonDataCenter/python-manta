@@ -2,6 +2,8 @@
 
 ## 2.1.0 (not yet released)
 
+- mantash: Sort 'find' output.
+
 - Add support to 'mantash' to remember user areas visited for future
   tab completion. For example, if you are "bob" and you've visited
   "/sue/public/..." then "cd /s<TAB>" will complete to "cd /sue" for you.
