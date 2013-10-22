@@ -1585,7 +1585,7 @@ if __name__ == "__main__":
         else:  # string exception
             log.error(exc_info[0])
         if not skip_it:
-            if log.isEnabledFor(logging.DEBUG):
+            if True or log.isEnabledFor(logging.DEBUG):
                 print('')
                 traceback.print_exception(*exc_info)
             sys.exit(1)

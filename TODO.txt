@@ -33,6 +33,22 @@
 - job:
     [trentm@manta-beta /trentm/stor]$ job tmp ^ zonename
     mantash: ERROR: global name 'pname' is not defined (/Users/trentm/joy/python-manta/bin/mantash:1158 in do_job)
+- mantash crash on unparsable input line:
+        [admin@us-east /admin/stor]$ asdf"
+        mantash: ERROR: command line is not terminated: unfinished double-quoted segment (/Users/trentm/joy/python-manta/manta/cmdln.py:1444 in line2argv)
+
+        Traceback (most recent call last):
+          File "/Users/trentm/joy/python-manta/bin/mantash", line 1565, in <module>
+            retval = main(sys.argv)
+          File "/Users/trentm/joy/python-manta/bin/mantash", line 1559, in main
+            return shell.main(argv, loop=cmdln.LOOP_IF_EMPTY)
+          File "/Users/trentm/joy/python-manta/manta/cmdln.py", line 268, in main
+            return self.cmdloop()
+          File "/Users/trentm/joy/python-manta/manta/cmdln.py", line 355, in cmdloop
+            argv = line2argv(line)
+          File "/Users/trentm/joy/python-manta/manta/cmdln.py", line 1444, in line2argv
+            "segment" % state)
+        ValueError: command line is not terminated: unfinished double-quoted segment
 
 # Someday/Maybe
 

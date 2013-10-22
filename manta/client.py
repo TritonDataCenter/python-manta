@@ -364,7 +364,7 @@ class RawMantaClient(object):
         if len(content) != int(res["content-length"]):
             raise errors.MantaError("content-length mismatch: expected %d, "
                 "got %s" % (res["content-length"], content))
-        if res["content-md5"]:
+        if res.get("content-md5"):
             md5 = hashlib.md5(content)
             content_md5 = base64.b64encode(md5.digest())
             if content_md5 != res["content-md5"]:
