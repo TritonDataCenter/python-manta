@@ -672,7 +672,8 @@ class Mantash(cmdln.Cmdln):
                 "put": "local-path",
                 "rm": "manta-path",
                 "vi": "manta-path",
-                "jobinfo": "job-id"
+                "jobinfo": "job-id",
+                "login": "manta-path"
             }.get(subcmd, "manta-path")
 
             startbase = None
@@ -703,14 +704,17 @@ class Mantash(cmdln.Cmdln):
                     if not dirents:
                         matches = []
                     elif mode == "manta-dir":
-                        matches = [ujoin(startdir, n) for n,d in dirents.items()
-                                   if n.startswith(startbase)
-                                   and n.startswith('.') == startbase.startswith('.')
-                                   and d["type"] == "directory"]
+                        matches = [
+                            ujoin(startdir, n) + '/' for n,d in dirents.items()
+                            if n.startswith(startbase)
+                            and n.startswith('.') == startbase.startswith('.')
+                            and d["type"] == "directory"]
                     else:
-                        matches = [ujoin(startdir, n) for n in dirents.keys()
-                                   if n.startswith(startbase)
-                                   and n.startswith('.') == startbase.startswith('.')]
+                        matches = [
+                            ujoin(startdir, n) + (d["type"] == "directory" and "/" or "")
+                            for n,d in dirents.items()
+                            if n.startswith(startbase)
+                            and n.startswith('.') == startbase.startswith('.')]
             elif mode in ("local-path", "local-dir"):
                 start = os.path.expanduser(start)
                 startdir = os.path.dirname(start)
@@ -720,7 +724,10 @@ class Mantash(cmdln.Cmdln):
                            if n.startswith(startbase)
                            and not n.startswith('.')]
                 if mode == "local-dir":
-                    matches = [m for m in matches if os.path.isdir(m)]
+                    matches = [m + '/' for m in matches if os.path.isdir(m)]
+                else:
+                    matches = [m + (os.path.isdir(m) and '/' or '')
+                        for m in matches]
             if startbase == '.':
                 matches.append('.')
                 matches.append('..')
@@ -1499,7 +1506,11 @@ class Mantash(cmdln.Cmdln):
                 break
 
     def do_login(self, argv):
-        """start a Manta compute login session"""
+        """start a Manta compute login session
+
+        Usage:
+            ${cmd_name} [OPTIONS...] [OBJECT]
+        """
         # TODO: pass in all args to mlogin using curr manta vars
 
         # We need to guess which arg, if any, is a manta path and, if so,
@@ -1515,10 +1526,14 @@ class Mantash(cmdln.Cmdln):
         subprocess.call(cmd, shell=True)
 
     def help_login(self):
-        p = subprocess.Popen(['man', 'mlogin'], stdout=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        p.wait()
-        return self.do_login.__doc__ + '\n\n' + stdout
+        try:
+            p = subprocess.Popen(['man', 'mlogin'], stdout=subprocess.PIPE)
+        except Exception:
+            return self.do_login.__doc__
+        else:
+            stdout, stderr = p.communicate()
+            p.wait()
+            return self.do_login.__doc__ + '\n\n' + stdout
 
 
 

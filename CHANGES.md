@@ -2,6 +2,9 @@
 
 ## 2.1.0 (not yet released)
 
+- Fix mantash bash completion to append '/' for directories (both for manta dirs
+  and local dirs as appropriate for the command).
+
 - Add 'mantash login ...' command. This calls out to the awesome
   [`mlogin`](https://apidocs.joyent.com/manta/mlogin.html) tool from the [Manta
   Node.js SDK (aka node-manta)](https://github.com/joyent/node-manta), hence
