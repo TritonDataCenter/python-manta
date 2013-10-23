@@ -16,6 +16,7 @@ import mimetypes
 from hashlib import md5
 from operator import itemgetter
 from fnmatch import fnmatchcase
+import subprocess
 import webbrowser
 import codecs
 import optparse
@@ -1497,6 +1498,27 @@ class Mantash(cmdln.Cmdln):
             if job["state"] == "done":
                 break
 
+    def do_login(self, argv):
+        """start a Manta compute login session"""
+        # TODO: pass in all args to mlogin using curr manta vars
+
+        # We need to guess which arg, if any, is a manta path and, if so,
+        # make it absolute. This could be error prone. I *think* the object
+        # must be the last arg for `mlogin`.
+        args = argv[1:]
+        if args:
+            candidate = unormpath(ujoin(self.cwd, args[-1]))
+            if self.client.type(candidate) is not None:
+                # Last arg is an existing manta path.
+                args[-1] = candidate
+        cmd = ' '.join(['mlogin'] + args)
+        subprocess.call(cmd, shell=True)
+
+    def help_login(self):
+        p = subprocess.Popen(['man', 'mlogin'], stdout=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        p.wait()
+        return self.do_login.__doc__ + '\n\n' + stdout
 
 
 

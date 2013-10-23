@@ -2,7 +2,12 @@
 
 ## 2.1.0 (not yet released)
 
-- mantash: Sort 'find' output.
+- Add 'mantash login ...' command. This calls out to the awesome
+  [`mlogin`](https://apidocs.joyent.com/manta/mlogin.html) tool from the [Manta
+  Node.js SDK (aka node-manta)](https://github.com/joyent/node-manta), hence
+  this requires that you have node-manta setup and on your PATH.
+
+- Sort 'mantash find ...' output.
 
 - Add support to 'mantash' to remember user areas visited for future
   tab completion. For example, if you are "bob" and you've visited
