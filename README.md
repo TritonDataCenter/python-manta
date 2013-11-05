@@ -93,6 +93,8 @@ For a colourful `mantash` prompt you can also set:
 
     export MANTASH_PS1='\e[90m[\u@\h \e[34m\w\e[90m]$\e[0m '
 
+See `_update_prompt` in bin/mantash for the list of supported PS1 escape
+codes.
 
 
 # Python Usage

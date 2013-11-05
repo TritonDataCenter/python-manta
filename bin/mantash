@@ -1522,7 +1522,14 @@ class Mantash(cmdln.Cmdln):
             if self.client.type(candidate) is not None:
                 # Last arg is an existing manta path.
                 args[-1] = candidate
-        cmd = ' '.join(['mlogin'] + args)
+        opts = [
+            '-u', self.manta_url,
+            '-k', self.options.key_id,
+            '-a', self.account,
+        ]
+        if self.options.insecure:
+            opts += ['-i']
+        cmd = ' '.join(['mlogin'] + opts + args)
         subprocess.call(cmd, shell=True)
 
     def help_login(self):
