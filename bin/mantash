@@ -846,6 +846,37 @@ class Mantash(cmdln.Cmdln):
         return retval
 
 
+    def do_json(self, subcmd, opts, path):
+        """Download a Manta objects and JSON pretty-print it.
+        Note: This is a precursor to nicely passing this to a full `json`.
+
+        Usage:
+            ${cmd_name} MANTA-PATH
+
+        ${cmd_option_list}
+        """
+        retval = None
+        npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
+        parent = udirname(npath)
+        name = ubasename(npath)
+        dirents = self._get_dir(parent)
+        if name not in dirents:
+            log.error("%s: no such object or directory", path)
+            return 1
+        elif dirents[name]["type"] == "directory":
+            log.error("%s: is a directory", path)
+            return 1
+        content = self.client.get(npath)
+        try:
+            parsed = json.loads(content)
+        except Exception:
+            sys.stdout.write(content)
+            if content and not content.endswith('\n'):
+                sys.stdout.write('\n')
+            return 1
+        else:
+            sys.stdout.write(json.dumps(parsed, indent=2) + '\n')
+
     def do_zcat(self, subcmd, opts, *paths):
         """Download Manta objects, gunzip and print them to stdout.
 

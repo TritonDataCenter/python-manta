@@ -2,6 +2,8 @@
 
 ## 2.1.0 (not yet released)
 
+- 'mantash json' simple command to JSON-pretty-print a smallish JSON file.
+
 - 'mantash head' and 'mantash tail' first cuts.
 
 - Fix mantash bash completion to append '/' for directories (both for manta dirs
