@@ -591,8 +591,12 @@ class Mantash(cmdln.Cmdln):
         path component).
         """
         user = mpath.split('/')[1]
-        if user and user not in self._known_users:
-            self._known_users[user] = True
+        area = mpath.split('/')[2]
+        if area != 'public':
+            area = 'private'
+        if (area == 'public' and user not in self._known_users
+            or self._known_users.get('user') != 'private'):
+            self._known_users[user] = area
             f = None
             try:
                 f = codecs.open(KNOWN_USERS_PATH, 'w', 'utf8')
@@ -691,11 +695,19 @@ class Mantash(cmdln.Cmdln):
                 startbase = ubasename(start)
                 parent = unormpath(ujoin(self.cwd, udirname(start)))
                 if parent == '/':
-                    matches = ['/' + u for u in self._known_users.keys()
+                    matches = ['/' + u + '/' for u in self._known_users.keys()
                         if u.startswith(startbase)]
                 elif parent.count('/') == 1:
-                    # Note: op should get jobs, stor, reports as well.
-                    matches = [ujoin(startdir, n) for n in ['public']
+                    # Infer if have private access from previous successful
+                    # operations on files in private dirs.
+                    account = self.cwd.split('/')[1]
+                    priv_access = (account == self.account
+                        or self._known_users.get(account) == 'private')
+                    if priv_access:
+                        dirs = ['jobs', 'public', 'reports', 'stor']
+                    else:
+                        dirs = ['public']
+                    matches = [ujoin(startdir, n) + '/' for n in dirs
                         if n.startswith(startbase)]
                 else:
                     dirents = self._get_dir(parent)
