@@ -590,8 +590,12 @@ class Mantash(cmdln.Cmdln):
         paths -- currently just for completion of user dirs (the first
         path component).
         """
-        user = mpath.split('/')[1]
-        area = mpath.split('/')[2]
+        parts = mpath.split('/')
+        if len(parts) < 3:
+            # No dir to save if only at top-level.
+            return
+        user = parts[1]
+        area = parts[2]
         if area != 'public':
             area = 'private'
         if (area == 'public' and user not in self._known_users
