@@ -1662,6 +1662,43 @@ class Mantash(cmdln.Cmdln):
             p.wait()
             return self.do_login.__doc__ + '\n\n' + stdout
 
+    def do_sign(self, argv):
+        """Produce a signed URL for the given manta path.
+
+        Usage:
+            ${cmd_name} [OPTIONS...] OBJECT
+        """
+        # TODO: pass in all args to msign using curr manta vars
+
+        # We need to guess which arg, if any, is a manta path and, if so,
+        # make it absolute. This could be error prone. I *think* the object
+        # must be the last arg for `msign`.
+        args = argv[1:]
+        if args:
+            candidate = unormpath(ujoin(self.cwd, args[-1]))
+            if self.client.type(candidate) is not None:
+                # Last arg is an existing manta path.
+                args[-1] = candidate
+        opts = [
+            '-u', self.manta_url,
+            '-k', self.options.key_id,
+            '-a', self.account,
+        ]
+        if self.options.insecure:
+            opts += ['-i']
+        cmd = ' '.join(['msign'] + opts + args)
+        subprocess.call(cmd, shell=True)
+
+    def help_sign(self):
+        try:
+            p = subprocess.Popen(['man', 'msign'], stdout=subprocess.PIPE)
+        except Exception:
+            return self.do_sign.__doc__
+        else:
+            stdout, stderr = p.communicate()
+            p.wait()
+            return self.do_sign.__doc__ + '\n\n' + stdout
+
 
 
 #---- internal support stuff

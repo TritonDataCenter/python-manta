@@ -2,6 +2,8 @@
 
 ## 2.1.0 (not yet released)
 
+- 'mantash sign MANTA-PATH' wrapper around msign from the node-manta tools.
+
 - 'mantash json' simple command to JSON-pretty-print a smallish JSON file.
 
 - 'mantash head' and 'mantash tail' first cuts.
