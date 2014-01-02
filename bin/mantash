@@ -654,7 +654,7 @@ class Mantash(cmdln.Cmdln):
     def completedefault(self, text, line, begidx, endidx):
         """Complete paths in the cwd."""
         try:
-            DEBUG = True
+            DEBUG = False
             if DEBUG:
                 print("\n-- completedefault:",)
                 print("  %r" % ((text, line, begidx, endidx),))
