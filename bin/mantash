@@ -247,7 +247,8 @@ class Mantash(cmdln.Cmdln):
         def repl(match):
             return codes[match.group(1)]
         allkeys = ''.join(codes.keys()).replace('\\', '\\\\')
-        self._prompt_str = re.sub(r'\\([%s])' % allkeys, repl, self.ps1)
+        uprompt = re.sub(r'\\([%s])' % allkeys, repl, self.ps1)
+        self._prompt_str = uprompt.encode(sys.stdout.encoding, 'replace')
 
     def do_lpwd(self, subcmd, opts):
         """${cmd_name}: print the local cwd"""
@@ -508,6 +509,7 @@ class Mantash(cmdln.Cmdln):
         paths = paths or ['']
         all_to_print = []  # list of (<is-dir>, <path>, <dirents>)
         for path in paths:
+            upath = path.decode(sys.stdin.encoding)
             try:
                 to_print = self._ls_path(path, opts.dir)
             except (MantaError, MantashError):
@@ -617,7 +619,8 @@ class Mantash(cmdln.Cmdln):
         Usage:
             ${cmd_name} [DIRECTORY]
         """
-        ndir = unormpath(ujoin(self.cwd, uexpanduser(directory, self.home)))
+        udirectory = directory.decode(sys.stdin.encoding)
+        ndir = unormpath(ujoin(self.cwd, uexpanduser(udirectory, self.home)))
         nparts = ndir.split('/')
         last_cwd = self.cwd
         if directory == '-':
@@ -651,10 +654,10 @@ class Mantash(cmdln.Cmdln):
     def completedefault(self, text, line, begidx, endidx):
         """Complete paths in the cwd."""
         try:
-            DEBUG = False
+            DEBUG = True
             if DEBUG:
                 print("\n-- completedefault:",)
-                print("  ", (text, line, begidx, endidx))
+                print("  %r" % ((text, line, begidx, endidx),))
             subcmd = line and line.split(None, 1)[0]
             start = line[begidx:endidx]
             if DEBUG:
@@ -749,9 +752,24 @@ class Mantash(cmdln.Cmdln):
                 matches.append('..')
             elif startbase == '..':
                 matches.append('..')
+
+            # Escape matches for the shell.
+            # The list of special chars from:
+            # https://pangea.stanford.edu/computing/unix/shell/specialchars.php
+            # I excluded '~' from that list because don't want to escape '~'
+            # at the start of a path and not sure it is necessary elsewhere.
+            escaper = re.compile(r'''([][ \\'"*?{}$!&;()<>|#@:-])''')
+            for i, match in enumerate(matches):
+                matches[i] = escaper.sub(r'\\\1', match)
+
+            # UTF-8 encode results for GNU readline.
+            for i, match in enumerate(matches):
+                matches[i] = match.encode('utf-8')
+
             matches.sort()
             if DEBUG:
-                print("  matches: %r" % matches)
+                print("  %d matches: %r" % (len(matches), matches))
+                print("\t%s" % '\n\t'.join(matches))
             return matches
         except:
             if DEBUG or self.options.debug:
@@ -937,9 +955,10 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
+        upath = path.decode(sys.stdin.encoding)
+        npath = unormpath(ujoin(self.cwd, uexpanduser(upath, self.home)))
         url = self.manta_url + npath
-        webbrowser.open(url)
+        webbrowser.open(url.encode('utf-8'))
 
     def do_exit(self, subcmd, opts):
         """${cmd_name}: exit the shell"""

@@ -95,10 +95,11 @@ class MantaHttp(httplib2.Http):
                 ]))
         res, content = httplib2.Http._request(self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey)
         if log.isEnabledFor(logging.DEBUG):
+            ucontent = content.decode('utf-8')
             log.debug("res: %s %s\n%s\n%s", method, request_uri,
                 _indent(pformat(res)),
-                (len(content) < 1024 and _indent(content)
-                 or _indent(content[:1021]+'...')))
+                (len(ucontent) < 1024 and _indent(ucontent)
+                 or _indent(ucontent[:1021] + u'...')))
         return (res, content)
 
 
@@ -164,7 +165,14 @@ class RawMantaClient(object):
         """
         assert path.startswith('/'), "bogus path: %r" % path
 
-        qpath = urlquote(path)
+        # Presuming utf-8 encoding here for requests. Not sure if that is
+        # technically correct.
+        if isinstance(path, unicode):
+            spath = path.encode('utf-8')
+        else:
+            spath = path
+
+        qpath = urlquote(spath)
         if query:
             qpath += '?' + urlencode(query)
         url = self.url + qpath

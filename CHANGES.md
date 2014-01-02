@@ -2,6 +2,12 @@
 
 ## 2.1.0 (not yet released)
 
+- [issue #16] A start at some encoding handling fixes in `mantash` for paths
+  with non-ascii characters.
+
+- [issue #15] Fix tab completion in `mantash` to escape shell special
+  characters.
+
 - 'mantash sign MANTA-PATH' wrapper around msign from the node-manta tools.
 
 - 'mantash json' simple command to JSON-pretty-print a smallish JSON file.
