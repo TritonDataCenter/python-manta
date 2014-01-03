@@ -756,9 +756,10 @@ class Mantash(cmdln.Cmdln):
             # Escape matches for the shell.
             # The list of special chars from:
             # https://pangea.stanford.edu/computing/unix/shell/specialchars.php
-            # I excluded '~' from that list because don't want to escape '~'
-            # at the start of a path and not sure it is necessary elsewhere.
-            escaper = re.compile(r'''([][ \\'"*?{}$!&;()<>|#@:-])''')
+            # - I excluded '~' from that list because don't want to escape '~'
+            #   at the start of a path and not sure it is necessary elsewhere.
+            # - Also excluded '-', b/c it is not necessary.
+            escaper = re.compile(r'''([][ \\'"*?{}$!&;()<>|#@:])''')
             for i, match in enumerate(matches):
                 matches[i] = escaper.sub(r'\\\1', match)
 
