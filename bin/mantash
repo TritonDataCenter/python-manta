@@ -1650,6 +1650,9 @@ class Mantash(cmdln.Cmdln):
 
         Usage:
             ${cmd_name} [OPTIONS...] [OBJECT]
+
+        Note: This is just calling out to the *node*-manta client tools'
+        `mlogin ...`. Thus you need to have those installed and on the PATH.
         """
         # TODO: pass in all args to mlogin using curr manta vars
 
@@ -1669,7 +1672,10 @@ class Mantash(cmdln.Cmdln):
         ]
         if self.options.insecure:
             opts += ['-i']
-        cmd = ' '.join(['mlogin'] + opts + args)
+        cmd = ' '.join(['mlogin'] + opts)
+        for arg in args:
+            cmd += " '%s'" % arg
+        log.debug('cmd: %r', cmd)
         subprocess.call(cmd, shell=True)
 
     def help_login(self):
@@ -1687,6 +1693,9 @@ class Mantash(cmdln.Cmdln):
 
         Usage:
             ${cmd_name} [OPTIONS...] OBJECT
+
+        Note: This is just calling out to the *node*-manta client tools'
+        `msign ...`. Thus you need to have those installed and on the PATH.
         """
         # TODO: pass in all args to msign using curr manta vars
 
@@ -1706,7 +1715,10 @@ class Mantash(cmdln.Cmdln):
         ]
         if self.options.insecure:
             opts += ['-i']
-        cmd = ' '.join(['msign'] + opts + args)
+        cmd = ' '.join(['msign'] + opts)
+        for arg in args:
+            cmd += " '%s'" % arg
+        log.debug('cmd: %r', cmd)
         subprocess.call(cmd, shell=True)
 
     def help_sign(self):
