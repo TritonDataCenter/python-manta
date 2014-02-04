@@ -127,17 +127,18 @@ class RawMantaClient(object):
     @param verbose {bool} Optional. Default false. If true, then will log
         debugging info.
     """
-    def __init__(self, url, account, sign=None, signer=None,
+    def __init__(self, url, account, sign=None, signer=None, internal=False, 
             user_agent=None, cache_dir=None,
             disable_ssl_certificate_validation=False,
             verbose=False):
         assert account, 'account'
         # Prefer 'signer', but accept 'sign' a la node-manta.
-        assert signer or sign, 'signer'
+        assert signer or sign or internal, 'signer'
         self.url = url
         assert not url.endswith('/'), "don't want trailing '/' on url: %r" % url
         self.account = account
         self.signer = signer or sign
+        self.internal = internal
         self.cache_dir = cache_dir or DEFAULT_HTTP_CACHE_DIR
         self.user_agent = user_agent or DEFAULT_USER_AGENT
         self.disable_ssl_certificate_validation = disable_ssl_certificate_validation
@@ -188,11 +189,13 @@ class RawMantaClient(object):
         # Signature auth.
         if "Date" not in headers:
             headers["Date"] = http_date()
-        sigstr = 'date: ' + headers["Date"]
-        algorithm, fingerprint, signature = self.signer.sign(sigstr)
-        headers["Authorization"] = \
-            'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
-                self.account, fingerprint, algorithm, signature)
+
+        if not self.internal:
+            sigstr = 'date: ' + headers["Date"]
+            algorithm, fingerprint, signature = self.signer.sign(sigstr)
+            headers["Authorization"] = \
+                'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
+                    self.account, fingerprint, algorithm, signature)
 
         return http.request(url, method, ubody, headers)
 
