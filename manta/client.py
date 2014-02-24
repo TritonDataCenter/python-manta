@@ -300,6 +300,8 @@ class RawMantaClient(object):
         @param content {bytes}
         @param path {str}
         @param file {file-like object}
+        @param content_length {int} Not currently used. Expect this to be used
+            when streaming support is added.
         @param content_type {string} Optional, but suggested. Default is
             'application/octet-stream'.
         @param durability_level {int} Optional. Default is 2. This tells
