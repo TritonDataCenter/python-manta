@@ -124,6 +124,8 @@ print content
 print dir(client)   # list all methods, better documentation coming (TODO)
 ```
 
+See more examples in the [examples/](./examples/) directory.
+
 
 # CLI
 
