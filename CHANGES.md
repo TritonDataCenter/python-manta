@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.1.1 (not yet released)
+
+(nothing yet)
+
+
 ## 2.1.0
 
 - [issue #18] Add MANTA_NO_AUTH support for running python-manta in a Manta
