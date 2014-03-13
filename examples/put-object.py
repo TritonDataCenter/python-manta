@@ -16,9 +16,13 @@ import manta
 def get_client():
     MANTA_USER = os.environ['MANTA_USER']
     MANTA_URL = os.environ['MANTA_URL']
-    MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
     MANTA_TLS_INSECURE = bool(os.environ.get('MANTA_TLS_INSECURE', False))
-    signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
+    MANTA_NO_AUTH = os.environ.get('MANTA_NO_AUTH', 'false') == 'true'
+    if MANTA_NO_AUTH:
+        signer = None
+    else:
+        MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
+        signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,
