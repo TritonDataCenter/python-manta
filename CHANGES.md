@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.1.0 (not yet released)
+## 2.1.0
 
 - [issue #18] Add MANTA_NO_AUTH support for running python-manta in a Manta
   job or mlogin session. For example, this means that you can now much more
