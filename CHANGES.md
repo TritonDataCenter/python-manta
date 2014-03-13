@@ -2,7 +2,7 @@
 
 ## 2.1.1 (not yet released)
 
-(nothing yet)
+- Fix test suite breakage.
 
 
 ## 2.1.0
@@ -17,7 +17,8 @@
                 -s /bob/stor/scripts/my-processor.py \
                 -m '/assets/bob/stor/scripts/my-processor.py'
 
-  Now "my-processor.py" can `import manta` to write to Manta inside the job.
+  Now "my-processor.py" can `import manta` to read and write to Manta inside the
+  job.
 
 - [issue #16] A start at some encoding handling fixes in `mantash` for paths
   with non-ascii characters.
