@@ -132,10 +132,10 @@ class RawMantaClient(object):
             disable_ssl_certificate_validation=False,
             verbose=False):
         assert account, 'account'
-        # Prefer 'signer', but accept 'sign' a la node-manta.
-        assert signer or sign, 'signer'
-        self.url = url
-        assert not url.endswith('/'), "don't want trailing '/' on url: %r" % url
+        if url.endswith('/'):
+            self.url = url[:-1]
+        else:
+            self.url = url
         self.account = account
         self.signer = signer or sign
         self.cache_dir = cache_dir or DEFAULT_HTTP_CACHE_DIR
@@ -185,14 +185,15 @@ class RawMantaClient(object):
             headers = {}
         headers["User-Agent"] = self.user_agent
 
-        # Signature auth.
-        if "Date" not in headers:
-            headers["Date"] = http_date()
-        sigstr = 'date: ' + headers["Date"]
-        algorithm, fingerprint, signature = self.signer.sign(sigstr)
-        headers["Authorization"] = \
-            'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
-                self.account, fingerprint, algorithm, signature)
+        if self.signer:
+            # Signature auth.
+            if "Date" not in headers:
+                headers["Date"] = http_date()
+            sigstr = 'date: ' + headers["Date"]
+            algorithm, fingerprint, signature = self.signer.sign(sigstr)
+            headers["Authorization"] = \
+                'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
+                    self.account, fingerprint, algorithm, signature)
 
         return http.request(url, method, ubody, headers)
 

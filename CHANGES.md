@@ -2,6 +2,18 @@
 
 ## 2.1.0 (not yet released)
 
+- [issue #18] Add MANTA_NO_AUTH support for running python-manta in a Manta
+  job or mlogin session. For example, this means that you can now much more
+  easily use python-manta in a manta job by using `pip install manta` in
+  your init command. E.g. using the node-manta `mjob` command:
+
+        mfind /bob/stor/datafiles -to \
+            | mjob create --init 'pip install manta' \
+                -s /bob/stor/scripts/my-processor.py \
+                -m '/assets/bob/stor/scripts/my-processor.py'
+
+  Now "my-processor.py" can `import manta` to write to Manta inside the job.
+
 - [issue #16] A start at some encoding handling fixes in `mantash` for paths
   with non-ascii characters.
 

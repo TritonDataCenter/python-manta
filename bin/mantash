@@ -160,11 +160,12 @@ class Mantash(cmdln.Cmdln):
             shutil.rmtree(HTTP_CACHE_DIR)
             assert not os.path.exists(HTTP_CACHE_DIR)
 
+        no_auth = (os.environ.get("MANTA_NO_AUTH", "false") == "true")
         if not self.options.manta_url:
             raise MantashError("no Manta URL: use '--url' or 'MANTA_URL' envvar")
         if not self.options.account:
             raise MantashError("no Manta account: use '--account' or 'MANTA_USER' envvar")
-        if not self.options.key_id:
+        if not no_auth and not self.options.key_id:
             raise MantashError("no Manta key ID: use '-i' or 'MANTA_KEY_ID' envvar")
         self.manta_url = self.options.manta_url
 
@@ -173,13 +174,19 @@ class Mantash(cmdln.Cmdln):
         if (not self.manta_url.startswith('http://') and
             not self.manta_url.startswith('https://')):
             self.manta_url = 'https://' + self.manta_url
+        if self.manta_url.endswith('/'):
+            self.manta_url = self.manta_url[:-1]
         self.host = urlparse(self.manta_url).hostname
 
         self.account = self.options.account
         self.home = "/%s/stor" % self.account
         self.last_cwd = self.cwd = self.home
-        signer = manta.CLISigner(self.options.key_id)
-        self.client = manta.MantaClient(self.manta_url, self.account, signer,
+        if no_auth:
+            signer = None
+        else:
+            signer = manta.CLISigner(self.options.key_id)
+        self.client = manta.MantaClient(self.manta_url, self.account,
+            signer=signer,
             disable_ssl_certificate_validation=self.options.insecure,
             user_agent=USER_AGENT, verbose=self.options.verbose)
 
