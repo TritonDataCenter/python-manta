@@ -2,6 +2,7 @@
 
 ## 2.1.1 (not yet released)
 
+- Add limited `mantash mv` command for moving Manta objects and dirs around.
 - Fix test suite breakage.
 
 

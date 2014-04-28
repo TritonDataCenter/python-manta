@@ -1309,6 +1309,91 @@ class Mantash(cmdln.Cmdln):
                     remove_thing(dirpath)
         return retval
 
+    @cmdln.option("-v", "--verbose",
+        dest="verbose", action="store_true", default=True,
+        help="show files as they are being moved. This is the default.")
+    @cmdln.option("-q", "--quiet",
+        dest="verbose", action="store_false",
+        help="show files as they are being moved")
+    @cmdln.option("-f", "--force", action="store_true",
+        help="do not stop on overwriting a target file")
+    @cmdln.option("--dry-run", action="store_true", help="do a dry-run")
+    def do_mv(self, subcmd, opts, *paths):
+        """move file(s)/dir(s) in manta
+
+        Usage:
+            ${cmd_name} MANTA-SOURCE MANTA-DEST
+            ${cmd_name} MANTA-SOURCE ... MANTA-DEST-DIRECTORY
+
+        ${cmd_option_list}
+
+        Note: The eventual goal is to behave like a typical `mv` but for now
+        this will error out if it hits target files in the way.
+        """
+        def move_dir(a, b):
+            if opts.verbose:
+                log.info("mkdir -p %s", b)
+            if not opts.dry_run:
+                self.client.mkdirp(b)
+
+        def move_obj(a, b):
+            if opts.verbose:
+                log.info("mv %s %s", a, b)
+            if not opts.dry_run:
+                self.client.ln(a, b)
+                self.client.rm(a)
+
+        def remove_dir(a):
+            if opts.verbose:
+                log.info("rmdir %s", a)
+            if not opts.dry_run:
+                self.client.rm(a)
+
+        retval = None
+        if len(paths) < 2:
+            log.error("not enough args")
+            return 1
+
+        srcs, dst = paths[:-1], paths[-1]
+        ndst = unormpath(ujoin(self.cwd, uexpanduser(dst, self.home)))
+        try:
+            dst_stat = self.client.stat(ndst)
+            dst_type = dst_stat["type"]
+        except manta.MantaResourceNotFoundError:
+            dst_stat = None
+            dst_type = None
+        if dst_type is not None:
+            # TODO: support this eventually
+            log.error("target %s exists: this is not yet supported by "
+                "the mv comment", dst)
+            return 1
+
+        if len(srcs) > 1 and dst_type != "directory":
+            log.error("incorrect usage, destination %s is not a directory", dst)
+            return 1
+
+        try:
+            prepend = (dst_type == "directory") #TODO: use this
+            for src in srcs:
+                nsrc = unormpath(ujoin(self.cwd, uexpanduser(src, self.home)))
+                src_stat = self.client.stat(nsrc)
+                if src_stat["type"] != "directory":
+                    move_obj(nsrc, ndst)
+                else:
+                    for dirpath, dirents, objents in self.client.walk(nsrc, False):
+                        #pprint((dirpath, dirents, objents))
+                        subpath = dirpath[len(nsrc) + 1:]
+                        move_dir(dirpath, ujoin(ndst, subpath))
+                        for objent in objents:
+                            srcpath = ujoin(dirpath, objent["name"])
+                            subpath = srcpath[len(nsrc) + 1:]
+                            move_obj(srcpath, ujoin(ndst, subpath))
+                        remove_dir(dirpath)
+        except manta.MantaError:
+            _, ex, _ = sys.exc_info()
+            log.error(ex)
+            return 1
+
     def _realpath(self, mpath):
         """Normalize the given Manta path and make it absolute
         (relative to cwd).
