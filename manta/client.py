@@ -125,8 +125,15 @@ class RawMantaClient(object):
     @param verbose {bool} Optional. Default false. If true, then will log
         debugging info.
     """
-    def __init__(self, url, account, sign=None, signer=None, internal=False, 
-            user_agent=None, cache_dir=None,
+
+    def __init__(self, 
+            url=os.environ.get('MANTA_URL', '').rstrip('/'), 
+            account=os.environ.get('MANTA_USER'), 
+            sign=None, 
+            signer=None, 
+            internal=False, 
+            user_agent=None, 
+            cache_dir=None,
             disable_ssl_certificate_validation=False,
             verbose=False):
         assert account, 'account'
