@@ -36,7 +36,7 @@ def get_client():
         signer = None
     else:
         MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-        signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
+        signer = manta.CLISigner(key_id=MANTA_KEY_ID)
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,
@@ -51,7 +51,7 @@ def get_client():
 client = get_client()
 if len(sys.argv) < 2:
     sys.stderr.write('ls-glob.py error: not enough arguments\n\n')
-    sys.stderr.write('usage: python ls-glob.py <manta-path-with-file-glob>')
+    sys.stderr.write('usage: python ls-glob.py <manta-path-with-file-glob>\n')
     sys.exit(1)
 mpath = sys.argv[1]
 

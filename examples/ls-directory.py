@@ -22,7 +22,7 @@ def get_client():
         signer = None
     else:
         MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-        signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
+        signer = manta.CLISigner(key_id=MANTA_KEY_ID)
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,

@@ -22,7 +22,7 @@ def get_client():
         signer = None
     else:
         MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
-        signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
+        signer = manta.CLISigner(key_id=MANTA_KEY_ID)
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,
@@ -36,7 +36,7 @@ def get_client():
 
 client = get_client()
 mpath = '/%s/public/hello.txt' % os.environ['MANTA_USER']
-content = 'Hello, Manta from python-manta client!'
+content = 'Hello, Manta from python-manta client!\n'
 
 # To add an object/file to Manta we use the PutObject API endpoint
 # (http://apidocs.joyent.com/manta/manta/#PutObject). This corresponds to the
