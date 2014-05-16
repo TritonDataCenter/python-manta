@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.1.1 (not yet released)
+## 2.1.1
 
 - [pull #14] Fix `fingerprint_from_ssh_pub_key()` parsing of SSH keys
   which caused fingerprint calculation errors for *some* SSH keys with
