@@ -728,7 +728,7 @@ class MantaClient(RawMantaClient):
             # Find the first non-existant dir: binary search. Because
             # PutDirectory doesn't error on 'mkdir .../already-exists' we
             # don't have a way to detect a miss on `start`. So basically we
-            # keep doing the binary search until we hit a close the `start`
+            # keep doing the binary search until we hit and close the `start`
             # to `end` gap.
             end = len(parts) + 1
             start = 4 # Index of the first possible dir to create.

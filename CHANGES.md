@@ -2,6 +2,10 @@
 
 ## 2.1.1 (not yet released)
 
+- [pull #14] Fix failure `fingerprint_from_ssh_pub_key()` parsing of SSH keys
+  which caused fingerprint calculation errors for *some* SSH keys with
+  comments. (Thanks <https://github.com/tomahn>!)
+
 - [issue #20] Change cache dirs used by `mantash` and the client to include
   the effetive UID. This avoids permission issues if one runs as root,
   e.g. via `sudo -E mantash ...`, once.
