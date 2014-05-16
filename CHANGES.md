@@ -2,7 +2,7 @@
 
 ## 2.1.1 (not yet released)
 
-- [pull #14] Fix failure `fingerprint_from_ssh_pub_key()` parsing of SSH keys
+- [pull #14] Fix `fingerprint_from_ssh_pub_key()` parsing of SSH keys
   which caused fingerprint calculation errors for *some* SSH keys with
   comments. (Thanks <https://github.com/tomahn>!)
 
