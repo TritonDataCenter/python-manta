@@ -36,6 +36,8 @@ log = logging.getLogger('manta.auth')
 
 FINGERPRINT_RE = re.compile(r'^([a-f0-9]{2}:){15}[a-f0-9]{2}$');
 
+PARAMIKO_VER_INFO = tuple(int(v) for v in paramiko.__version__.split('.'))
+
 
 
 #---- internal support stuff
@@ -332,7 +334,10 @@ class SSHAgentSigner(Signer):
 
         key_info = self._get_key_info()
         assert key_info["type"] == "agent"
-        response = key_info["agent_key"].sign_ssh_data(None, s)
+        if PARAMIKO_VER_INFO >= (1, 14, 0):
+            response = key_info["agent_key"].sign_ssh_data(s)
+        else:
+            response = key_info["agent_key"].sign_ssh_data(None, s)
         signed_raw = signature_from_agent_sign_response(response)
         signed = base64.b64encode(signed_raw)
 
@@ -386,7 +391,10 @@ class CLISigner(Signer):
             key_info["type"], key_info["algorithm"], key_info["fingerprint"])
 
         if key_info["type"] == "agent":
-            response = key_info["agent_key"].sign_ssh_data(None, sigstr)
+            if PARAMIKO_VER_INFO >= (1, 14, 0):
+                response = key_info["agent_key"].sign_ssh_data(sigstr)
+            else:
+                response = key_info["agent_key"].sign_ssh_data(None, sigstr)
             signed_raw = signature_from_agent_sign_response(response)
             signed = base64.b64encode(signed_raw)
         elif key_info["type"] == "ssh_key":

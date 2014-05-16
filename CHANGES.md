@@ -2,7 +2,11 @@
 
 ## 2.1.1 (not yet released)
 
+- [issue #19] Paramiko 1.14.0 changed `<Agent key>.sign_ssh_data()` signature
+  which broke request signing via the ssh-agent. Fix that.
+
 - Add limited `mantash mv` command for moving Manta objects and dirs around.
+
 - Fix test suite breakage.
 
 
