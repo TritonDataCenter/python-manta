@@ -47,7 +47,10 @@ except ImportError:
 
 log = logging.getLogger("mantash")
 
-CACHE_DIR = appdirs.user_cache_dir("mantash", "Joyent")
+# Use a separate cache dir tree if running with a different UID (e.g. if
+# acting as root via `sudo -E`). This avoids cache dir permission
+# issues. See <https://github.com/joyent/python-manta/issues/20>.
+CACHE_DIR = appdirs.user_cache_dir("mantash-%s" % os.geteuid(), "Joyent")
 HTTP_CACHE_DIR = os.path.join(CACHE_DIR, "http")
 
 USER_AGENT = "mantash/%s (%s) Python/%s" % (

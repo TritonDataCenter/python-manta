@@ -2,6 +2,10 @@
 
 ## 2.1.1 (not yet released)
 
+- [issue #20] Change cache dirs used by `mantash` and the client to include
+  the effetive UID. This avoids permission issues if one runs as root,
+  e.g. via `sudo -E mantash ...`, once.
+
 - [issue #19] Paramiko 1.14.0 changed `<Agent key>.sign_ssh_data()` signature
   which broke request signing via the ssh-agent. Fix that.
 

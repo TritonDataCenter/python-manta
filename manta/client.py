@@ -38,11 +38,15 @@ except ImportError:
 #---- globals
 
 log = logging.getLogger("manta.client")
+
+# Use a separate cache dir tree if running with a different UID (e.g. if
+# acting as root via `sudo -E`). This avoids cache dir permission
+# issues. See <https://github.com/joyent/python-manta/issues/20>.
 DEFAULT_HTTP_CACHE_DIR = appdirs.user_cache_dir(
-    "python-manta", "Joyent", "http")
+    "python-manta-%s" % os.geteuid(), "Joyent", "http")
+
 DEFAULT_USER_AGENT = "python-manta/%s (%s) Python/%s" % (
     __version__, sys.platform, sys.version.split(None, 1)[0])
-
 
 
 #---- compat
