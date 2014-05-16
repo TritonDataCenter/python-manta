@@ -39,7 +39,7 @@ class MantaTestCase(unittest.TestCase):
         MANTA_KEY_ID = os.environ['MANTA_KEY_ID']
         MANTA_TLS_INSECURE = bool(os.environ.get('MANTA_TLS_INSECURE', False))
         if not self._client:
-            signer = manta.SSHAgentSigner(key_id=MANTA_KEY_ID)
+            signer = manta.CLISigner(key_id=MANTA_KEY_ID)
             self._client = manta.MantaClient(url=MANTA_URL,
                 account=self.account,
                 signer=signer,

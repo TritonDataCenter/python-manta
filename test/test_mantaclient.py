@@ -7,7 +7,7 @@ import os
 import sys
 import re
 from posixpath import dirname as udirname, basename as ubasename, join as ujoin
-from pprint import pprint
+from pprint import pprint, pformat
 import unittest
 import codecs
 
@@ -40,6 +40,7 @@ class MiscTestCase(MantaTestCase):
         self.assertTrue(manta.MantaClient)
         self.assertTrue(manta.PrivateKeySigner)
         self.assertTrue(manta.SSHAgentSigner)
+        self.assertTrue(manta.CLISigner)
         self.assertTrue(manta.MantaError)
         self.assertTrue(manta.MantaAPIError)
 
