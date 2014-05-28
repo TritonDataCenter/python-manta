@@ -2,7 +2,7 @@
 
 ## 2.1.2 (not yet released)
 
-(nothing yet)
+- Add 'vim' alias to 'vi' in mantash.
 
 
 ## 2.1.1

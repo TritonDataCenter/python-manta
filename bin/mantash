@@ -1565,7 +1565,7 @@ class Mantash(cmdln.Cmdln):
         else:
             self.client.put(npath, path=local_path, content_type=content_type)
             log.info("'%s' saved.", path)
-    self.do_vi.aliases.append("vim")
+    do_vi.aliases = ["vim"]
 
     #@cmdln.option("-j", "--json", action="store_true",
     #    help="display the jobs in JSON")
