@@ -116,8 +116,8 @@ class RawMantaClient(object):
     the API is limited to the strict set of endpoints in the REST API. No
     sugar. See `MantaClient` for the sugar.
 
-    http://apidocs.joyent.com/manta/manta/
-    http://apidocs.joyent.com/manta/pythonsdk/
+    https://apidocs.joyent.com/manta/api.html
+    https://apidocs.joyent.com/manta/pythonsdk/
 
     @param url {str} The Manta URL
     @param account {str} The Manta account (login name).
@@ -203,7 +203,7 @@ class RawMantaClient(object):
 
     def put_directory(self, mdir):
         """PutDirectory
-        http://apidocs.joyent.com/manta/manta/#PutDirectory
+        https://apidocs.joyent.com/manta/api.html#PutDirectory
 
         @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
         """
@@ -217,7 +217,7 @@ class RawMantaClient(object):
 
     def list_directory(self, mdir, limit=None, marker=None):
         """ListDirectory
-        http://apidocs.joyent.com/manta/manta/#ListDirectory
+        https://apidocs.joyent.com/manta/api.html#ListDirectory
 
         @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
         @param limit {int} Limits the number of records to come back (default
@@ -261,7 +261,7 @@ class RawMantaClient(object):
 
     def head_directory(self, mdir):
         """HEAD method on ListDirectory
-        http://apidocs.joyent.com/manta/manta/#ListDirectory
+        https://apidocs.joyent.com/manta/api.html#ListDirectory
 
         This is not strictly a documented Manta API call. However it is
         provided to allow access to the useful 'result-set-size' header.
@@ -277,7 +277,7 @@ class RawMantaClient(object):
 
     def delete_directory(self, mdir):
         """DeleteDirectory
-        http://apidocs.joyent.com/manta/manta/#DeleteDirectory
+        https://apidocs.joyent.com/manta/api.html#DeleteDirectory
 
         @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
         """
@@ -291,7 +291,7 @@ class RawMantaClient(object):
                    content_type="application/octet-stream",
                    durability_level=None):
         """PutObject
-        http://apidocs.joyent.com/manta/manta/#PutObject
+        https://apidocs.joyent.com/manta/api.html#PutObject
 
         Examples:
             client.put_object('/trent/stor/foo', 'foo\nbar\nbaz')
@@ -346,7 +346,7 @@ class RawMantaClient(object):
 
     def get_object(self, mpath, path=None, accept="*/*"):
         """GetObject
-        http://apidocs.joyent.com/manta/manta/#GetObject
+        https://apidocs.joyent.com/manta/api.html#GetObject
 
         @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
         @param path {str} Optional. If given, the retrieved object will be
@@ -397,7 +397,7 @@ class RawMantaClient(object):
 
     def delete_object(self, mpath):
         """DeleteObject
-        http://apidocs.joyent.com/manta/manta/#DeleteObject
+        https://apidocs.joyent.com/manta/api.html#DeleteObject
 
         @param mpath {str} Required. A manta path, e.g. '/trent/stor/myobj'.
         """
@@ -428,7 +428,7 @@ class RawMantaClient(object):
 
     def create_job(self, phases, name=None, input=None):
         """CreateJob
-        http://apidocs.joyent.com/manta/manta/#CreateJob
+        https://apidocs.joyent.com/manta/api.html#CreateJob
         """
         log.debug('CreateJob')
         path = '/%s/jobs' % self.account
@@ -449,7 +449,7 @@ class RawMantaClient(object):
 
     def add_job_inputs(self, job_id, keys):
         """AddJobInputs
-        http://apidocs.joyent.com/manta/manta/#AddJobInputs
+        https://apidocs.joyent.com/manta/api.html#AddJobInputs
         """
         log.debug("AddJobInputs %r", job_id)
         path = "/%s/jobs/%s/live/in" % (self.account, job_id)
@@ -477,7 +477,7 @@ class RawMantaClient(object):
 
     def cancel_job(self, job_id):
         """CancelJob
-        http://apidocs.joyent.com/manta/manta/#CancelJob
+        https://apidocs.joyent.com/manta/api.html#CancelJob
         """
         log.debug("CancelJob %r", job_id)
         path = "/%s/jobs/%s/live/cancel" % (self.account, job_id)
@@ -490,7 +490,7 @@ class RawMantaClient(object):
 
     def list_jobs(self, state=None, limit=None, marker=None):
         """ListJobs
-        http://apidocs.joyent.com/manta/manta/#ListJobs
+        https://apidocs.joyent.com/manta/api.html#ListJobs
 
         @param state {str} Only return jobs in the given state, e.g.
             "running", "done", etc.
@@ -525,7 +525,7 @@ class RawMantaClient(object):
 
     def get_job(self, job_id):
         """GetJob
-        http://apidocs.joyent.com/manta/manta/#GetJob
+        https://apidocs.joyent.com/manta/api.html#GetJob
         """
         log.debug("GetJob %r", job_id)
         path = "/%s/jobs/%s/live/status" % (self.account, job_id)
@@ -539,7 +539,7 @@ class RawMantaClient(object):
 
     def get_job_output(self, job_id):
         """GetJobOutput
-        http://apidocs.joyent.com/manta/manta/#GetJobOutput
+        https://apidocs.joyent.com/manta/api.html#GetJobOutput
         """
         log.debug("GetJobOutput %r", job_id)
         path = "/%s/jobs/%s/live/out" % (self.account, job_id)
@@ -551,7 +551,7 @@ class RawMantaClient(object):
 
     def get_job_input(self, job_id):
         """GetJobInput
-        http://apidocs.joyent.com/manta/manta/#GetJobInput
+        https://apidocs.joyent.com/manta/api.html#GetJobInput
         """
         log.debug("GetJobInput", job_id)
         path = "/%s/jobs/%s/live/in" % (self.account, job_id)
@@ -563,7 +563,7 @@ class RawMantaClient(object):
 
     def get_job_failures(self, job_id):
         """GetJobFailures
-        http://apidocs.joyent.com/manta/manta/#GetJobFailures
+        https://apidocs.joyent.com/manta/api.html#GetJobFailures
         """
         log.debug("GetJobFailures %r", job_id)
         path = "/%s/jobs/%s/live/fail" % (self.account, job_id)
@@ -575,7 +575,7 @@ class RawMantaClient(object):
 
     def get_job_errors(self, job_id):
         """GetJobErrors
-        http://apidocs.joyent.com/manta/manta/#GetJobErrors
+        https://apidocs.joyent.com/manta/api.html#GetJobErrors
         """
         log.debug("GetJobErrors %r", job_id)
         path = "/%s/jobs/%s/live/err" % (self.account, job_id)
