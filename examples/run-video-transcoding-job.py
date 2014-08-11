@@ -41,6 +41,16 @@ def _indent(s, indent='    '):
 
 #---- mainline
 
+print "* * *"
+print "* Warning: This example runs a (long) video transcoding Manta job"
+print "* which can cost a little bit. See"
+print "*    https://apidocs.joyent.com/manta/example-video-transcode.html"
+print "* for details"
+print "* * *"
+
+raw_input("Hit <Enter> to continue, ^C to abort.")
+print
+
 client = get_client()
 
 inputs = []
