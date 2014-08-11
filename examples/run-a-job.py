@@ -77,6 +77,7 @@ while True:
     time.sleep(5)
     job = client.get_job(job_id)
     if job["state"] == "done":
+        sys.stdout.write('\n')
         break
     sys.stdout.write('.')
     n += 1

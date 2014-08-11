@@ -62,10 +62,12 @@ print "Inputs: %r" % inputs
 
 job_phases = [
     {
+        'type': 'map',
         'exec': 'ffmpeg -nostdin -i $MANTA_INPUT_FILE -an out.webm '
             '&& mpipe -p -H "content-type: video/webm" '
-            '-f out.webm "/%s/public/manta-examples/kart/$(basename $MANTA_INPUT_OBJECT .mov).webm"',
-        'type': 'map'
+            '-f out.webm '
+            '"/%s/public/manta-examples/kart/$(basename $MANTA_INPUT_OBJECT .mov).webm"'
+                % os.environ['MANTA_USER']
     }
 ]
 job_id = client.create_job(job_phases, name='video transcoding example')
@@ -82,6 +84,7 @@ while True:
     time.sleep(5)
     job = client.get_job(job_id)
     if job["state"] == "done":
+        sys.stdout.write('\n')
         break
     sys.stdout.write('.')
     n += 1
