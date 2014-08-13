@@ -2,6 +2,7 @@
 
 ## 2.1.2 (not yet released)
 
+- [issue #23] `cd foo/bar` where no "foo" dir exists crashes mantash
 - Add 'vim' alias to 'vi' in mantash.
 
 

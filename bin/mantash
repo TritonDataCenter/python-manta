@@ -649,7 +649,13 @@ class Mantash(cmdln.Cmdln):
         else:
             parent = udirname(ndir)
             name = ubasename(ndir)
-            dirents = self.client.ls(parent)
+            try:
+                dirents = self.client.ls(parent)
+            except manta.MantaAPIError, ex:
+                if ex.code == 'ResourceNotFound':
+                    log.error("%s: no such directory", directory)
+                    return 1
+                raise
             if name not in dirents:
                 log.error("%s: no such directory", directory)
                 return 1
