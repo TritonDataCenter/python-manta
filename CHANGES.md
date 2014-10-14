@@ -2,6 +2,7 @@
 
 ## 2.1.2 (not yet released)
 
+- Add `-v` option to all the examples for easier verbose output.
 - [issue #23] `cd foo/bar` where no "foo" dir exists crashes mantash
 - Add 'vim' alias to 'vi' in mantash.
 

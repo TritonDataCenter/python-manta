@@ -4,6 +4,7 @@
 client.
 """
 
+import logging
 import os
 from pprint import pprint, pformat
 import sys
@@ -14,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import manta
 
 
-def get_client():
+def get_client(verbose=False):
     MANTA_USER = os.environ['MANTA_USER']
     MANTA_URL = os.environ['MANTA_URL']
     MANTA_TLS_INSECURE = bool(os.environ.get('MANTA_TLS_INSECURE', False))
@@ -27,8 +28,7 @@ def get_client():
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,
-        # Uncomment this for verbose client output for test run.
-        #verbose=True,
+        verbose=verbose,
         disable_ssl_certificate_validation=MANTA_TLS_INSECURE)
     return client
 
@@ -38,7 +38,9 @@ def _indent(s, indent='    '):
 
 #---- mainline
 
-client = get_client()
+logging.basicConfig()
+
+client = get_client(verbose=('-v' in sys.argv))
 
 print "# First let's add a file to manta on which we'll operate."
 mpath = '/%s/public/fruit.txt' % os.environ['MANTA_USER']

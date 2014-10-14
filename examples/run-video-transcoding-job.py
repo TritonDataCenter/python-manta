@@ -2,9 +2,13 @@
 
 """A Python Manta SDK version of
 <https://apidocs.joyent.com/manta/example-video-transcode.html> from the Node.js
-Manta SDK docs.
+Manta SDK docs.  Usage:
+
+    python run-video-transcoding-job.py
+    python run-video-transcoding-job.py -v   # verbose output
 """
 
+import logging
 import os
 from pprint import pprint, pformat
 import sys
@@ -17,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import manta
 
 
-def get_client():
+def get_client(verbose=False):
     MANTA_USER = os.environ['MANTA_USER']
     MANTA_URL = os.environ['MANTA_URL']
     MANTA_TLS_INSECURE = bool(os.environ.get('MANTA_TLS_INSECURE', False))
@@ -30,8 +34,7 @@ def get_client():
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,
-        # Uncomment this for verbose client output for test run.
-        #verbose=True,
+        verbose=verbose,
         disable_ssl_certificate_validation=MANTA_TLS_INSECURE)
     return client
 
@@ -40,6 +43,8 @@ def _indent(s, indent='    '):
 
 
 #---- mainline
+
+logging.basicConfig()
 
 print "* * *"
 print "* Warning: This example runs a (long) video transcoding Manta job"
@@ -51,7 +56,7 @@ print "* * *"
 raw_input("Hit <Enter> to continue, ^C to abort.")
 print
 
-client = get_client()
+client = get_client(verbose=('-v' in sys.argv))
 
 inputs = []
 for dirpath, dirents, objents in client.walk('/manta/public/examples/kart'):

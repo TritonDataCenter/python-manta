@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
 """A small example showing how to write (put) an object to
-Manta using the python-manta client.
+Manta using the python-manta client. Usage:
+
+    python put-object.py
+    python put-object.py -v   # verbose output
 """
 
+import logging
 import os
 from pprint import pprint
 import sys
@@ -13,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import manta
 
 
-def get_client():
+def get_client(verbose=False):
     MANTA_USER = os.environ['MANTA_USER']
     MANTA_URL = os.environ['MANTA_URL']
     MANTA_TLS_INSECURE = bool(os.environ.get('MANTA_TLS_INSECURE', False))
@@ -26,15 +30,16 @@ def get_client():
     client = manta.MantaClient(url=MANTA_URL,
         account=MANTA_USER,
         signer=signer,
-        # Uncomment this for verbose client output for test run.
-        #verbose=True,
+        verbose=verbose,
         disable_ssl_certificate_validation=MANTA_TLS_INSECURE)
     return client
 
 
 #---- mainline
 
-client = get_client()
+logging.basicConfig()
+
+client = get_client(verbose=('-v' in sys.argv))
 mpath = '/%s/public/hello.txt' % os.environ['MANTA_USER']
 content = 'Hello, Manta from python-manta client!\n'
 
@@ -47,4 +52,3 @@ client.put_object(mpath, content=content, content_type='text/plain')
 
 print 'Added "%s". This should now be visible at:\n\t%s%s' % (
     mpath, os.environ['MANTA_URL'], mpath)
-
