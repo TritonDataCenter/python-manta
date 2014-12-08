@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.2.0 (not yet released)
+## 2.2.0
 
 - [MANTA-2530] Add `MantaClient.{get_job,get_job_input,get_job_output,
   get_job_failures,get_job_errors}` wrappers of the `RawMantaClient` to
