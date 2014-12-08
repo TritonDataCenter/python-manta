@@ -42,8 +42,15 @@ test-kvm6:
 testall:
 	python test/testall.py
 
+# Ensure json.js and package.json have the same version.
+.PHONY: versioncheck
+versioncheck:
+	@echo manta/version.py ver is: $(shell python -c 'import manta.version; print manta.version.__version__')
+	@echo CHANGES.md ver is: $(shell grep '^## ' CHANGES.md | head -1 | awk '{print $$2}')
+	[[ $(shell python -c 'import manta.version; print manta.version.__version__') == $(shell grep '^## ' CHANGES.md | head -1 | awk '{print $$2}') ]]
+
 .PHONY: cutarelease
-cutarelease:
+cutarelease: versioncheck
 	./tools/cutarelease.py -f manta/version.py
 
 # Only have this around to retry package uploads on a tag created by

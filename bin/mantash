@@ -1573,12 +1573,15 @@ class Mantash(cmdln.Cmdln):
             log.info("'%s' saved.", path)
     do_vi.aliases = ["vim"]
 
-    #@cmdln.option("-j", "--json", action="store_true",
-    #    help="display the jobs in JSON")
+    @cmdln.option("-j", "--json", action="store_true",
+        help="display the jobs in JSON")
     @cmdln.option("-s", "--state",
         help="limit to jobs in the given state: 'running', 'done', etc.")
     def do_jobs(self, subcmd, opts):
         """List Manta jobs
+
+        Limitation: at this time `list_jobs` doesn't support paging through
+        more than the default response num results.
 
         Usage:
             ${cmd_name} [OPTIONS...]
@@ -1586,7 +1589,11 @@ class Mantash(cmdln.Cmdln):
         ${cmd_option_list}
         """
         jobs = self.client.list_jobs(state=opts.state)
-        print(json.dumps(jobs, indent=2))
+        if opts.json:
+            print(json.dumps(jobs, indent=2))
+        else:
+            for job in jobs:
+                print job['name']
 
     def do_jobinfo(self, subcmd, opts, job_id):
         """Get details for a Manta job.

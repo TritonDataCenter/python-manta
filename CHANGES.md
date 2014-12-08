@@ -1,7 +1,13 @@
 # python-manta Changelog
 
-## 2.1.2 (not yet released)
+## 2.2.0 (not yet released)
 
+- [MANTA-2530] Add `MantaClient.{get_job,get_job_input,get_job_output,
+  get_job_failures,get_job_errors}` wrappers of the `RawMantaClient` to
+  handle retrieving [*archived job
+  results*](https://apidocs.joyent.com/manta/jobs-reference.html#job-completion-and-archival).
+- Change `mantash jobs` to emit a flat list of job IDs by default
+  (like `mantash ls`). Use `-j|--json` to get a JSON list.
 - Add `-v` option to all the examples for easier verbose output.
 - [issue #23] `cd foo/bar` where no "foo" dir exists crashes mantash
 - Add 'vim' alias to 'vi' in mantash.

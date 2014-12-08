@@ -114,7 +114,7 @@ class MantaHttp(httplib2.Http):
 class RawMantaClient(object):
     """A raw client for accessing the Manta REST API. Here "raw" means that
     the API is limited to the strict set of endpoints in the REST API. No
-    sugar. See `MantaClient` for the sugar.
+    sugar. See the `MantaClient` subclass for the sugar.
 
     https://apidocs.joyent.com/manta/api.html
     https://apidocs.joyent.com/manta/pythonsdk/
@@ -248,7 +248,7 @@ class RawMantaClient(object):
         res, content = self._request(mdir, "GET", query=query)
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
-        lines = content.split('\n')
+        lines = content.splitlines(False)
         dirents = []
         for line in lines:
             if not line.strip():
@@ -492,6 +492,9 @@ class RawMantaClient(object):
         """ListJobs
         https://apidocs.joyent.com/manta/api.html#ListJobs
 
+        Limitation: at this time `list_jobs` doesn't support paging through
+        more than the default response num results. (TODO)
+
         @param state {str} Only return jobs in the given state, e.g.
             "running", "done", etc.
         @param limit TODO
@@ -512,7 +515,7 @@ class RawMantaClient(object):
         res, content = self._request(path, "GET", query=query)
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
-        lines = content.split('\r\n')
+        lines = content.splitlines(False)
         jobs = []
         for line in lines:
             if not line.strip():
@@ -530,7 +533,7 @@ class RawMantaClient(object):
         log.debug("GetJob %r", job_id)
         path = "/%s/jobs/%s/live/status" % (self.account, job_id)
         res, content = self._request(path, "GET")
-        if res["status"] != "200":
+        if res.status != 200:
             raise errors.MantaAPIError(res, content)
         try:
             return json.loads(content)
@@ -582,7 +585,10 @@ class RawMantaClient(object):
         res, content = self._request(path, "GET")
         if res["status"] != "200":
             raise errors.MantaAPIError(res, content)
-        lines = content.split('\r\n')
+        return self._job_errors_from_content(content)
+
+    def _job_errors_from_content(self, content):
+        lines = content.splitlines(False)
         errs = []
         for line in lines:
             if not line.strip():
@@ -592,6 +598,7 @@ class RawMantaClient(object):
             except ValueError:
                 raise errors.MantaError('invalid job error entry: %r' % line)
         return errs
+
 
 
 class MantaClient(RawMantaClient):
@@ -620,8 +627,8 @@ class MantaClient(RawMantaClient):
         """`os.walk(path)` for a directory in Manta.
 
         A somewhat limited form in that some of the optional args to
-        `os.walk` are not supported. Instead of dir *names* and file *names*,
-        the dirents for those are returned. E.g.:
+        `os.walk` are not supported. Also, instead of dir *names* and file
+        *names*, the dirents for those are returned. E.g.:
 
             >>> for dirpath, dirents, objents in client.walk('/trent/stor/test'):
             ...     pprint((dirpath, dirents, objents))
@@ -793,3 +800,94 @@ class MantaClient(RawMantaClient):
                 return None
             else:
                 raise
+
+    def get_job(self, job_id):
+        """GetJob
+            https://apidocs.joyent.com/manta/api.html#GetJob
+        with the added sugar that it will retrieve the archived job if it has
+        been archived, per:
+            https://apidocs.joyent.com/manta/jobs-reference.html#job-completion-and-archival
+        """
+        try:
+            return RawMantaClient.get_job(self, job_id)
+        except errors.MantaAPIError, ex:
+            if ex.res.status != 404:
+                raise
+            # Job was archived, try to retrieve the archived data.
+            mpath = "/%s/jobs/%s/job.json" % (self.account, job_id)
+            content = self.get_object(mpath, accept='application/json')
+            try:
+                return json.loads(content)
+            except ValueError:
+                raise errors.MantaError('invalid job data: %r' % content)
+
+    def get_job_input(self, job_id):
+        """GetJobInput
+            https://apidocs.joyent.com/manta/api.html#GetJobInput
+        with the added sugar that it will retrieve the archived job if it has
+        been archived, per:
+            https://apidocs.joyent.com/manta/jobs-reference.html#job-completion-and-archival
+        """
+        try:
+            return RawMantaClient.get_job_input(self, job_id)
+        except errors.MantaAPIError, ex:
+            if ex.res.status != 404:
+                raise
+            # Job was archived, try to retrieve the archived data.
+            mpath = "/%s/jobs/%s/in.txt" % (self.account, job_id)
+            content = self.get_object(mpath)
+            keys = content.splitlines(False)
+            return keys
+
+    def get_job_output(self, job_id):
+        """GetJobOutput
+            https://apidocs.joyent.com/manta/api.html#GetJobOutput
+        with the added sugar that it will retrieve the archived job if it has
+        been archived, per:
+            https://apidocs.joyent.com/manta/jobs-reference.html#job-completion-and-archival
+        """
+        try:
+            return RawMantaClient.get_job_output(self, job_id)
+        except errors.MantaAPIError, ex:
+            if ex.res.status != 404:
+                raise
+            # Job was archived, try to retrieve the archived data.
+            mpath = "/%s/jobs/%s/out.txt" % (self.account, job_id)
+            content = self.get_object(mpath)
+            keys = content.splitlines(False)
+            return keys
+
+    def get_job_failures(self, job_id):
+        """GetJobFailures
+            https://apidocs.joyent.com/manta/api.html#GetJobFailures
+        with the added sugar that it will retrieve the archived job if it has
+        been archived, per:
+            https://apidocs.joyent.com/manta/jobs-reference.html#job-completion-and-archival
+        """
+        try:
+            return RawMantaClient.get_job_failures(self, job_id)
+        except errors.MantaAPIError, ex:
+            if ex.res.status != 404:
+                raise
+            # Job was archived, try to retrieve the archived data.
+            mpath = "/%s/jobs/%s/fail.txt" % (self.account, job_id)
+            content = self.get_object(mpath)
+            keys = content.splitlines(False)
+            return keys
+
+    def get_job_errors(self, job_id):
+        """GetJobErrors
+            https://apidocs.joyent.com/manta/api.html#GetJobErrors
+        with the added sugar that it will retrieve the archived job if it has
+        been archived, per:
+            https://apidocs.joyent.com/manta/jobs-reference.html#job-completion-and-archival
+        """
+        try:
+            return RawMantaClient.get_job_errors(self, job_id)
+        except errors.MantaAPIError, ex:
+            if ex.res.status != 404:
+                raise
+            # Job was archived, try to retrieve the archived data.
+            mpath = "/%s/jobs/%s/err.txt" % (self.account, job_id)
+            content = self.get_object(mpath)
+            return self._job_errors_from_content(content)
