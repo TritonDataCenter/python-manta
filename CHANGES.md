@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.2.1 (not yet released)
+
+(nothing yet)
+
+
 ## 2.2.0
 
 - [MANTA-2530] Add `MantaClient.{get_job,get_job_input,get_job_output,
