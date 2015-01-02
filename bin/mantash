@@ -247,7 +247,6 @@ class Mantash(cmdln.Cmdln):
             'h': shorthost,
             'H': self.host,
             'n': '\n',
-            'n': '\r',
             #'t': time.strftime('%H:%M:%S', time.localtime()),
             'v': '.'.join(self.version.split('.')[:2]),
             'V': self.version,
