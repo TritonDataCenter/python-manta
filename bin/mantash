@@ -1410,14 +1410,21 @@ class Mantash(cmdln.Cmdln):
 
     @cmdln.option("-v", "--verbose", action="store_true",
         help="show link details as it is being linked")
-    def do_ln(self, subcmd, opts, object_path, link_path):
+    def do_ln(self, subcmd, opts, object_path, *link_path_args):
         """create a manta link to an object
 
         Usage:
-            ${cmd_name} OBJECT-PATH LINK-PATH
+            ${cmd_name} OBJECT-PATH [LINK-PATH]
 
         ${cmd_option_list}
         """
+        if len(link_path_args) == 1:
+            link_path = link_path_args[0]
+        elif len(link_path_args) == 0:
+            link_path = unormpath(ujoin('.', ubasename(object_path)))
+        else:
+            raise cmdln.CmdlnUserError("too many arguments: %s %s"
+                % (object_path, ' '.join(link_path_args)))
         object_npath = self._realpath(object_path)
         link_npath = self._realpath(link_path)
         if opts.verbose:
