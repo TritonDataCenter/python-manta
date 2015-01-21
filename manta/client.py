@@ -810,8 +810,8 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job(self, job_id)
-        except errors.MantaAPIError, ex:
-            if ex.res.status != 404:
+        except errors.MantaAPIError as e:
+            if e.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
             mpath = "/%s/jobs/%s/job.json" % (self.account, job_id)
@@ -830,8 +830,8 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_input(self, job_id)
-        except errors.MantaAPIError, ex:
-            if ex.res.status != 404:
+        except errors.MantaAPIError as e:
+            if e.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
             mpath = "/%s/jobs/%s/in.txt" % (self.account, job_id)
@@ -848,8 +848,8 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_output(self, job_id)
-        except errors.MantaAPIError, ex:
-            if ex.res.status != 404:
+        except errors.MantaAPIError as e:
+            if e.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
             mpath = "/%s/jobs/%s/out.txt" % (self.account, job_id)
@@ -866,8 +866,8 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_failures(self, job_id)
-        except errors.MantaAPIError, ex:
-            if ex.res.status != 404:
+        except errors.MantaAPIError as e:
+            if e.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
             mpath = "/%s/jobs/%s/fail.txt" % (self.account, job_id)
@@ -884,8 +884,8 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_errors(self, job_id)
-        except errors.MantaAPIError, ex:
-            if ex.res.status != 404:
+        except errors.MantaAPIError as e:
+            if e.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
             mpath = "/%s/jobs/%s/err.txt" % (self.account, job_id)
