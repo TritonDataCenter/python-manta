@@ -20,9 +20,7 @@ from . import errors
 
 import httplib2
 
-
-
-#---- Python version compat
+# ---- Python version compat
 
 try:
     # Python 3
@@ -33,9 +31,7 @@ except ImportError:
     from urllib import urlencode
     from urllib import quote as urlquote
 
-
-
-#---- globals
+# ---- globals
 
 log = logging.getLogger("manta.client")
 
@@ -48,8 +44,7 @@ DEFAULT_HTTP_CACHE_DIR = appdirs.user_cache_dir(
 DEFAULT_USER_AGENT = "python-manta/%s (%s) Python/%s" % (
     __version__, sys.platform, sys.version.split(None, 1)[0])
 
-
-#---- compat
+# ---- compat
 
 # Python version compat
 # Use `bytes` for byte strings and `unicode` for unicode strings (str in Py3).
@@ -66,9 +61,8 @@ elif sys.version_info[0] >= 3:
     base_string_type = str
     unichr = chr
 
+# ---- internal support stuff
 
-
-#---- internal support stuff
 
 def http_date(d=None):
     """Return HTTP Date format string for the given date.
@@ -83,6 +77,7 @@ def http_date(d=None):
 
 def _indent(s, indent='    '):
     return indent + indent.join(s.splitlines(True))
+
 
 class MantaHttp(httplib2.Http):
     def _request(self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey):
@@ -106,10 +101,8 @@ class MantaHttp(httplib2.Http):
                  or _indent(ucontent[:1021] + u'...')))
         return (res, content)
 
+# ---- exports
 
-
-
-#---- exports
 
 class RawMantaClient(object):
     """A raw client for accessing the Manta REST API. Here "raw" means that
@@ -132,9 +125,9 @@ class RawMantaClient(object):
         debugging info.
     """
     def __init__(self, url, account, sign=None, signer=None,
-            user_agent=None, cache_dir=None,
-            disable_ssl_certificate_validation=False,
-            verbose=False):
+                 user_agent=None, cache_dir=None,
+                 disable_ssl_certificate_validation=False,
+                 verbose=False):
         assert account, 'account'
         if url.endswith('/'):
             self.url = url[:-1]
@@ -152,14 +145,14 @@ class RawMantaClient(object):
             import manta.auth
             manta.auth.log.setLevel(logging.DEBUG)
 
-    _http_cache = None
     def _get_http(self):
         if not self._http_cache:
             if not exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
             self._http_cache = MantaHttp(self.cache_dir,
-                disable_ssl_certificate_validation=self.disable_ssl_certificate_validation)
+                                         disable_ssl_certificate_validation=self.disable_ssl_certificate_validation)
         return self._http_cache
+    _http_cache = None
 
     def _request(self, path, method="GET", query=None, body=None, headers=None):
         """Make a Manta request
@@ -195,9 +188,8 @@ class RawMantaClient(object):
                 headers["Date"] = http_date()
             sigstr = 'date: ' + headers["Date"]
             algorithm, fingerprint, signature = self.signer.sign(sigstr)
-            headers["Authorization"] = \
-                'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
-                    self.account, fingerprint, algorithm, signature)
+            headers["Authorization"] = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % \
+                                       (self.account, fingerprint, algorithm, signature.decode())
 
         return http.request(url, method, ubody, headers)
 
@@ -321,8 +313,7 @@ class RawMantaClient(object):
 
         methods = [m for m in [content, path, file] if m is not None]
         if len(methods) != 1:
-            raise errors.MantaError("exactly one of 'content', 'path' or "
-                "'file' must be provided")
+            raise errors.MantaError("exactly one of 'content', 'path' or 'file' must be provided")
         if content is not None:
             pass
         elif path:
@@ -377,14 +368,12 @@ class RawMantaClient(object):
         if res["status"] not in ("200", "304"):
             raise errors.MantaAPIError(res, content)
         if len(content) != int(res["content-length"]):
-            raise errors.MantaError("content-length mismatch: expected %d, "
-                "got %s" % (res["content-length"], content))
+            raise errors.MantaError("content-length mismatch: expected %d, got %s" % (res["content-length"], content))
         if res.get("content-md5"):
             md5 = hashlib.md5(content)
-            content_md5 = base64.b64encode(md5.digest())
+            content_md5 = base64.b64encode(md5.digest()).decode()
             if content_md5 != res["content-md5"]:
-                raise errors.MantaError("content-md5 mismatch: expected %d, "
-                    "got %s" % (res["content-md5"], content_md5))
+                raise errors.MantaError("content-md5 mismatch: expected %d, got %s" % (res["content-md5"], content_md5))
         if path is not None:
             f = open(path, 'wb')
             try:
@@ -417,11 +406,9 @@ class RawMantaClient(object):
             manta object.
         """
         log.debug('PutLink %r -> %r', link_path, object_path)
-        headers = {
-            "Content-Type": "application/json; type=link",
-            #"Content-Length": "0",   #XXX Needed?
-            "Location": object_path
-        }
+        headers = {"Content-Type": "application/json; type=link",
+                   #"Content-Length": "0",   #XXX Needed?
+                   "Location": object_path, }
         res, content = self._request(link_path, "PUT", headers=headers)
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
@@ -438,13 +425,12 @@ class RawMantaClient(object):
         headers = {
             "Content-Type": "application/json"
         }
-        res, content = self._request(path, "POST", body=json.dumps(body),
-            headers=headers)
+        res, content = self._request(path, "POST", body=json.dumps(body), headers=headers)
         if res["status"] != '201':
             raise errors.MantaAPIError(res, content)
         location = res["location"]
-        assert res["location"]
-        job_id = res["location"].rsplit('/', 1)[-1]
+        assert location
+        job_id = location.rsplit('/', 1)[-1]
         return job_id
 
     def add_job_inputs(self, job_id, keys):
