@@ -18,7 +18,7 @@ Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 
 # Installation
 
-tl;dr: `pip install manta`
+tl;dr: `pip install --upgrade manta`
 
 
 ## 0. install `pip` (and maybe PyCrypto)
