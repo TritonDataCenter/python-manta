@@ -191,6 +191,9 @@ class RawMantaClient(object):
             headers["Authorization"] = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % \
                                        (self.account, fingerprint, algorithm, signature.decode())
 
+        if headers.get('Content-MD5'):
+            headers['Content-MD5'] = headers['Content-MD5'].decode()
+
         return http.request(url, method, ubody, headers)
 
     def put_directory(self, mdir):
