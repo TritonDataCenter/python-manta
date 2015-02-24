@@ -5,7 +5,8 @@
 import sys
 import os
 from posixpath import dirname as udirname, join as ujoin, \
-    basename as ubasename, normpath as unormpath
+    basename as ubasename, normpath as unormpath, \
+    split as usplit
 import datetime
 import logging
 import json
@@ -15,7 +16,7 @@ import time
 import mimetypes
 from hashlib import md5
 from operator import itemgetter
-from fnmatch import fnmatchcase
+import fnmatch
 import subprocess
 import webbrowser
 import codecs
@@ -455,7 +456,7 @@ class Mantash(cmdln.Cmdln):
                         print("    pattern %r:\n\tparent %r\n\tbasepat %r\n\tdirents %r" % (pattern, parent, basepat, dirents))
                     if dirents:
                         for name, dirent in dirents.items():
-                            if fnmatchcase(name, basepat):
+                            if fnmatch.fnmatchcase(name, basepat):
                                 matches[ujoin(parent, name)] = dirent
                             elif DEBUG:
                                 print("    discard %r (does not match %r)" % (name, basepat))
@@ -1292,7 +1293,7 @@ class Mantash(cmdln.Cmdln):
 
         def remove_thing(mpath):
             if opts.verbose:
-                log.info("rm %s", url)
+                log.info("rm %s", mpath)
             if not opts.dry_run:
                 try:
                     self.client.rm(mpath)
@@ -1304,17 +1305,39 @@ class Mantash(cmdln.Cmdln):
                         log.error("rm %s: %s", mpath, ex)
                         retval = 1
 
+        # First pass local globbing. Really this should be a `client.ftw`.
+        dirents = []
         for path in paths:
             npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
-            if not opts.recursive or not self.client.type(npath) == "directory":
-                remove_thing(npath)
+            d, b = usplit(npath)
+            if '*' in b or '?' in b or '[' in b: # we have a glob
+                candidates = self.client.ls(d)
+                for match in fnmatch.filter(candidates.keys(), b):
+                    e = candidates[match]
+                    e["path"] = ujoin(d, match)
+                    dirents.append(e)
+            else:
+                try:
+                    stat = self.client.stat(npath)
+                except manta.MantaResourceNotFoundError:
+                    log.warn("'%s' not found", path)
+                    continue
+                stat = self.client.stat(npath)
+                stat["path"] = npath
+                dirents.append(stat)
+
+        for dirent in dirents:
+            path = dirent["path"]
+            if not opts.recursive or not dirent["type"] == "directory":
+                remove_thing(path)
             else:
                 # Recursive delete of a directory.
-                for dirpath, dirents, objents in self.client.walk(npath, False):
+                for dirpath, dirents, objents in self.client.walk(path, False):
                     #pprint((dirpath, dirents, objents))
                     for objent in objents:
                         remove_thing(ujoin(dirpath, objent["name"]))
                     remove_thing(dirpath)
+
         return retval
 
     @cmdln.option("-v", "--verbose",
