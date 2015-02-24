@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.4.0 (not yet released)
+## 2.4.0
 
 - `mantash du ...`
 
