@@ -496,6 +496,68 @@ class Mantash(cmdln.Cmdln):
 
     @cmdln.option("-h", action="store_true", dest="human",
         help="display human-readable sizes")
+    @optparser_setattr(conflict_handler="resolve")
+    @cmdln.option("-s", action="store_true", dest="summary",
+        help="display an entry for each specified file")
+    def do_du(self, subcmd, opts, *paths):
+        """disk usage
+
+        Usage:
+            ${cmd_name} [OPTIONS...] [PATHS...]
+
+        ${cmd_option_list}
+        """
+        retval = None  # set to 1 for any errors
+
+        def du(dirent):
+            if opts.human:
+                dirent["size"] = self._human_size(dirent["size"])
+                print("%(size)-10s %(path)s" % dirent)
+            else:
+                print("%(size)-10d %(path)s" % dirent)
+
+        # First pass local globbing. Really this should be a `client.ftw`.
+        dirents = []
+        for path in paths:
+            npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
+            d, b = usplit(npath)
+            if '*' in b or '?' in b or '[' in b: # we have a glob
+                candidates = self.client.ls(d)
+                for match in fnmatch.filter(candidates.keys(), b):
+                    e = candidates[match]
+                    e["path"] = ujoin(d, match)
+                    dirents.append(e)
+            else:
+                try:
+                    stat = self.client.stat(npath)
+                except manta.MantaResourceNotFoundError:
+                    log.warn("'%s' not found", path)
+                    continue
+                stat = self.client.stat(npath)
+                stat["path"] = npath
+                dirents.append(stat)
+
+        for dirent in dirents:
+            path = dirent["path"]
+            if dirent["type"] == "directory":
+                if opts.summary:
+                    total = 0
+                    for d, dirents, objents in self.client.walk(path, False):
+                        for objent in objents:
+                            total += objent["size"]
+                    dirent["size"] = total
+                    du(dirent)
+                else:
+                    for d, dirents, objents in self.client.walk(path, False):
+                        for objent in objents:
+                            objent["path"] = ujoin(d, objent["name"])
+                            du(objent)
+            else:
+                du(dirent)
+
+
+    @cmdln.option("-h", action="store_true", dest="human",
+        help="display human-readable sizes")
     @cmdln.option("-a", action="store_true", help=optparse.SUPPRESS_HELP)
     @cmdln.option("-l", action="store_true", dest="long",
         help="list in long format")
@@ -564,7 +626,7 @@ class Mantash(cmdln.Cmdln):
 
             sz = dirent.get("size", 0)
             if (sz != "-" and human):
-                sz = self._ls_human_size(sz)
+                sz = self._human_size(sz)
 
             # Note: Don't have a strong reason to show the "asctime"
             # format here, rather than just parroting the RFC 3339
@@ -580,7 +642,7 @@ class Mantash(cmdln.Cmdln):
         else:
             print(name)
 
-    def _ls_human_size(self, nbytes):
+    def _human_size(self, nbytes):
         suffixes = ['', 'K', 'M', 'G', 'T', 'P', 'E']
 
         size = float(nbytes)

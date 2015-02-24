@@ -1,8 +1,8 @@
 # python-manta Changelog
 
-## 2.3.1 (not yet released)
+## 2.4.0 (not yet released)
 
-(nothing yet)
+- `mantash du ...`
 
 
 ## 2.3.0
