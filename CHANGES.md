@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.3.0 (not yet released)
+## 2.3.0
 
 - `mantash rm PATH ...` now supports globs.
 - Allow the second arg to `mantash ln` to be optional a la typical `/bin/ln`.
