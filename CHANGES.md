@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.3.1 (not yet released)
+
+(nothing yet)
+
+
 ## 2.3.0
 
 - `mantash rm PATH ...` now supports globs.
