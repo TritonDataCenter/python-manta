@@ -20,6 +20,7 @@ import fnmatch
 import subprocess
 import webbrowser
 import codecs
+import operator
 import optparse
 
 # Use the local manta package if we're in the dev layout.
@@ -549,7 +550,8 @@ class Mantash(cmdln.Cmdln):
                     du(dirent)
                 else:
                     for d, dirents, objents in self.client.walk(path, False):
-                        for objent in objents:
+                        sortKey = operator.itemgetter("name")
+                        for objent in sorted(objents, key=sortKey):
                             objent["path"] = ujoin(d, objent["name"])
                             du(objent)
             else:

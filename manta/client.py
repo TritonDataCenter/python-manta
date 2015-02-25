@@ -723,8 +723,6 @@ class MantaClient(RawMantaClient):
         @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
         @param parents {bool} Optional. Default false. Like 'mkdir -p', this
             will create parent dirs as necessary.
-        @param log_write {function} Optional. A `logging.Logger.debug|info|...`
-            method to which to write
         """
         assert mdir.startswith('/'), "%s: invalid manta path" % mdir
         parts = mdir.split('/')
@@ -737,6 +735,21 @@ class MantaClient(RawMantaClient):
             # don't have a way to detect a miss on `start`. So basically we
             # keep doing the binary search until we hit and close the `start`
             # to `end` gap.
+            # Example:
+            # - mdir: /trent/stor/builds/a/b/c  (need to mk a/b/c)
+            #   parts: ['', 'trent', 'stor', 'builds', 'a', 'b', 'c']
+            #   start: 4
+            #   end: 8
+            # - idx: 6
+            #   d: /trent/stor/builds/a/b    (put_directory fails)
+            #   end: 6
+            # - idx: 5
+            #   d: /trent/stor/builds/a   (put_directory succeeds)
+            #   start: 5
+            #   (break out of loop)
+            # - for i in range(6, 8):
+            #       i=6 -> d: /trent/stor/builds/a/b
+            #       i=7 -> d: /trent/stor/builds/a/b/c
             end = len(parts) + 1
             start = 4 # Index of the first possible dir to create.
             while start < end - 1:
@@ -754,7 +767,7 @@ class MantaClient(RawMantaClient):
                     start = idx
 
             # Now need to create from (end-1, len(parts)].
-            for i in range(end - 1, len(parts)):
+            for i in range(end, len(parts) + 1):
                 d = '/'.join(parts[:i])
                 self.put_directory(d)
 

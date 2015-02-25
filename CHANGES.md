@@ -2,7 +2,9 @@
 
 ## 2.4.1 (not yet released)
 
-(nothing yet)
+- Fix `mantash du ...` to sort output for a given dir by basename.
+- Fix a logic bug in `mantash mkdir -p ...` where the last dir could possibly
+  not be created.
 
 
 ## 2.4.0
