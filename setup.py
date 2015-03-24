@@ -34,8 +34,8 @@ setup(
 is Joyent's object storage service with integrate compute.  This module
 provides a Python 'manta' package and a 'mantash' (MANTA SHell) CLI and
 shell. The project is `hosted on GitHub
-<https://github.com/trentm/python-manta#readme>`_.  Please `file any
-issues here <https://github.com/trentm/python-manta/issues>`_.
+<https://github.com/joyent/python-manta#readme>`_.  Please `file any
+issues here <https://github.com/joyent/python-manta/issues>`_.
 """,
     author="Joyent",
     author_email="support@joyent.com",
