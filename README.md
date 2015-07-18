@@ -60,7 +60,7 @@ You should also be able to install from source:
     python setup.py install    # might require a 'sudo' prefix
 
 
-## 2. verify it works
+## 2. verify install worked
 
 The 'mantash' CLI should now work:
 
@@ -85,7 +85,7 @@ one of keys uploaded for your Joyent Public Cloud account.
     export MANTA_USER=jill
 
 `mantash` uses these environment variables (as does the [Manta Node.js SDK
-CLI](http://wiki.joyent.com/wiki/display/Manta/Manta+CLI+Reference)).
+CLI](https://apidocs.joyent.com/manta/index.html#setting-up-your-environment)).
 Alternatively you can specify these parameters to `mantash` via command-line
 options -- see `mantash --help` for details.
 
@@ -93,8 +93,23 @@ For a colourful `mantash` prompt you can also set:
 
     export MANTASH_PS1='\e[90m[\u@\h \e[34m\w\e[90m]$\e[0m '
 
+or more simply:
+
+    export MANTASH_PS1='[\u@\h \w]$ '
+
 See `_update_prompt` in bin/mantash for the list of supported PS1 escape
 codes.
+
+
+Now test that things are working:
+
+    $ mantash ls /$MANTA_USER
+    jobs
+    public
+    reports
+    stor
+
+If not, see for the [Troubleshooting](#troubleshooting) section below.
 
 
 # Python Usage
@@ -253,23 +268,23 @@ Typically one of the following will do it if you have `pip` (preferred) or
     sudo easy_install pycrypto
 
 **SmartOS** with recent pkgsrc has a working Crypto package named
-"py27-crypto-2.6*":
+"py27-crypto-2.6\*":
 
     pkgin install -y py27-crypto
 
-**Older SmartOS** pkgsrc versions with a pycrypto version <2.6 (e.g.
-"py27-crypto-2.4.1"). PyCrypto <2.6 is insufficient, the `Crypto.Signature`
-subpackage is missing. To get a working Crypto for mantash you can do the
-following, or similarly for other Python versions:
+**Older SmartOS** pkgsrc versions with a pycrypto version less than 2.6 (e.g.
+"py27-crypto-2.4.1"). PyCrypto less than 2.6 is insufficient, the
+`Crypto.Signature` subpackage is missing. To get a working Crypto for mantash
+you can do the following, or similarly for other Python versions:
 
     pkgin rm py27-crypto   # must get this out of the way
     pkgin install py27-setuptools
     easy_install-2.7 pycrypto
 
 **Any platform using the ActivePython** distribution of Python (available
-for most platforms).
-    pypm install pycrypto
+for most platforms):
 
+    pypm install pycrypto
 
 
 # Limitations
@@ -281,3 +296,38 @@ for your use case, you could consider the [Manta Node.js
 bindings](https://github.com/joyent/node-manta).
 
 For other limitations (also planned work) see TODO.txt.
+
+
+# Troubleshooting
+
+An attempt to cover some common install/setup issues.
+
+## `x509 certificate routines:X509_load_cert_crl_file` error
+
+```
+$ mantash ls
+mantash: ERROR: [Errno 185090050] _ssl.c:343: error:0B084002:x509 certificate routines:X509_load_cert_crl_file:system lib (/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/ssl.py:141 in __init__)
+
+Traceback (most recent call last):
+  File "/Library/Python/2.7/site-packages/manta-2.4.1-py2.7.egg/EGG-INFO/scripts/mantash", line 2001, in <module>
+    retval = main(sys.argv)
+...
+  File "/Library/Python/2.7/site-packages/httplib2-0.8-py2.7.egg/httplib2/__init__.py", line 80, in _ssl_wrap_socket
+    cert_reqs=cert_reqs, ca_certs=ca_certs)
+  File "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/ssl.py", line 387, in wrap_socket
+    ciphers=ciphers)
+  File "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/ssl.py", line 141, in __init__
+    ciphers)
+SSLError: [Errno 185090050] _ssl.c:343: error:0B084002:x509 certificate routines:X509_load_cert_crl_file:system lib
+```
+
+This is saying that python-manta (the httplib2 package it is using) cannot
+verify the MANTA\_URL server certificate. In some cases the problem here is
+write access to the "cacerts.txt" file in the installed httplib2 package. That
+can be solved by making that file world readable (as [discussed
+here](http://stackoverflow.com/a/19145997)).
+
+```
+$ sudo chmod 644 $(python -c 'from os.path import dirname; import httplib2; print dirname(httplib2.__file__)')/cacerts.txt
+Password:
+```
