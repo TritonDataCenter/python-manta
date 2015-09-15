@@ -30,7 +30,7 @@ tl;dr: `pip install --upgrade manta`
 **Mac**:
 
     # See <http://www.pip-installer.org/en/latest/installing.html>
-    curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
+    curl -O https://bootstrap.pypa.io/get-pip.py
     sudo python get-pip.py
 
 **Ubuntu**:
