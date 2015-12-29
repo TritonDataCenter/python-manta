@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.4.1 (not yet released)
+## 2.4.1
 
 - [pull #34] Fix handling of the keyId/`MANTA_KEY_ID` to support being set to a
   non-MD5 fingerprint. By default Linux (and more recently Mac) versions of OpenSSH's
