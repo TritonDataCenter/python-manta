@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.4.2 (not yet released)
+
+(nothing yet)
+
+
 ## 2.4.1
 
 - [pull #34] Fix handling of the keyId/`MANTA_KEY_ID` to support being set to a
