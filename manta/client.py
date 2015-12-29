@@ -751,7 +751,7 @@ class MantaClient(RawMantaClient):
             #       i=6 -> d: /trent/stor/builds/a/b
             #       i=7 -> d: /trent/stor/builds/a/b/c
             end = len(parts) + 1
-            start = 4 # Index of the first possible dir to create.
+            start = 3 # Index of the first possible dir to create.
             while start < end - 1:
                 idx = (end - start) / 2 + start
                 d = '/'.join(parts[:idx])

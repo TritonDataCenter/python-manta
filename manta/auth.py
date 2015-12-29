@@ -2,6 +2,7 @@
 
 """Manta client auth."""
 
+import binascii
 import sys
 import os
 from os.path import exists, expanduser, join, dirname, abspath
@@ -34,7 +35,7 @@ from manta.errors import MantaError
 
 log = logging.getLogger('manta.auth')
 
-FINGERPRINT_RE = re.compile(r'^([a-f0-9]{2}:){15}[a-f0-9]{2}$');
+FINGERPRINT_RE = re.compile(r'(^(MD5:)?([a-f0-9]{2}:){15}[a-f0-9]{2})|(^SHA256:[a-zA-Z0-9\/\+]{43})$')
 
 PARAMIKO_VER_INFO = tuple(int(v) for v in paramiko.__version__.split('.'))
 
@@ -73,6 +74,19 @@ def fingerprint_from_raw_ssh_pub_key(key):
     """
     fp_plain = hashlib.md5(key).hexdigest()
     return ':'.join(a+b for a,b in zip(fp_plain[::2], fp_plain[1::2]))
+
+
+def sha256_fingerprint_from_ssh_pub_key(data):
+    data = data.strip()
+
+    # accept either base64 encoded data or full pub key file,
+    # same as `fingerprint_from_ssh_pub_key
+    if (re.search(r'^ssh-(?:rsa|dss) ', data)):
+        data = data.split(None, 2)[1]
+
+    digest = hashlib.sha256(binascii.a2b_base64(data)).digest()
+    encoded = base64.b64encode(digest).rstrip('=') # ssh-keygen strips this
+    return 'SHA256:' + encoded
 
 
 def load_ssh_key(key_id, skip_priv_key=False):
@@ -117,6 +131,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
 
     # Else, look at all pub/priv keys in "~/.ssh" for a matching fingerprint.
     fingerprint = key_id
+
     pub_key_glob = expanduser('~/.ssh/*.pub')
     for pub_key_path in glob(pub_key_glob):
         f = open(pub_key_path)
@@ -124,7 +139,12 @@ def load_ssh_key(key_id, skip_priv_key=False):
             pub_key = f.read()
         finally:
             f.close()
-        if fingerprint_from_ssh_pub_key(pub_key) == fingerprint:
+        if sha256_fingerprint_from_ssh_pub_key(pub_key) == fingerprint:
+            # if the user has given us sha256 fingerprint, canonicalize
+            # it to the md5 fingerprint
+            fingerprint = fingerprint_from_ssh_pub_key(pub_key)
+            break
+        elif fingerprint_from_ssh_pub_key(pub_key) == fingerprint:
             break
     else:
         raise MantaError(

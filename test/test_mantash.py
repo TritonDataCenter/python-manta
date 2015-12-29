@@ -33,17 +33,18 @@ class OptionsTestCase(MantaTestCase):
         self.assertEqual(code, 0)
 
     def test_help(self):
+        no_man_pages = "No manual entry for mlogin\nNo manual entry for msign\n"
         code, stdout, stderr = self.mantash(['help'])
         self.assertTrue("mantash help" in stdout)
-        self.assertEqual(stderr, "")
+        self.assertIn(stderr, ("", no_man_pages))
         self.assertEqual(code, 0)
         code, stdout, stderr = self.mantash(['--help'])
         self.assertTrue("mantash help" in stdout)
-        self.assertEqual(stderr, "")
+        self.assertIn(stderr, ("", no_man_pages))
         self.assertEqual(code, 0)
         code, stdout, stderr = self.mantash(['-h'])
         self.assertTrue("mantash help" in stdout)
-        self.assertEqual(stderr, "")
+        self.assertIn(stderr, ("", no_man_pages))
         self.assertEqual(code, 0)
 
 class FindTestCase(MantaTestCase):
