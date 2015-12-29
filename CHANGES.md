@@ -2,6 +2,11 @@
 
 ## 2.4.1 (not yet released)
 
+- [pull #34] Fix handling of the keyId/`MANTA_KEY_ID` to support being set to a
+  non-MD5 fingerprint. By default Linux (and more recently Mac) versions of OpenSSH's
+  `ssh-keygen -lf ...` show a SHA256 form of the fingerprint.
+- [pull #34] Fix a bug where `mantash mkdir -p /trent.mick/public/a/b/c` wouldn't
+  create the top `a` directory (by Tim Gross).
 - Fix `mantash du ...` to sort output for a given dir by basename.
 - Fix a logic bug in `mantash mkdir -p ...` where the last dir could possibly
   not be created.
