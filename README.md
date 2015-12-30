@@ -83,6 +83,8 @@ one of keys uploaded for your Joyent Public Cloud account.
     export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
     export MANTA_URL=https://us-east.manta.joyent.com
     export MANTA_USER=jill
+    export MANTA_SUBUSER=bob # optional, if using RBAC subuser
+    export MANTA_ROLE=ops # optional, if specifying a non-default role for the subuser
 
 `mantash` uses these environment variables (as does the [Manta Node.js SDK
 CLI](https://apidocs.joyent.com/manta/index.html#setting-up-your-environment)).
@@ -126,12 +128,17 @@ url = os.environ['MANTA_URL']
 account = os.environ['MANTA_USER']
 key_id = os.environ['MANTA_KEY_ID']
 
+# optional fields for RBAC
+subuser = os.environ.get('MANTA_SUBUSER', None)
+role = os.environ.get('MANTA_ROLE', None)
+
 # This handles ssh-key signing of requests to Manta. Manta uses
 # the HTTP Signature scheme for auth.
 # http://tools.ietf.org/html/draft-cavage-http-signatures-00
 signer = manta.SSHAgentSigner(key_id)
 
-client = manta.MantaClient(url, account, signer)
+client = manta.MantaClient(url, account, subuser=subuser,
+                           role=role, signer=signer)
 
 content = client.get_object('/%s/stor/foo.txt' % account)
 print content
@@ -330,4 +337,44 @@ here](http://stackoverflow.com/a/19145997)).
 ```
 $ sudo chmod 644 $(python -c 'from os.path import dirname; import httplib2; print dirname(httplib2.__file__)')/cacerts.txt
 Password:
+```
+
+# Development and Testing
+
+In order to make sure testing covers RBAC, you'll want to make sure you have a
+subuser set up with appropriate permissions for Manta in addition to the
+environment variable setup described above.
+
+```
+mkdir ./tmp
+
+# create a dedicated test user
+sdc-user create --login=python_manta --password=${PASSWORD} --email=${EMAIL}
+
+# create a new ssh key and upload it for our user
+ssh-keygen -t rsa -b 4096 -C "${EMAIL}" -f ./tmp/python_manta
+sdc-user upload-key \
+         $(ssh-keygen -E md5 -lf ./tmp/manta | awk -F' ' '{gsub("MD5:","");{print $2}}') \
+         --name=python_manta python_manta ./tmp/python_manta.pub
+
+# create a policy with minimum permissions we need
+sdc-policy create --name=python_manta \
+           --rules='CAN putdirectory' \
+           --rules='CAN listdirectory' \
+		   --rules='CAN getdirectory' \
+		   --rules='CAN deletedirectory' \
+           --rules='CAN putobject' \
+	       --rules='CAN putmetadata' \
+           --rules='CAN getobject' \
+		   --rules='CAN deleteobject' \
+		   --rules='CAN putsnaplink'
+
+# create a new role with that policy and attach it to our user
+sdc-role create --name=python_manta \
+		--policies=python_manta \
+		--members=python_manta
+
+# create a directory with our role assigned to it
+mmkdir ${MANTA_USER}/stor/tmp --role-tag=python_manta
+
 ```

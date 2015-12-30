@@ -31,6 +31,8 @@ def stor(*subpaths):
 class MantaTestCase(unittest.TestCase):
     def __init__(self, *args):
         self.account = os.environ["MANTA_USER"]
+        self.subuser = os.environ.get("MANTA_SUBUSER", None)
+        self.role = os.environ.get("MANTA_ROLE", None)
         unittest.TestCase.__init__(self, *args)
 
     _client = None
@@ -42,6 +44,8 @@ class MantaTestCase(unittest.TestCase):
             signer = manta.CLISigner(key_id=MANTA_KEY_ID)
             self._client = manta.MantaClient(url=MANTA_URL,
                 account=self.account,
+                subuser=self.subuser,
+                role=self.role,
                 signer=signer,
                 # Uncomment this for verbose client output for test run.
                 #verbose=True,
