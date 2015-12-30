@@ -1,6 +1,13 @@
 # python-manta Changelog
 
-## 2.4.2 (not yet released)
+## 2.5.0 (not yet released)
+
+- [pull #35] RBAC support (see: https://docs.joyent.com/public-cloud/rbac)
+  The `MantaClient` constructor now takes optional `subuser` and `role`
+  parameters. The `mantash` CLI gets the params from either the `--user` /
+  `--role` command line arguments or from the `MANTA_SUBUSER` / `MANTA_ROLE`
+  environment vars.  This behavior matches the Node.js Manta client.  By Tim
+  Gross.
 
 - [pull #29] Fix doc links.
 

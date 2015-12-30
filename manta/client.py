@@ -1,14 +1,14 @@
-# Copyright (c) 2012 Joyent, Inc.  All rights reserved.
+# Copyright (c) 2016 Joyent, Inc.  All rights reserved.
 
 """The Manta client."""
 
 import sys
 import logging
 import os
-from os.path import exists, join
+from os.path import exists
 from posixpath import join as ujoin, dirname as udirname, basename as ubasename
 import json
-from pprint import pprint, pformat
+from pprint import pformat
 from operator import itemgetter
 import hashlib
 import datetime
@@ -121,6 +121,8 @@ class RawMantaClient(object):
 
     @param url {str} The Manta URL
     @param account {str} The Manta account (login name).
+    @param subuser {str} Optional. The Manta sub user (login name).
+    @param role {str} Optional. The Manta RBAC role.
     @param signer {Signer instance} A python-manta Signer class instance
         that handles signing request to Manta using the http-signature
         auth scheme.
@@ -131,16 +133,18 @@ class RawMantaClient(object):
     @param verbose {bool} Optional. Default false. If true, then will log
         debugging info.
     """
-    def __init__(self, url, account, sign=None, signer=None,
-            user_agent=None, cache_dir=None,
-            disable_ssl_certificate_validation=False,
-            verbose=False):
+    def __init__(self, url, account, subuser=None, role=None, sign=None,
+                 signer=None, user_agent=None, cache_dir=None,
+                 disable_ssl_certificate_validation=False,
+                 verbose=False):
         assert account, 'account'
         if url.endswith('/'):
             self.url = url[:-1]
         else:
             self.url = url
         self.account = account
+        self.subuser = subuser
+        self.role = role
         self.signer = signer or sign
         self.cache_dir = cache_dir or DEFAULT_HTTP_CACHE_DIR
         self.user_agent = user_agent or DEFAULT_USER_AGENT
@@ -195,9 +199,13 @@ class RawMantaClient(object):
                 headers["Date"] = http_date()
             sigstr = 'date: ' + headers["Date"]
             algorithm, fingerprint, signature = self.signer.sign(sigstr)
-            headers["Authorization"] = \
-                'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"' % (
-                    self.account, fingerprint, algorithm, signature)
+            auth = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"'\
+                   % ('/'.join(filter(None, [self.account, self.subuser])),
+                      fingerprint, algorithm, signature)
+            headers["Authorization"] = auth
+
+            if self.role:
+                headers['Role'] = self.role
 
         return http.request(url, method, ubody, headers)
 

@@ -3,18 +3,10 @@
 
 """Test mantash."""
 
-import os
-import sys
 import re
 from posixpath import join as ujoin
-from pprint import pprint
-import unittest
-
-from testlib import TestError, TestSkipped, tag
 
 from common import MantaTestCase, stor
-import manta
-
 
 
 #---- globals

@@ -3,15 +3,8 @@
 
 """Test the python-manta MantaClient."""
 
-import os
-import sys
 import re
 from posixpath import dirname as udirname, basename as ubasename, join as ujoin
-from pprint import pprint, pformat
-import unittest
-import codecs
-
-from testlib import TestError, TestSkipped, tag
 
 from common import *
 import manta
@@ -117,6 +110,12 @@ class ObjectTestCase(MantaTestCase):
 class LinkTestCase(MantaTestCase):
     def test_put(self):
         client = self.get_client()
+        if client.subuser or client.role:
+            print('\nSkipping LinkTestCase because a subuser or role has been '
+                  'provided for the Manta client.\nSee '
+                  'https://devhub.joyent.com/jira/browse/MANTA-2829 '
+                  'for details.')
+            return
         client.mkdirp(stor(TDIR))
         obj_path = stor(TDIR, 'obj.txt')
         content = 'foo\nbar\nbaz'

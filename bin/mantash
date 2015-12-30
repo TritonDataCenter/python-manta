@@ -107,6 +107,7 @@ class Mantash(cmdln.Cmdln):
 
         export MANTA_URL=https://us-east.manta.joyent.com
         export MANTA_USER=jill
+        export MANTA_SUBUSER=optional
         export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\\n'`
         export MANTASH_PS1='\e[90m[\u@\h \e[34m\w\e[90m]$\e[0m '
 
@@ -131,6 +132,13 @@ class Mantash(cmdln.Cmdln):
         parser.add_option("-a", "--account", dest="account",
             help="Manta account (login name). Environment: MANTA_USER=ACCOUNT",
             default=os.environ.get("MANTA_USER"))
+        parser.add_option("--user", "--subuser", dest="subuser",
+            help="Manta user (login name). Environment: MANTA_SUBUSER=USER",
+            default=os.environ.get("MANTA_SUBUSER", None))
+        parser.add_option("--role", dest="role",
+                          help=("Assume a role. Use multiple times or once with "
+                                "a list. Environment: MANTA_ROLE=ROLE,ROLE..."),
+            default=os.environ.get("MANTA_ROLE", None))
         parser.add_option("-k", "--keyId", dest="key_id",
             help="SSH key fingerprint (or path to private key file). See "
                 "note below. Environment: MANTA_KEY_ID=FINGERPRINT",
@@ -184,6 +192,9 @@ class Mantash(cmdln.Cmdln):
         self.host = urlparse(self.manta_url).hostname
 
         self.account = self.options.account
+        self.subuser = self.options.subuser
+        self.role = self.options.role
+
         self.home = "/%s/stor" % self.account
         self.last_cwd = self.cwd = self.home
         if no_auth:
@@ -191,6 +202,8 @@ class Mantash(cmdln.Cmdln):
         else:
             signer = manta.CLISigner(self.options.key_id)
         self.client = manta.MantaClient(self.manta_url, self.account,
+            subuser=self.subuser,
+            role=self.role,
             signer=signer,
             disable_ssl_certificate_validation=self.options.insecure,
             user_agent=USER_AGENT, verbose=self.options.verbose)
