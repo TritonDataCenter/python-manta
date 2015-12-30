@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2012 Joyent, Inc.  All rights reserved.
 
 """Manta client auth."""
@@ -29,9 +30,7 @@ import paramiko
 
 from manta.errors import MantaError
 
-
-
-#---- globals
+# ---- globals
 
 log = logging.getLogger('manta.auth')
 
@@ -39,9 +38,8 @@ FINGERPRINT_RE = re.compile(r'(^(MD5:)?([a-f0-9]{2}:){15}[a-f0-9]{2})|(^SHA256:[
 
 PARAMIKO_VER_INFO = tuple(int(v) for v in paramiko.__version__.split('.'))
 
+# ---- internal support stuff
 
-
-#---- internal support stuff
 
 def fingerprint_from_ssh_pub_key(data):
     """Calculate the fingerprint of SSH public key data.
@@ -60,12 +58,13 @@ def fingerprint_from_ssh_pub_key(data):
     #   'AAAAB3NzaC1yc2EAAAABIwAA...2l24uq9Lfw=='
     # - the full ssh pub key file content, e.g.:
     #   'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAA...2l24uq9Lfw== my comment'
-    if (re.search(r'^ssh-(?:rsa|dss) ', data)):
+    if re.search(r'^ssh-(?:rsa|dss) ', data):
         data = data.split(None, 2)[1]
 
     key = base64.b64decode(data)
     fp_plain = hashlib.md5(key).hexdigest()
     return ':'.join(a+b for a,b in zip(fp_plain[::2], fp_plain[1::2]))
+
 
 def fingerprint_from_raw_ssh_pub_key(key):
     """Encode a raw SSH key (string of bytes, as from
@@ -173,9 +172,11 @@ def unpack_agent_response(d):
         d = d[length+4:]
     return parts
 
+
 def signature_from_agent_sign_response(d):
     """h/t <https://github.com/atl/py-http-signature/blob/master/http_signature/sign.py>"""
     return unpack_agent_response(d)[1]
+
 
 def ssh_key_info_from_key_data(key_id, priv_key=None):
     """Get/load SSH key info necessary for signing.
@@ -256,7 +257,7 @@ def agent_key_info_from_key_id(key_id):
     import paramiko
     keys = paramiko.Agent().get_keys()
     for key in keys:
-        if fingerprint_from_raw_ssh_pub_key(str(key)) == fingerprint:
+        if fingerprint_from_raw_ssh_pub_key(key.asbytes()) == fingerprint:
             break
     else:
         raise MantaError(
@@ -272,9 +273,8 @@ def agent_key_info_from_key_id(key_id):
         "algorithm": algorithm
     }
 
+# ---- exports
 
-
-#---- exports
 
 class Signer(object):
     """A virtual base class for python-manta request signing."""
@@ -287,6 +287,7 @@ class Signer(object):
             "OXKzi5+h1aR9dVWHOu647x+ijhk...6w==")`.
         """
         raise NotImplementedError("this is a virtual base class")
+
 
 class PrivateKeySigner(Signer):
     """Sign Manta requests with the given ssh private key.
@@ -305,13 +306,13 @@ class PrivateKeySigner(Signer):
         self.key_id = key_id
         self.priv_key = priv_key
 
-    _key_info_cache = None
     def _get_key_info(self):
         """Get key info appropriate for signing."""
         if self._key_info_cache is None:
             self._key_info_cache = ssh_key_info_from_key_data(
                 self.key_id, self.priv_key)
         return self._key_info_cache
+    _key_info_cache = None
 
     def sign(self, s):
         assert isinstance(s, str)   # for now, not unicode. Python 3?
@@ -330,7 +331,8 @@ class PrivateKeySigner(Signer):
         signed_raw = key_info["signer"].sign(hasher)
         signed = base64.b64encode(signed_raw)
 
-        return (key_info["algorithm"], key_info["fingerprint"], signed)
+        return key_info["algorithm"], key_info["fingerprint"], signed
+
 
 class SSHAgentSigner(Signer):
     """Sign Manta requests using an ssh-agent.
@@ -342,12 +344,12 @@ class SSHAgentSigner(Signer):
     def __init__(self, key_id):
         self.key_id = key_id
 
-    _key_info_cache = None
     def _get_key_info(self):
         """Get key info appropriate for signing."""
         if self._key_info_cache is None:
             self._key_info_cache = agent_key_info_from_key_id(self.key_id)
         return self._key_info_cache
+    _key_info_cache = None
 
     def sign(self, s):
         assert isinstance(s, str)   # for now, not unicode. Python 3?
@@ -361,7 +363,8 @@ class SSHAgentSigner(Signer):
         signed_raw = signature_from_agent_sign_response(response)
         signed = base64.b64encode(signed_raw)
 
-        return (key_info["algorithm"], key_info["fingerprint"], signed)
+        return key_info["algorithm"], key_info["fingerprint"], signed
+
 
 class CLISigner(Signer):
     """Sign Manta requests using the SSH agent (if available and has the
@@ -370,7 +373,6 @@ class CLISigner(Signer):
     def __init__(self, key_id):
         self.key_id = key_id
 
-    _key_info_cache = None
     def _get_key_info(self):
         """Get key info appropriate for signing: either from the ssh agent
         or from a private key.
@@ -400,15 +402,15 @@ class CLISigner(Signer):
             self._key_info_cache = key_info
             return self._key_info_cache
 
-        raise MantaError("could not find key info for signing: %s"
-            % "; ".join(map(unicode, errors)))
+        raise MantaError("could not find key info for signing: %s" % "; ".join(map(unicode, errors)))
+    _key_info_cache = None
 
     def sign(self, sigstr):
         assert isinstance(sigstr, str)   # for now, not unicode. Python 3?
 
         key_info = self._get_key_info()
-        log.debug("sign %r with %s key (algo %s, fp %s)", sigstr,
-            key_info["type"], key_info["algorithm"], key_info["fingerprint"])
+        log.debug("sign %r with %s key (algo %s, fp %s)", sigstr, key_info["type"], key_info["algorithm"],
+                  key_info["fingerprint"])
 
         if key_info["type"] == "agent":
             if PARAMIKO_VER_INFO >= (1, 14, 0):
@@ -432,4 +434,4 @@ class CLISigner(Signer):
             raise MantaError("internal error: unknown key type: %r"
                 % key_info["type"])
 
-        return (key_info["algorithm"], key_info["fingerprint"], signed)
+        return key_info["algorithm"], key_info["fingerprint"], signed

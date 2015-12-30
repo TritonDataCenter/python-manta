@@ -35,6 +35,8 @@ See the README.txt or <http://trentm.com/projects/cmdln/> for more
 details.
 """
 
+from __future__ import print_function
+
 __version_info__ = (1, 2, 1)
 __version__ = '.'.join(map(str, __version_info__))
 
@@ -59,10 +61,7 @@ _NOT_SPECIFIED = ("Not", "Specified")
 # Pattern to match a TypeError message from a call that
 # failed because of incorrect number of arguments (see
 # Python/getargs.c).
-_INCORRECT_NUM_ARGS_RE = re.compile(
-    r"(takes [\w ]+ )(\d+)( arguments? \()(\d+)( given\))")
-
-
+_INCORRECT_NUM_ARGS_RE = re.compile(r"(takes [\w ]+ )(\d+)( arguments? \()(\d+)( given\))")
 
 #---- exceptions
 
@@ -73,13 +72,13 @@ class CmdlnError(Exception):
     def __str__(self):
         return self.msg
 
+
 class CmdlnUserError(Exception):
     """An error by a user of a cmdln-based tool/shell."""
     pass
 
-
-
 #---- public methods and classes
+
 
 def alias(*aliases):
     """Decorator to add aliases for Cmdln.do_* command handlers.
@@ -237,13 +236,12 @@ class RawCmdln(cmd.Cmd):
         if self.optparser: # i.e. optparser=None means don't process for opts
             try:
                 self.options, args = self.optparser.parse_args(argv[1:])
-            except CmdlnUserError, ex:
-                msg = "%s: %s\nTry '%s help' for info.\n"\
-                      % (self.name, ex, self.name)
+            except CmdlnUserError as e:
+                msg = "%s: %s\nTry '%s help' for info.\n" % (self.name, e, self.name)
                 self.stderr.write(self._str(msg))
                 self.stderr.flush()
                 return 1
-            except StopOptionProcessing, ex:
+            except StopOptionProcessing as e:
                 return 0
         else:
             self.options, args = None, argv[1:]
@@ -1123,7 +1121,7 @@ class Cmdln(RawCmdln):
 
             try:
                 return handler(argv[0], opts, *args)
-            except TypeError, ex:
+            except TypeError as e:
                 # Some TypeError's are user errors:
                 #   do_foo() takes at least 4 arguments (3 given)
                 #   do_foo() takes at most 5 arguments (6 given)
@@ -1138,7 +1136,7 @@ class Cmdln(RawCmdln):
                     # above. In that we don't want to handle it specially
                     # here: it would falsely mask deeper code errors.
                     raise
-                msg = ex.args[0]
+                msg = e.args[0]
                 match = _INCORRECT_NUM_ARGS_RE.search(msg)
                 if match:
                     msg = list(match.groups())
@@ -1385,8 +1383,8 @@ def line2argv(line):
     ...     line2argv(r'\\foo\\bar') == ['\\foo\\bar']
     ...     try:
     ...         line2argv('"foo')
-    ...     except ValueError, ex:
-    ...         "not terminated" in str(ex)
+    ...     except ValueError as e:
+    ...         "not terminated" in str(e)
     True
     True
     True
@@ -1494,8 +1492,7 @@ def _dedentlines(lines, tabsize=8, skip_first_line=False):
     """
     DEBUG = False
     if DEBUG:
-        print "dedent: dedent(..., tabsize=%d, skip_first_line=%r)"\
-              % (tabsize, skip_first_line)
+        print("dedent: dedent(..., tabsize=%d, skip_first_line=%r)" % (tabsize, skip_first_line))
     indents = []
     margin = None
     for i, line in enumerate(lines):
@@ -1512,12 +1509,12 @@ def _dedentlines(lines, tabsize=8, skip_first_line=False):
                 break
         else:
             continue # skip all-whitespace lines
-        if DEBUG: print "dedent: indent=%d: %r" % (indent, line)
+        if DEBUG: print("dedent: indent=%d: %r" % (indent, line))
         if margin is None:
             margin = indent
         else:
             margin = min(margin, indent)
-    if DEBUG: print "dedent: margin=%r" % margin
+    if DEBUG: print("dedent: margin=%r" % margin)
 
     if margin is not None and margin > 0:
         for i, line in enumerate(lines):
@@ -1537,8 +1534,8 @@ def _dedentlines(lines, tabsize=8, skip_first_line=False):
                                      "line %r while removing %d-space margin"
                                      % (ch, line, margin))
                 if DEBUG:
-                    print "dedent: %r: %r -> removed %d/%d"\
-                          % (line, ch, removed, margin)
+                    print("dedent: %r: %r -> removed %d/%d"\
+                          % (line, ch, removed, margin))
                 if removed == margin:
                     lines[i] = lines[i][j+1:]
                     break
@@ -1651,8 +1648,8 @@ if __name__ == "__main__" and len(sys.argv) == 6:
 
         try:
             script = _module_from_path(script_path)
-        except ImportError, ex:
-            _log("error importing `%s': %s" % (script_path, ex))
+        except ImportError as e:
+            _log("error importing `%s': %s" % (script_path, e))
             return []
         shell = getattr(script, class_name)()
         cmd_map = shell._get_canonical_map()
@@ -1700,4 +1697,4 @@ if __name__ == "__main__" and len(sys.argv) == 6:
         return []
 
     for cpln in _get_bash_cplns(*sys.argv[1:]):
-        print cpln
+        print(cpln)

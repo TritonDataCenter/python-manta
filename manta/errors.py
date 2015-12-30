@@ -32,7 +32,7 @@ class MantaAPIError(MantaError):
     def __init__(self, res, content):
         self.res = res
         if res['content-type'] == 'application/json':
-            self.body = json.loads(content)
+            self.body = json.loads(content.decode())
             self.code = self.body["code"]
             message = "(%(code)s) %(message)s" % self.body
         else:

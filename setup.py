@@ -16,13 +16,14 @@ except ImportError:
 
 TOP = os.path.dirname(os.path.abspath(__file__))
 
+
 def get_version():
     """Get the python-manta version without having to import the manta package,
     which requires deps to already be installed.
     """
     _globals = {}
     _locals = {}
-    execfile(TOP + "/manta/version.py", _globals, _locals)
+    exec(compile(open(TOP + "/manta/version.py", 'r').read(), 'version.py', 'exec'), _globals, _locals)
     return _locals["__version__"]
 
 
