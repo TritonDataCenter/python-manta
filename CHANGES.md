@@ -2,7 +2,7 @@
 
 ## 2.4.2 (not yet released)
 
-(nothing yet)
+- [pull #29] Fix doc links.
 
 
 ## 2.4.1
