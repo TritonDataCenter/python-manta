@@ -725,6 +725,8 @@ class MantaClient(RawMantaClient):
             will create parent dirs as necessary.
         """
         assert mdir.startswith('/'), "%s: invalid manta path" % mdir
+        if not mdir.endswith('/'):
+            mdir += '/'
         parts = mdir.split('/')
         assert len(parts) > 3, "%s: cannot create top-level dirs" % mdir
         if not parents:
