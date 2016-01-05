@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.5.1 (not yet released)
+
+(nothing yet)
+
+
 ## 2.5.0
 
 - [pull #35] RBAC support (see: https://docs.joyent.com/public-cloud/rbac)
