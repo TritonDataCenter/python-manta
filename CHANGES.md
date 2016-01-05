@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.5.0 (not yet released)
+## 2.5.0
 
 - [pull #35] RBAC support (see: https://docs.joyent.com/public-cloud/rbac)
   The `MantaClient` constructor now takes optional `subuser` and `role`
