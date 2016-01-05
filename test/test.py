@@ -4,7 +4,7 @@
 """The python-manta test suite entry point."""
 
 import os
-from os.path import exists, join, abspath, dirname, normpath
+from os.path import abspath, dirname
 import sys
 import logging
 

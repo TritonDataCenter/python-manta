@@ -8,7 +8,6 @@ __all__ = ["stor", "MantaTestCase"]
 import sys
 import os
 from posixpath import join as ujoin
-from pprint import pprint
 import unittest
 import subprocess
 from subprocess import PIPE

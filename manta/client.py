@@ -5,10 +5,10 @@
 import sys
 import logging
 import os
-from os.path import exists, join
+from os.path import exists
 from posixpath import join as ujoin, dirname as udirname, basename as ubasename
 import json
-from pprint import pprint, pformat
+from pprint import pformat
 from operator import itemgetter
 import hashlib
 import datetime

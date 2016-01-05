@@ -5,7 +5,7 @@
 import binascii
 import sys
 import os
-from os.path import exists, expanduser, join, dirname, abspath
+from os.path import expanduser
 import logging
 import base64
 import hashlib

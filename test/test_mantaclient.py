@@ -3,15 +3,8 @@
 
 """Test the python-manta MantaClient."""
 
-import os
-import sys
 import re
 from posixpath import dirname as udirname, basename as ubasename, join as ujoin
-from pprint import pprint, pformat
-import unittest
-import codecs
-
-from testlib import TestError, TestSkipped, tag
 
 from common import *
 import manta
