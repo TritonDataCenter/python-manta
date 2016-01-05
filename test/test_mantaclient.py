@@ -117,6 +117,12 @@ class ObjectTestCase(MantaTestCase):
 class LinkTestCase(MantaTestCase):
     def test_put(self):
         client = self.get_client()
+        if client.subuser or client.role:
+            print('\nSkipping LinkTestCase because a subuser or role has been '
+                  'provided for the Manta client.\nSee '
+                  'https://devhub.joyent.com/jira/browse/MANTA-2829 '
+                  'for details.')
+            return
         client.mkdirp(stor(TDIR))
         obj_path = stor(TDIR, 'obj.txt')
         content = 'foo\nbar\nbaz'
