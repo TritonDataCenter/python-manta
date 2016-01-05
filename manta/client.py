@@ -199,9 +199,9 @@ class RawMantaClient(object):
                 headers["Date"] = http_date()
             sigstr = 'date: ' + headers["Date"]
             algorithm, fingerprint, signature = self.signer.sign(sigstr)
-            auth = ('Signature keyId="/{}/keys/{}",algorithm="{}",signature="{}"'
-                    .format('/'.join(filter(None, [self.account, self.subuser])),
-                            fingerprint, algorithm, signature))
+            auth = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"'\
+                   % ('/'.join(filter(None, [self.account, self.subuser])),
+                      fingerprint, algorithm, signature)
             headers["Authorization"] = auth
 
             if self.role:
