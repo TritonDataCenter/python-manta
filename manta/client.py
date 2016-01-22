@@ -386,12 +386,12 @@ class RawMantaClient(object):
             raise errors.MantaAPIError(res, content)
         if len(content) != int(res["content-length"]):
             raise errors.MantaError("content-length mismatch: expected %d, "
-                "got %s" % (res["content-length"], content))
+                "got %d" % (int(res["content-length"]), len(content)))
         if res.get("content-md5"):
             md5 = hashlib.md5(content)
             content_md5 = base64.b64encode(md5.digest())
             if content_md5 != res["content-md5"]:
-                raise errors.MantaError("content-md5 mismatch: expected %d, "
+                raise errors.MantaError("content-md5 mismatch: expected %s, "
                     "got %s" % (res["content-md5"], content_md5))
         if path is not None:
             f = open(path, 'wb')
