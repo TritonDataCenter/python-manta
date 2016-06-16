@@ -1,8 +1,9 @@
 # python-manta Changelog
 
-## 2.5.1 (not yet released)
+## 2.6.0 (not yet released)
 
-(nothing yet)
+- [MANTA-2925] `mantash cp [-R] ...` command for copying files within Manta
+  (including recursive dir copy).
 
 
 ## 2.5.0

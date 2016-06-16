@@ -1473,7 +1473,7 @@ class Mantash(cmdln.Cmdln):
         if dst_type is not None:
             # TODO: support this eventually
             log.error("target %s exists: this is not yet supported by "
-                "the mv comment", dst)
+                "the mv command", dst)
             return 1
 
         if len(srcs) > 1 and dst_type != "directory":
@@ -1502,6 +1502,135 @@ class Mantash(cmdln.Cmdln):
             log.error(ex)
             return 1
 
+    @cmdln.option("-v", "--verbose",
+        dest="verbose", action="store_true", default=True,
+        help="List files as they are being copied. This is the default.")
+    @cmdln.option("-q", "--quiet",
+        dest="verbose", action="store_false",
+        help="Do not list files as they are being copied.")
+    @cmdln.option("-R", dest="recursive", action="store_true",
+        help="If SOURCE-MFILE is a directory, copy the directory and the "
+            "entire subtree. If SOURCE-MFILE ends in a '/' and TARGET-MDIR "
+            "exists, the contents of the directory are copied, rather than "
+            "the directory itself.")
+    @cmdln.option("--dry-run", action="store_true", help="Do a dry-run.")
+    def do_cp(self, subcmd, opts, *paths):
+        """Copy files and dirs in Manta.
+
+        Usage:
+            ${cmd_name} SOURCE-MFILE TARGET-MFILE
+            ${cmd_name} SOURCE-MFILE ... TARGET-MDIR
+
+        ${cmd_option_list}
+        """
+        def cp_dir(a, b):
+            if opts.verbose:
+                sys.stdout.write("%s -> %s\n" % (a, b))
+            if not opts.dry_run:
+                self.client.mkdirp(b)
+
+        def cp_obj(a, b):
+            if opts.verbose:
+                sys.stdout.write("%s -> %s\n" % (a, b))
+            if not opts.dry_run:
+                self.client.ln(a, b)
+
+        if len(paths) < 2:
+            log.error("not enough args")
+            return 1
+
+        srcs, dst = paths[:-1], paths[-1]
+        ndst = unormpath(ujoin(self.cwd, uexpanduser(dst, self.home)))
+        try:
+            dst_stat = self.client.stat(ndst)
+            dst_type = dst_stat["type"]
+        except manta.MantaResourceNotFoundError:
+            dst_stat = None
+            dst_type = None
+
+        if len(srcs) > 1 and dst_type != "directory":
+            log.error("incorrect usage: destination %s is not a directory", dst)
+            return 1
+
+        numWarns = 0
+        try:
+            prepend = (dst_type == "directory") #TODO: use this
+            for src in srcs:
+                nsrc = unormpath(ujoin(self.cwd, uexpanduser(src, self.home)))
+                try:
+                    src_stat = self.client.stat(nsrc)
+                except manta.MantaResourceNotFoundError:
+                    sys.stderr.write(
+                        "cp: %s: No such Manta file or directory\n" % src)
+                    numWarns += 1
+                    continue
+
+                src_type = src_stat["type"]
+                if src_type == "object":
+                    # Cases:
+                    #   cp afile nonexistant    # ln afile nonexistant
+                    #   cp afile bfile          # ln afile bfile
+                    #   cp afile bdir           # ln afile bdir/$(basename afile)
+                    if dst_type == "directory":
+                        cp_obj(nsrc, ujoin(ndst, ubasename(nsrc)))
+                    else:
+                        cp_obj(nsrc, ndst)
+                elif src_type == "directory":
+                    # Cases:
+                    #   cp adir ...             # cp: adir is a directory (not copied, use '-R')
+                    #   cp adir afile.txt       # cp: afile.txt: Not a Manta directory
+                    #   cp -R adir nonexistant  # recursive cp adir nonexistant
+                    #   cp -R adir bdir         # recursive cp adir bdir/adir
+                    #   cp -R adir/ nonexistant # recursive cp adir nonexistant
+                    #   cp -R adir/ bdir        # recursive cp adir bdir
+                    if not opts.recursive:
+                        sys.stderr.write("cp: %s is a directory "
+                            "(not copied, use '-R')\n" % src)
+                        numWarns += 1
+                        continue
+                    elif dst_type not in (None, "directory"):
+                        # Note: This differs from Unix cp intentionally b/c
+                        # it does the following, which is just weird IMHO:
+                        #   $ cp -Rv adir afile.txt
+                        #   cp: afile.txt: Not a directory
+                        #   adir -> afile.txt
+                        #   adir/one.txt -> afile.txt
+                        #   adir/two.txt -> afile.txt
+                        # and then "afile.txt" has the contents of the last
+                        # thing copied to it. This is at least how `cp` on my
+                        # Mac behaves.
+                        sys.stderr.write("cp: %s: Not a Manta directory\n"
+                            % dst)
+                        numWarns += 1
+                        continue
+
+                    if dst_type == "directory" and not src.endswith('/'):
+                        # This is case #4 in "Cases:" above.
+                        ndst_base = ujoin(ndst, ubasename(nsrc))
+                    else:
+                        ndst_base = ndst
+
+                    for dirpath, dirents, objents in self.client.walk(nsrc):
+                        #pprint((dirpath, dirents, objents))
+                        subpath = dirpath[len(nsrc) + 1:]
+                        cp_dir(dirpath, unormpath(ujoin(ndst_base, subpath)))
+                        for objent in objents:
+                            srcpath = ujoin(dirpath, objent["name"])
+                            subpath = srcpath[len(nsrc) + 1:]
+                            cp_obj(srcpath, ujoin(ndst_base, subpath))
+                else:
+                    raise manta.MantaError("unknown manta type for %s: %s"
+                        % (nsrc, src_type))
+        except manta.MantaError:
+            _, ex, _ = sys.exc_info()
+            log.error(ex)
+            return 1
+        else:
+            if numWarns:
+                return 1
+            else:
+                return 0
+
     def _realpath(self, mpath):
         """Normalize the given Manta path and make it absolute
         (relative to cwd).
@@ -1511,7 +1640,17 @@ class Mantash(cmdln.Cmdln):
     @cmdln.option("-v", "--verbose", action="store_true",
         help="show link details as it is being linked")
     def do_ln(self, subcmd, opts, object_path, *link_path_args):
-        """create a manta link to an object
+        """Create a snaplink to an object.
+
+        A Manta "snaplink" is something between a Unix hardlink and a cp:
+        a hardlink in that linking is fast (it just creates a new named
+        reference to the same file bits) and a cp in that subsequent writes
+        to that new or old names are independent. In other words, after
+        the following commands "bar.txt" still has the original "foo.txt"
+        content:
+
+            ln foo.txt bar.txt
+            put newfoo.txt foo.txt
 
         Usage:
             ${cmd_name} OBJECT-PATH [LINK-PATH]
