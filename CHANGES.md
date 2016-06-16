@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.6.1 (not yet released)
+
+(nothing yet)
+
+
 ## 2.6.0
 
 - [MANTA-2925] `mantash cp [-R] ...` command for copying files within Manta
