@@ -1,9 +1,9 @@
-A Python SDK for [the Joyent Manta
-Service](http://www.joyent.com/products/manta) (a.k.a. Manta). This provides
-a Python 'manta' package (for using the [Manta REST
-API](http://apidocs.joyent.com/manta/api.html) and a 'mantash' (MANTA SHell)
-CLI and shell. For an introduction to Manta in general, see [Manta getting
-started docs](http://apidocs.joyent.com/manta/index.html).
+python-manta is a community-maintained Python SDK for [the Joyent Manta
+Object Storage Service](http://www.joyent.com/manta) (a.k.a. Manta). This
+provides a Python 'manta' package (for using the [Manta REST
+API](http://apidocs.joyent.com/manta/api.html) and a 'mantash' (MANTA SHell) CLI
+and shell. For an introduction to Manta in general, see [Manta getting started
+docs](http://apidocs.joyent.com/manta/index.html).
 
 
 # Current Status
@@ -80,7 +80,7 @@ First setup your environment to match your Joyent Manta account. Adjust
 accordingly for your SSH key and Manta login. The SSH key here must match
 one of keys uploaded for your Joyent Public Cloud account.
 
-    export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
+    export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}'`
     export MANTA_URL=https://us-east.manta.joyent.com
     export MANTA_USER=jill
     export MANTA_SUBUSER=bob # optional, if using RBAC subuser
