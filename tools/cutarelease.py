@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright (c) 2009-2012 Trent Mick
-
 """cutarelease -- Cut a release of your project.
 
 A script that will help cut a release for a git-based project that follows
@@ -27,18 +26,16 @@ import logging
 import optparse
 import json
 
-
-
 #---- globals and config
 
 log = logging.getLogger("cutarelease")
 
+
 class Error(Exception):
     pass
 
-
-
 #---- main functionality
+
 
 def cutarelease(project_name, version_files, dry_run=False):
     """Cut a release.
@@ -97,8 +94,8 @@ def cutarelease(project_name, version_files, dry_run=False):
                 break
         else:
             raise Error("could not find a version file: specify its path or "
-                "add one of the following to your project: '%s'"
-                % "', '".join(candidates))
+                        "add one of the following to your project: '%s'" %
+                        "', '".join(candidates))
         log.info("using '%s' as version file", version_files[0])
 
     parsed_version_files = [_parse_version_file(f) for f in version_files]
@@ -108,9 +105,10 @@ def cutarelease(project_name, version_files, dry_run=False):
     # Confirm
     if not dry_run:
         answer = query_yes_no("* * *\n"
-            "Are you sure you want cut a %s release?\n"
-            "This will involved commits and a push." % version,
-            default="no")
+                              "Are you sure you want cut a %s release?\n"
+                              "This will involved commits and a push." %
+                              version,
+                              default="no")
         print "* * *"
         if answer != "yes":
             log.info("user abort")
@@ -119,22 +117,22 @@ def cutarelease(project_name, version_files, dry_run=False):
 
     # Checks: Ensure there is a section in changes for this version.
 
-
-
     changes_path = "CHANGES.md"
     changes_txt, changes, nyr = parse_changelog(changes_path)
     #pprint(changes)
     top_ver = changes[0]["version"]
     if top_ver != version:
         raise Error("changelog '%s' top section says "
-            "version %r, expected version %r: aborting"
-            % (changes_path, top_ver, version))
+                    "version %r, expected version %r: aborting" %
+                    (changes_path, top_ver, version))
     top_verline = changes[0]["verline"]
     if not top_verline.endswith(nyr):
-        answer = query_yes_no("\n* * *\n"
+        answer = query_yes_no(
+            "\n* * *\n"
             "The changelog '%s' top section doesn't have the expected\n"
-            "'%s' marker. Has this been released already?"
-            % (changes_path, nyr), default="yes")
+            "'%s' marker. Has this been released already?" %
+            (changes_path, nyr),
+            default="yes")
         print "* * *"
         if answer != "no":
             log.info("abort")
@@ -142,7 +140,7 @@ def cutarelease(project_name, version_files, dry_run=False):
     top_body = changes[0]["body"]
     if top_body.strip() == "(nothing yet)":
         raise Error("top section body is `(nothing yet)': it looks like "
-            "nothing has been added to this release")
+                    "nothing has been added to this release")
 
     # Commits to prepare release.
     changes_txt_before = changes_txt
@@ -152,11 +150,13 @@ def cutarelease(project_name, version_files, dry_run=False):
         f = codecs.open(changes_path, 'w', 'utf-8')
         f.write(changes_txt)
         f.close()
-        run('git commit %s -m "prepare for %s release"'
-            % (changes_path, version))
+        run('git commit %s -m "prepare for %s release"' %
+            (changes_path, version))
 
     # Tag version and push.
-    curr_tags = set(t for t in _capture_stdout(["git", "tag", "-l"]).split('\n') if t)
+    curr_tags = set(t
+                    for t in _capture_stdout(["git", "tag", "-l"]).split('\n')
+                    if t)
     if not dry_run and version not in curr_tags:
         log.info("tag the release")
         run('git tag -a "%s" -m "version %s"' % (version, version))
@@ -178,8 +178,8 @@ def cutarelease(project_name, version_files, dry_run=False):
             if dry_run:
                 log.info("skipping pypi publish (dry-run)")
             else:
-                run("%spython setup.py sdist --formats zip upload"
-                    % _setup_command_prefix())
+                run("%spython setup.py sdist --formats zip upload" %
+                    _setup_command_prefix())
 
     # Commits to prepare for future dev and push.
     # - update changelog file
@@ -191,10 +191,12 @@ def cutarelease(project_name, version_files, dry_run=False):
         marker = marker[0:-len(nyr)]
     if marker not in changes_txt:
         raise Error("couldn't find `%s' marker in `%s' "
-            "content: can't prep for subsequent dev" % (marker, changes_path))
+                    "content: can't prep for subsequent dev" %
+                    (marker, changes_path))
     next_verline = "%s %s%s" % (marker.rsplit(None, 1)[0], next_version, nyr)
     changes_txt = changes_txt.replace(marker + '\n',
-        "%s\n\n(nothing yet)\n\n\n%s\n" % (next_verline, marker))
+                                      "%s\n\n(nothing yet)\n\n\n%s\n" %
+                                      (next_verline, marker))
     if not dry_run:
         f = codecs.open(changes_path, 'w', 'utf-8')
         f.write(changes_txt)
@@ -209,9 +211,10 @@ def cutarelease(project_name, version_files, dry_run=False):
             marker = '"version": "%s"' % version
             if marker not in ver_content:
                 raise Error("couldn't find `%s' version marker in `%s' "
-                    "content: can't prep for subsequent dev" % (marker, ver_file))
+                            "content: can't prep for subsequent dev" %
+                            (marker, ver_file))
             ver_content = ver_content.replace(marker,
-                '"version": "%s"' % next_version)
+                                              '"version": "%s"' % next_version)
         elif ver_file_type == "javascript":
             candidates = [
                 ("single", "var VERSION = '%s';" % version),
@@ -222,21 +225,22 @@ def cutarelease(project_name, version_files, dry_run=False):
                     break
             else:
                 raise Error("couldn't find any candidate version marker in "
-                    "`%s' content: can't prep for subsequent dev: %r"
-                    % (ver_file, candidates))
+                            "`%s' content: can't prep for subsequent dev: %r" %
+                            (ver_file, candidates))
             if quote_type == "single":
-                ver_content = ver_content.replace(marker,
-                    "var VERSION = '%s';" % next_version)
+                ver_content = ver_content.replace(
+                    marker, "var VERSION = '%s';" % next_version)
             else:
-                ver_content = ver_content.replace(marker,
-                    'var VERSION = "%s";' % next_version)
+                ver_content = ver_content.replace(
+                    marker, 'var VERSION = "%s";' % next_version)
         elif ver_file_type == "python":
-            marker = "__version_info__ = %r" % (version_info,)
+            marker = "__version_info__ = %r" % (version_info, )
             if marker not in ver_content:
                 raise Error("couldn't find `%s' version marker in `%s' "
-                    "content: can't prep for subsequent dev" % (marker, ver_file))
-            ver_content = ver_content.replace(marker,
-                "__version_info__ = %r" % (next_version_tuple,))
+                            "content: can't prep for subsequent dev" %
+                            (marker, ver_file))
+            ver_content = ver_content.replace(marker, "__version_info__ = %r" %
+                                              (next_version_tuple, ))
         elif ver_file_type == "version":
             ver_content = next_version
         else:
@@ -248,16 +252,16 @@ def cutarelease(project_name, version_files, dry_run=False):
             f.close()
 
     if not dry_run:
-        run('git commit %s %s -m "prep for future dev"' % (
-            changes_path, ' '.join(version_files)))
+        run('git commit %s %s -m "prep for future dev"' %
+            (changes_path, ' '.join(version_files)))
         run('git push')
-
-
 
 #---- internal support routines
 
+
 def _indent(s, indent='    '):
     return indent + indent.join(s.splitlines(True))
+
 
 def _tuple_from_version(version):
     def _intify(s):
@@ -265,12 +269,15 @@ def _tuple_from_version(version):
             return int(s)
         except ValueError:
             return s
+
     return tuple(_intify(b) for b in version.split('.'))
+
 
 def _get_next_version_info(version_info):
     next = list(version_info[:])
     next[-1] += 1
     return tuple(next)
+
 
 def _version_from_version_info(version_info):
     v = str(version_info[0])
@@ -289,7 +296,10 @@ def _version_from_version_info(version_info):
             v += str(i)
     return v
 
+
 _version_re = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+)([abc](\d+)?)?)?$")
+
+
 def _version_info_from_version(version):
     m = _version_re.match(version)
     if not m:
@@ -303,6 +313,7 @@ def _version_info_from_version(version):
         except ValueError:
             version_info.append(g)
     return tuple(version_info)
+
 
 def _parse_version_file(version_file):
     """Get version info from the given file. It can be any of:
@@ -325,9 +336,7 @@ def _parse_version_file(version_file):
     if match:
         version_file = match.group(2)
         version_file_type = match.group(1)
-        aliases = {
-            "js": "javascript"
-        }
+        aliases = {"js": "javascript"}
         if version_file_type in aliases:
             version_file_type = aliases[version_file_type]
 
@@ -348,7 +357,8 @@ def _parse_version_file(version_file):
         elif content.startswith("#!"):
             shebang = content.splitlines(False)[0]
             shebang_bits = re.split(r'[/ \t]', shebang)
-            for name, typ in {"python": "python", "node": "javascript"}.items():
+            for name, typ in {"python": "python",
+                              "node": "javascript"}.items():
                 if name in shebang_bits:
                     version_file_type = typ
                     break
@@ -356,7 +366,7 @@ def _parse_version_file(version_file):
             version_file_type = "version"
     if not version_file_type:
         raise RuntimeError("can't extract version from '%s': no idea "
-            "what type of file it it" % version_file)
+                           "what type of file it it" % version_file)
 
     if version_file_type == "json":
         obj = json.loads(content)
@@ -370,8 +380,8 @@ def _parse_version_file(version_file):
     elif version_file_type == "version":
         version_info = _version_info_from_version(content.strip())
     else:
-        raise RuntimeError("unexpected version_file_type: %r"
-            % version_file_type)
+        raise RuntimeError("unexpected version_file_type: %r" %
+                           version_file_type)
     return version_file_type, version_info
 
 
@@ -425,15 +435,14 @@ def parse_changelog(changes_path):
     content = codecs.open(changes_path, 'r', 'utf-8').read()
 
     parser = re.compile(
-        r'^##\s*(?P<verline>[^\n]*?)\s*$(?P<body>.*?)(?=^##|\Z)',
-        re.M | re.S)
+        r'^##\s*(?P<verline>[^\n]*?)\s*$(?P<body>.*?)(?=^##|\Z)', re.M | re.S)
     sections = parser.findall(content)
 
     # Sanity checks on changelog format.
     if not sections:
         template = "## 1.0.0 (not yet released)\n\n(nothing yet)\n"
         raise Error("changelog '%s' must have at least one section, "
-            "suggestion:\n\n%s" % (changes_path, _indent(template)))
+                    "suggestion:\n\n%s" % (changes_path, _indent(template)))
     first_section_verline = sections[0][0]
     nyr = ' (not yet released)'
     #if not first_section_verline.endswith(nyr):
@@ -443,10 +452,7 @@ def parse_changelog(changes_path):
 
     items = []
     for i, section in enumerate(sections):
-        item = {
-            "verline": section[0],
-            "body": section[1]
-        }
+        item = {"verline": section[0], "body": section[1]}
         if i == 0:
             # We only bother to pull out 'version' for the top section.
             verline = section[0]
@@ -462,12 +468,13 @@ def parse_changelog(changes_path):
                         "on the top version line. Perhaps you misspelled " \
                         "that?)" % nyr
                 raise Error("changelog '%s' top section version '%s' is "
-                    "invalid: first char isn't a number%s"
-                    % (changes_path, version, msg))
+                            "invalid: first char isn't a number%s" %
+                            (changes_path, version, msg))
             item["version"] = version
         items.append(item)
 
     return content, items, nyr
+
 
 ## {{{ http://code.activestate.com/recipes/577058/ (r2)
 def query_yes_no(question, default="yes"):
@@ -480,8 +487,7 @@ def query_yes_no(question, default="yes"):
 
     The "answer" return value is one of "yes" or "no".
     """
-    valid = {"yes":"yes",   "y":"yes",  "ye":"yes",
-             "no":"no",     "n":"no"}
+    valid = {"yes": "yes", "y": "yes", "ye": "yes", "no": "no", "n": "no"}
     if default == None:
         prompt = " [y/n] "
     elif default == "yes":
@@ -503,15 +509,19 @@ def query_yes_no(question, default="yes"):
                              "(or 'y' or 'n').\n")
 ## end of http://code.activestate.com/recipes/577058/ }}}
 
+
 def _capture_stdout(argv):
     import subprocess
     p = subprocess.Popen(argv, stdout=subprocess.PIPE)
     return p.communicate()[0]
 
+
 class _NoReflowFormatter(optparse.IndentedHelpFormatter):
     """An optparse formatter that does NOT reflow the description."""
+
     def format_description(self, description):
         return description or ""
+
 
 def run(cmd):
     """Run the given command.
@@ -530,6 +540,7 @@ def run(cmd):
     if status:
         raise OSError(status, "error running '%s'" % cmd)
 
+
 def _setup_command_prefix():
     prefix = ""
     if sys.platform == "darwin":
@@ -539,41 +550,60 @@ def _setup_command_prefix():
         prefix = "COPY_EXTENDED_ATTRIBUTES_DISABLE=1 "
     return prefix
 
-
 #---- mainline
+
 
 def main(argv):
     logging.basicConfig(format="%(name)s: %(levelname)s: %(message)s")
     log.setLevel(logging.INFO)
 
     # Parse options.
-    parser = optparse.OptionParser(prog="cutarelease", usage='',
-        version="%prog " + __version__, description=__doc__,
-        formatter=_NoReflowFormatter())
-    parser.add_option("-v", "--verbose", dest="log_level",
-        action="store_const", const=logging.DEBUG,
-        help="more verbose output")
-    parser.add_option("-q", "--quiet", dest="log_level",
-        action="store_const", const=logging.WARNING,
-        help="quieter output (just warnings and errors)")
+    parser = optparse.OptionParser(prog="cutarelease",
+                                   usage='',
+                                   version="%prog " + __version__,
+                                   description=__doc__,
+                                   formatter=_NoReflowFormatter())
+    parser.add_option("-v",
+                      "--verbose",
+                      dest="log_level",
+                      action="store_const",
+                      const=logging.DEBUG,
+                      help="more verbose output")
+    parser.add_option("-q",
+                      "--quiet",
+                      dest="log_level",
+                      action="store_const",
+                      const=logging.WARNING,
+                      help="quieter output (just warnings and errors)")
     parser.set_default("log_level", logging.INFO)
-    parser.add_option("--test", action="store_true",
+    parser.add_option(
+        "--test",
+        action="store_true",
         help="run self-test and exit (use 'eol.py -v --test' for verbose test output)")
-    parser.add_option("-p", "--project-name", metavar="NAME",
+    parser.add_option(
+        "-p",
+        "--project-name",
+        metavar="NAME",
         help='the name of this project (default is the base dir name)',
         default=basename(os.getcwd()))
-    parser.add_option("-f", "--version-file", metavar="[TYPE:]PATH",
-        action='append', dest="version_files",
+    parser.add_option(
+        "-f",
+        "--version-file",
+        metavar="[TYPE:]PATH",
+        action='append',
+        dest="version_files",
         help='The path to the project file holding the version info. Can be '
-             'specified multiple times if more than one file should be updated '
-             'with new version info. If excluded, it will be guessed.')
-    parser.add_option("-n", "--dry-run", action="store_true",
-        help='Do a dry-run', default=False)
+        'specified multiple times if more than one file should be updated '
+        'with new version info. If excluded, it will be guessed.')
+    parser.add_option("-n",
+                      "--dry-run",
+                      action="store_true",
+                      help='Do a dry-run',
+                      default=False)
     opts, args = parser.parse_args()
     log.setLevel(opts.log_level)
 
     cutarelease(opts.project_name, opts.version_files, dry_run=opts.dry_run)
-
 
 ## {{{ http://code.activestate.com/recipes/577258/ (r5+)
 if __name__ == "__main__":
@@ -596,8 +626,8 @@ if __name__ == "__main__":
                 skip_it = True
             if not skip_it:
                 tb_path, tb_lineno, tb_func = traceback.extract_tb(tb)[-1][:3]
-                log.error("%s (%s:%s in %s)", exc_info[1], tb_path,
-                    tb_lineno, tb_func)
+                log.error("%s (%s:%s in %s)", exc_info[1], tb_path, tb_lineno,
+                          tb_func)
         else:  # string exception
             log.error(exc_info[0])
         if not skip_it:
