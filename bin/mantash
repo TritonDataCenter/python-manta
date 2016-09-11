@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Manta shell."""
-
 import sys
 import os
 from posixpath import dirname as udirname, join as ujoin, \
@@ -369,6 +368,8 @@ class Mantash(cmdln.Cmdln):
               {'bar.py': {'mtime': 1341422663102L, 'type': 'object'},
                'baz': {'mtime': 1341422663102L, 'type': 'directory'}})]
         """
+        if isinstance(path, bytes):
+            path = path.decode("utf-8")
         upath = uexpanduser(path, self.home)  # user-expanded
         npath = unormpath(upath)  # normalized
         abspath = unormpath(ujoin(self.cwd, npath))
@@ -447,7 +448,6 @@ class Mantash(cmdln.Cmdln):
                                    (path or '/'))
             if DEBUG:
                 print("  dirent: %r" % dirent)
-
             if dirent.get("type") == "directory":
                 is_dir = True
                 if listDirs:
@@ -519,7 +519,7 @@ class Mantash(cmdln.Cmdln):
             # again (if the given start path was relative).
             hits = []
             if not listDirs:
-                for name, dirent in matches.items():
+                for name, dirent in dict(matches).items():
                     if dirent["type"] == "directory":
                         if DEBUG:
                             print("    descend into dir %r" % name)
@@ -534,7 +534,6 @@ class Mantash(cmdln.Cmdln):
                         relkey = key.replace(absprefix, prefix, 1)
                         relmatches[relkey] = matches[key]
                 hits.append((False, upath, relmatches))
-
         if hits and hits[0][-1]:
             self._visited_known_mpath(abspath)
         if DEBUG:
@@ -637,17 +636,19 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-
         retval = None  # set to 1 for any errors
 
         # Gather list of things to print.
-        paths = paths or ['']
+        paths = paths or [b'']
         all_to_print = []  # list of (<is-dir>, <path>, <dirents>)
         for path in paths:
-            upath = path.decode(sys.stdin.encoding)
+            if isinstance(path, bytes):
+                upath = path.decode(sys.stdin.encoding)
+            else:
+                upath = path
             try:
-                to_print = self._ls_path(path, opts.dir)
-            except (MantaError, MantashError):
+                to_print = self._ls_path(upath, opts.dir)
+            except (MantaError, MantashError, Exception):
                 _, ex, _ = sys.exc_info()
                 log.error(ex)
                 retval = 1
@@ -667,7 +668,7 @@ class Mantash(cmdln.Cmdln):
                 if i > 0:
                     print("")
                 print("%s:" % path)
-            for name, dirent in sorted(dirents.iteritems()):
+            for name, dirent in sorted(dirents.items()):
                 self._ls_print_dirent(name,
                                       dirent,
                                       long=opts.long,
@@ -683,6 +684,7 @@ class Mantash(cmdln.Cmdln):
                          long=False,
                          format=False,
                          human=False):
+
         if format:
             name += {"directory": "/", "link": "@"}.get(dirent["type"], "")
         if long:
@@ -759,7 +761,10 @@ class Mantash(cmdln.Cmdln):
         Usage:
             ${cmd_name} [DIRECTORY]
         """
-        udirectory = directory.decode(sys.stdin.encoding)
+        if isinstance(directory, bytes):
+            udirectory = directory.decode(sys.stdin.encoding)
+        else:
+            udirectory = directory
         ndir = unormpath(ujoin(self.cwd, uexpanduser(udirectory, self.home)))
         nparts = ndir.split('/')
         last_cwd = self.cwd
@@ -1106,7 +1111,7 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        upath = path.decode(sys.stdin.encoding)
+        #upath = path.decode(sys.stdin.encoding)
         npath = unormpath(ujoin(self.cwd, uexpanduser(upath, self.home)))
         url = self.manta_url + npath
         webbrowser.open(url.encode('utf-8'))
@@ -1241,7 +1246,6 @@ class Mantash(cmdln.Cmdln):
 
             if opts.verbose:
                 log.info("put %s %s  # %s", src_file, dst_file, content_type)
-            print("put %s %s  # %s", src_file, dst_file, content_type)
             if not opts.dry_run:
                 self.client.put(dst_file,
                                 path=src_file,
@@ -1411,7 +1415,6 @@ class Mantash(cmdln.Cmdln):
                         log.info("mkdir %s", d)
                         os.mkdir(d)
                 for dirpath, dirents, objents in self.client.walk(src_npath):
-                    #pprint((dirpath, dirents, objents))
                     reldirpath = os.path.normpath(rel_prefix + dirpath[len(
                         src_npath) + 1:])
                     for objent in objents:
@@ -1889,6 +1892,7 @@ class Mantash(cmdln.Cmdln):
                 if opts.ls:
                     self._ls_print_dirent(path, dirent, long=True)
                 else:
+                    print("Printing path  ################################ ")
                     print(path)
 
     def do_vi(self, subcmd, opts, path):
@@ -2172,7 +2176,7 @@ class Mantash(cmdln.Cmdln):
         else:
             stdout, stderr = p.communicate()
             p.wait()
-            return self.do_login.__doc__ + '\n\n' + stdout
+            return self.do_login.__doc__ + '\n\n' + stdout.decode('utf-8')
 
     def do_sign(self, argv):
         """Produce a signed URL for the given manta path.
@@ -2218,7 +2222,7 @@ class Mantash(cmdln.Cmdln):
         else:
             stdout, stderr = p.communicate()
             p.wait()
-            return self.do_sign.__doc__ + '\n\n' + stdout
+            return self.do_sign.__doc__ + '\n\n' + stdout.decode("utf-8")
 
 #---- internal support stuff
 
@@ -2274,7 +2278,7 @@ def _indent(s, indent='    '):
 
 def main(argv=sys.argv):
     logging.basicConfig(format='%(name)s: %(levelname)s: %(message)s')
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.ERROR)
     shell = Mantash()
     return shell.main(argv, loop=cmdln.LOOP_IF_EMPTY)
 
@@ -2305,7 +2309,6 @@ if __name__ == "__main__":
             log.error(exc_info[0])
         if not skip_it:
             if True or log.isEnabledFor(logging.DEBUG):
-                print('')
                 traceback.print_exception(*exc_info)
             sys.exit(1)
     else:

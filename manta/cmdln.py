@@ -239,8 +239,8 @@ class RawCmdln(cmd.Cmd):
             try:
                 self.options, args = self.optparser.parse_args(argv[1:])
             except CmdlnUserError as ex:
-                msg = "%s: %s\nTry '%s help' for info.\n"\
-                      % (self.name, ex, self.name)
+                msg = "%s: %s\nTry '%s help' for info.\n" % (self.name, ex,
+                                                             self.name)
                 self.stderr.write(self._str(msg))
                 self.stderr.flush()
                 return 1
@@ -416,9 +416,6 @@ class RawCmdln(cmd.Cmd):
             return self.emptyline()
         self.lastcmd = argv
         cmdname = self._get_canonical_cmd_name(argv[0])
-        #print("++++++++++++++++++")
-        #print(cmdname)
-        #print("++++++++++++++++++")
         if cmdname:
             handler = self._get_cmd_handler(cmdname)
             if handler:
@@ -427,7 +424,7 @@ class RawCmdln(cmd.Cmd):
                 except KeyboardInterrupt:
                     return self.onecmd(["KeyboardInterrupt"])
                 except Exception as ex:
-                    print(ex)
+                    raise ex
         return self.default(argv)
 
     def _dispatch_cmd(self, handler, argv):

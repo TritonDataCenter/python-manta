@@ -17,8 +17,8 @@ TDIR = "tmp/test_mantash"
 class OptionsTestCase(MantaTestCase):
     def test_version(self):
         code, stdout, stderr = self.mantash(['--version'])
-        self.assertTrue(re.compile("^mantash \d+\.\d+\.\d+$").search(
-            stdout.decode("utf-8")))
+        stdout = stdout.decode("utf-8")
+        self.assertTrue(re.compile("^mantash \d+\.\d+\.\d+$").search(stdout))
         self.assertEqual(stderr.decode("utf-8"), "")
         self.assertEqual(code, 0)
 
@@ -26,14 +26,17 @@ class OptionsTestCase(MantaTestCase):
         # TODO: Clean up the below assertIn failures. See https://github.com/joyent/python-manta/issues/37
         #no_man_pages = "No manual entry for mlogin\nNo manual entry for msign\n"
         code, stdout, stderr = self.mantash(['help'])
-        self.assertTrue("mantash help" in stdout.decode("utf-8"))
+        stdout = stdout.decode("utf-8")
+        self.assertTrue("mantash help" in stdout)
         #self.assertIn(stderr, ("", no_man_pages))
         self.assertEqual(code, 0)
         code, stdout, stderr = self.mantash(['--help'])
+        stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
         #self.assertIn(stderr, ("", no_man_pages))
         self.assertEqual(code, 0)
         code, stdout, stderr = self.mantash(['-h'])
+        stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
         #self.assertIn(stderr, ("", no_man_pages))
         self.assertEqual(code, 0)
@@ -48,6 +51,7 @@ class FindTestCase(MantaTestCase):
 
     def test_empty(self):
         code, stdout, stderr = self.mantash(['-C', self.base, 'find'])
+        stdout = stdout.decode("utf-8")
         self.assertTrue("obj1.txt" in stdout)
         self.assertTrue("dir2" in stdout)
         self.assertEqual(code, 0)
@@ -55,18 +59,21 @@ class FindTestCase(MantaTestCase):
     def test_type(self):
         code, stdout, stderr = self.mantash(
             ['-C', self.base, 'find', '-type', 'f'])
-        self.assertTrue("obj1.txt" in stdout)
-        self.assertTrue("dir2" not in stdout)
+        stdout = stdout.decode("utf-8")
+        self.assertTrue(u"obj1.txt" in stdout)
+        self.assertTrue(u"dir2" not in stdout)
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(
             ['-C', self.base, 'find', '-type', 'o'])
+        stdout = stdout.decode("utf-8")
         self.assertTrue("obj1.txt" in stdout)
         self.assertTrue("dir2" not in stdout)
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(
             ['-C', self.base, 'find', '-type', 'd'])
+        stdout = stdout.decode("utf-8")
         self.assertTrue("obj1.txt" not in stdout)
         self.assertTrue("dir2" in stdout)
         self.assertEqual(code, 0)
@@ -85,10 +92,12 @@ class LsTestCase(MantaTestCase):
 
     def test_bare(self):
         code, stdout, stderr = self.mantash(['-C', self.base, 'ls'])
+        stdout = stdout.decode("utf-8")
         self.assertEqual(stdout, 'a1\nb1\nc1.txt\n')
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(['-C', self.base, 'ls', '-l'])
+        stdout = stdout.decode("utf-8")
         lines = stdout.splitlines()
         self.assertEqual(len(lines), 3)
         for line in lines:
@@ -96,15 +105,18 @@ class LsTestCase(MantaTestCase):
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(['-C', self.base, 'ls', '-F'])
+        stdout = stdout.decode("utf-8")
         self.assertEqual(stdout, 'a1/\nb1/\nc1.txt\n')
         self.assertEqual(code, 0)
 
     def test_dir(self):
         code, stdout, stderr = self.mantash(['-C', self.base, 'ls', 'a1'])
+        stdout = stdout.decode("utf-8")
         self.assertEqual(stdout, 'a2.txt\nb2\n')
         self.assertEqual(code, 0)
 
     def test_dirstar(self):
         code, stdout, stderr = self.mantash(['-C', self.base, 'ls', 'a1/*'])
+        stdout = stdout.decode("utf-8")
         self.assertEqual(stdout, 'a1/a2.txt\n\na1/b2:\na3.txt\n')
         self.assertEqual(code, 0)
