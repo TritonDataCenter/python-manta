@@ -8,10 +8,11 @@ docs](http://apidocs.joyent.com/manta/index.html).
 
 # Current Status
 
-Tested mostly on Mac and SmartOS using Python 2.6 or 2.7. Linux should work.
-The *intention* is to support Windows as well. Python 3 is not currently
-supported (currently because the dependency paramiko does not work with
-Python 3).
+Tested mostly on Mac and SmartOS using Python 2.7. Linux should work.
+The *intention* is to support Windows as well. Python 3 support is new and we
+welcome feedback.
+
+Python 2.6 support has been dropped in python-manta 2.7.
 
 Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 
@@ -39,11 +40,24 @@ tl;dr: `pip install --upgrade manta`
 
 **Ubuntu**:
 
-    sudo apt-get install python-pip
+    sudo apt install libssl-dev
+
+py3k
+
+This is currently is development.
+
+    sudo apt install python3-pip python3-crypto python3-paramiko
+    sudo pip3 install git+https://github.com/joyent/python-manta@feature/python3#egg=manta --upgrade
+
+py2.7
+
+    sudo apt-get install python-pip python-crypto python-paramiko
+    pip install --upgrade manta
 
 Others? Please [let me know](https://github.com/joyent/python-manta/issues/new)
 if there are better instructions that I can provide for your system, so I can
 add them here.
+
 
 
 ## 1. install python-manta
