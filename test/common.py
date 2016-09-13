@@ -69,9 +69,4 @@ class MantaTestCase(unittest.TestCase):
         stdout = p.stdout.read()
         stderr = p.stderr.read()
         code = p.returncode
-        # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        # print(stdout)
-        # # print(stderr)
-        # # print(code)
-        # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
         return code, stdout, stderr
