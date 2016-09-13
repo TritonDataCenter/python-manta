@@ -1892,7 +1892,6 @@ class Mantash(cmdln.Cmdln):
                 if opts.ls:
                     self._ls_print_dirent(path, dirent, long=True)
                 else:
-                    print("Printing path  ################################ ")
                     print(path)
 
     def do_vi(self, subcmd, opts, path):
