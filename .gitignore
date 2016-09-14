@@ -8,3 +8,4 @@ __pycache__
 /MANIFEST
 /manta.egg-info
 docker-compose.yml
+_env
