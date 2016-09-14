@@ -311,8 +311,8 @@ class PrivateKeySigner(Signer):
         return self._key_info_cache
 
     def sign(self, s):
-        assert isinstance(s, str)  # for now, not unicode. Python 3?
 
+        assert isinstance(s, str) or isinstance(s, bytes)
         key_info = self._get_key_info()
 
         assert key_info["type"] == "ssh_key"
@@ -350,7 +350,7 @@ class SSHAgentSigner(Signer):
         return self._key_info_cache
 
     def sign(self, s):
-        assert isinstance(s, str)  # for now, not unicode. Python 3?
+        assert isinstance(s, str) or isinstance(s, bytes)
 
         key_info = self._get_key_info()
         assert key_info["type"] == "agent"
