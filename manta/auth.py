@@ -312,7 +312,10 @@ class PrivateKeySigner(Signer):
 
     def sign(self, s):
 
-        assert isinstance(s, str) or isinstance(s, bytes)
+        if isinstance(s, str):
+            s = s.encode("utf-8")
+
+        #assert isinstance(s, str) or isinstance(s, bytes)
         key_info = self._get_key_info()
 
         assert key_info["type"] == "ssh_key"
