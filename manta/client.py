@@ -363,9 +363,6 @@ class RawMantaClient(object):
         else:
             content = file.read()
 
-        if not isinstance(content, str):
-            raise errors.MantaError("'content' must be str, not bytes")
-
         try:
             # python 3
             content_bytes = bytes(content, encoding='utf-8')
