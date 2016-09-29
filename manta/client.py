@@ -394,7 +394,10 @@ class RawMantaClient(object):
             content.
         """
         res, content = self.get_object2(mpath, path=path, accept=accept)
-        return content.decode("utf-8")
+        try:
+            return content.decode("utf-8")
+        except UnicodeDecodeError:
+            return content
 
     def get_object2(self, mpath, path=None, accept="*/*"):
         """A lower-level version of `get_object` that returns the
