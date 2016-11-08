@@ -134,7 +134,12 @@ def load_ssh_key(key_id, skip_priv_key=False):
 
     pub_key_glob = expanduser('~/.ssh/*.pub')
     for pub_key_path in glob(pub_key_glob):
-        f = open(pub_key_path)
+        try:
+            f = open(pub_key_path)
+        except IOError, ex:
+            # This can happen if the .pub file is a broken symlink.
+            log.debug("could not open '%s', skip it", pub_key_path)
+            continue
         try:
             pub_key = f.read()
         finally:

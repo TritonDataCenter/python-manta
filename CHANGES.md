@@ -2,7 +2,8 @@
 
 ## 2.6.1 (not yet released)
 
-(nothing yet)
+- [issue #43] Ensure a broken `~/.ssh/*.pub` symlink doesn't break
+  finding a key for a given `MANTA_KEY_ID`.
 
 
 ## 2.6.0
