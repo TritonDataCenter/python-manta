@@ -80,13 +80,22 @@ def sha256_fingerprint_from_ssh_pub_key(data):
     data = data.strip()
 
     # accept either base64 encoded data or full pub key file,
-    # same as `fingerprint_from_ssh_pub_key
+    # same as `fingerprint_from_ssh_pub_key`.
     if (re.search(r'^ssh-(?:rsa|dss) ', data)):
         data = data.split(None, 2)[1]
 
     digest = hashlib.sha256(binascii.a2b_base64(data)).digest()
     encoded = base64.b64encode(digest).rstrip('=') # ssh-keygen strips this
     return 'SHA256:' + encoded
+
+def sha256_fingerprint_from_raw_ssh_pub_key(raw_key):
+    """Encode a raw SSH key (string of bytes, as from
+    `str(paramiko.AgentKey)`) to a fingerprint in the SHA256 form:
+        SHA256:j2WoSeOWhFy69BQ39fuafFAySp9qCZTSCEyT2vRKcL+s
+    """
+    h = hashlib.sha256(raw_key).digest().encode('base64')
+    h = h.rstrip().rstrip('=')  # drop newline and possible base64 padding
+    return 'SHA256:' + h
 
 
 def load_ssh_key(key_id, skip_priv_key=False):
@@ -192,7 +201,7 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
     @return {dict} with these keys:
         - type: "agent"
         - signer: Crypto signer class (a PKCS#1 v1.5 signer for RSA keys)
-        - fingerprint: key fingerprint
+        - fingerprint: key md5 fingerprint
         - algorithm: 'rsa-sha256'  DSA not current supported. Hash algorithm
           selection is not exposed.
         - ... some others added by `load_ssh_key()`
@@ -210,7 +219,9 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
     key = None
     try:
         key = RSA.importKey(key_info["priv_key"])
-    except ValueError:
+    except ValueError, ex:
+        log.debug("could not import key without passphrase (will "
+            "try with passphrase): %s", ex)
         if "priv_key_path" in key_info:
             prompt = "Passphrase [%s]: " % key_info["priv_key_path"]
         else:
@@ -261,7 +272,13 @@ def agent_key_info_from_key_id(key_id):
     import paramiko
     keys = paramiko.Agent().get_keys()
     for key in keys:
-        if fingerprint_from_raw_ssh_pub_key(str(key)) == fingerprint:
+        raw_key = str(key)
+        if sha256_fingerprint_from_raw_ssh_pub_key(raw_key) == fingerprint:
+            # Canonicalize it to the md5 fingerprint.
+            md5_fingerprint = fingerprint_from_raw_ssh_pub_key(raw_key)
+            break
+        elif fingerprint_from_raw_ssh_pub_key(raw_key) == fingerprint:
+            md5_fingerprint = fingerprint
             break
     else:
         raise MantaError(
@@ -273,7 +290,7 @@ def agent_key_info_from_key_id(key_id):
     return {
         "type": "agent",
         "agent_key": key,
-        "fingerprint": fingerprint,
+        "fingerprint": md5_fingerprint,
         "algorithm": algorithm
     }
 
@@ -287,7 +304,7 @@ class Signer(object):
         """Sign the given string.
 
         @param s {str} The string to be signed.
-        @returns (algorithm, key-fingerprint, signature) {3-tuple}
+        @returns (algorithm, key-md5-fingerprint, signature) {3-tuple}
             For example: `("rsa-sha256", "b3:f0:...:bc",
             "OXKzi5+h1aR9dVWHOu647x+ijhk...6w==")`.
         """

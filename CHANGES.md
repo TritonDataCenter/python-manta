@@ -2,6 +2,7 @@
 
 ## 2.6.1 (not yet released)
 
+- [issue #41] Support `MANTA_KEY_ID=SHA256:...` fingerprint form.
 - [issue #43] Ensure a broken `~/.ssh/*.pub` symlink doesn't break
   finding a key for a given `MANTA_KEY_ID`.
 
