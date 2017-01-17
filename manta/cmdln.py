@@ -340,13 +340,13 @@ class RawCmdln(cmd.Cmd):
                 else:
                     if self.use_rawinput:
                         try:
-                            line = input(self._str(self.prompt))
+                            line = input(self._str(self._prompt_str))
                         except EOFError:
                             line = 'EOF'
                         except KeyboardInterrupt:
                             line = 'KeyboardInterrupt'
                     else:
-                        self.stdout.write(self._str(self.prompt))
+                        self.stdout.write(self._str(self._prompt_str))
                         self.stdout.flush()
                         line = self.stdin.readline()
                         if not len(line):
