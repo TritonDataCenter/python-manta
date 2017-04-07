@@ -2096,6 +2096,10 @@ def uexpanduser(mpath, home):
         return mpath
     if mpath == "~":
         return home
+    elif mpath.startswith('~~'):
+        return ujoin('/', home.split('/')[1],
+                     # both the ~~ and ~~/ form are supported by node-manta
+                     mpath.replace('~~/', '').replace('~~', ''))
     elif mpath[1] != '/':
         return mpath
     else:
