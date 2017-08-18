@@ -94,6 +94,9 @@ class MantaHttp(httplib2.Http):
                           #_indent("cachekey: " + pformat(cachekey)), #XXX
                           _indent("body: " + body_str)
                       ]))
+
+        if 'location' in headers:
+            headers['location'] = urlquote(headers['location'])
         res, content = httplib2.Http._request(self, conn, host, absolute_uri,
                                               request_uri, method, body,
                                               headers, redirections, cachekey)
