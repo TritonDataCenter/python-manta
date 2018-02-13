@@ -1,6 +1,6 @@
 # python-manta Changelog
 
-## 2.6.1 (not yet released)
+## 2.6.1
 
 - [issue #41] Support `MANTA_KEY_ID=SHA256:...` fingerprint form.
 - [issue #43] Ensure a broken `~/.ssh/*.pub` symlink doesn't break
