@@ -1,5 +1,10 @@
 # python-manta Changelog
 
+## 2.6.2 (not yet released)
+
+(nothing yet)
+
+
 ## 2.6.1
 
 - [issue #41] Support `MANTA_KEY_ID=SHA256:...` fingerprint form.
