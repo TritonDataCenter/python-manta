@@ -153,12 +153,16 @@ def load_ssh_key(key_id, skip_priv_key=False):
         finally:
             f.close()
 
+        # The MD5 fingerprint functions return the hexdigest without the hash
+        # algorithm prefix ("MD5:"), and the SHA256 functions return the
+        # fingerprint with the prefix ("SHA256:").  Ideally we'd want to
+        # normalize these, but more importantly we don't want to break backwards
+        # compatibility for either the SHA or MD5 users.
         md5_fp = fingerprint_from_ssh_pub_key(pub_key)
         sha256_fp = sha256_fingerprint_from_ssh_pub_key(pub_key)
-
-        if sha256_fp == fingerprint or \
-            md5_fp == fingerprint or \
-            "MD5" + md5_fp == fingerprint:
+        if (sha256_fp == fingerprint or
+            md5_fp == fingerprint or
+            "MD5:" + md5_fp == fingerprint):
 
             # if the user has given us sha256 fingerprint, canonicalize
             # it to the md5 fingerprint
@@ -277,12 +281,17 @@ def agent_key_info_from_key_id(key_id):
     keys = paramiko.Agent().get_keys()
     for key in keys:
         raw_key = str(key)
+
+        # The MD5 fingerprint functions return the hexdigest without the hash
+        # algorithm prefix ("MD5:"), and the SHA256 functions return the
+        # fingerprint with the prefix ("SHA256:").  Ideally we'd want to
+        # normalize these, but more importantly we don't want to break backwards
+        # compatibility for either the SHA or MD5 users.
         md5_fp = fingerprint_from_raw_ssh_pub_key(raw_key)
         sha_fp = sha256_fingerprint_from_raw_ssh_pub_key(raw_key)
-
-        if sha_fp == fingerprint or \
-            md5_fp == fingerprint or \
-            "MD5:" + md5_fp == fingerprint:
+        if (sha_fp == fingerprint or
+            md5_fp == fingerprint or
+            "MD5:" + md5_fp == fingerprint):
 
             # Canonicalize it to the md5 fingerprint.
             md5_fingerprint = md5_fp
