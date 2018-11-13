@@ -97,7 +97,6 @@ def sha256_fingerprint_from_raw_ssh_pub_key(raw_key):
     h = h.rstrip().rstrip('=')  # drop newline and possible base64 padding
     return 'SHA256:' + h
 
-
 def load_ssh_key(key_id, skip_priv_key=False):
     """
     Load a local ssh private key (in PEM format). PEM format is the OpenSSH
@@ -153,12 +152,21 @@ def load_ssh_key(key_id, skip_priv_key=False):
             pub_key = f.read()
         finally:
             f.close()
-        if sha256_fingerprint_from_ssh_pub_key(pub_key) == fingerprint:
+
+        # The MD5 fingerprint functions return the hexdigest without the hash
+        # algorithm prefix ("MD5:"), and the SHA256 functions return the
+        # fingerprint with the prefix ("SHA256:").  Ideally we'd want to
+        # normalize these, but more importantly we don't want to break backwards
+        # compatibility for either the SHA or MD5 users.
+        md5_fp = fingerprint_from_ssh_pub_key(pub_key)
+        sha256_fp = sha256_fingerprint_from_ssh_pub_key(pub_key)
+        if (sha256_fp == fingerprint or
+            md5_fp == fingerprint or
+            "MD5:" + md5_fp == fingerprint):
+
             # if the user has given us sha256 fingerprint, canonicalize
             # it to the md5 fingerprint
-            fingerprint = fingerprint_from_ssh_pub_key(pub_key)
-            break
-        elif fingerprint_from_ssh_pub_key(pub_key) == fingerprint:
+            fingerprint = md5_fp
             break
     else:
         raise MantaError(
@@ -273,12 +281,20 @@ def agent_key_info_from_key_id(key_id):
     keys = paramiko.Agent().get_keys()
     for key in keys:
         raw_key = str(key)
-        if sha256_fingerprint_from_raw_ssh_pub_key(raw_key) == fingerprint:
+
+        # The MD5 fingerprint functions return the hexdigest without the hash
+        # algorithm prefix ("MD5:"), and the SHA256 functions return the
+        # fingerprint with the prefix ("SHA256:").  Ideally we'd want to
+        # normalize these, but more importantly we don't want to break backwards
+        # compatibility for either the SHA or MD5 users.
+        md5_fp = fingerprint_from_raw_ssh_pub_key(raw_key)
+        sha_fp = sha256_fingerprint_from_raw_ssh_pub_key(raw_key)
+        if (sha_fp == fingerprint or
+            md5_fp == fingerprint or
+            "MD5:" + md5_fp == fingerprint):
+
             # Canonicalize it to the md5 fingerprint.
-            md5_fingerprint = fingerprint_from_raw_ssh_pub_key(raw_key)
-            break
-        elif fingerprint_from_raw_ssh_pub_key(raw_key) == fingerprint:
-            md5_fingerprint = fingerprint
+            md5_fingerprint = md5_fp
             break
     else:
         raise MantaError(
