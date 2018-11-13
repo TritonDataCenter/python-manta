@@ -225,75 +225,6 @@ respective licenses:
 - appdirs (https://github.com/ActiveState/appdirs): MIT
 
 
-# Troubleshooting
-
-
-
-### `ImportError: No module named Signature`
-
-If you see this attempting to run mantash on SmartOS:
-
-    $ ./bin/mantash
-    * * *
-    See <https://github.com/joyent/python-manta#1-pycrypto-dependency>
-    for help installing PyCrypto (the Python 'Crypto' package)
-    * * *
-    Traceback (most recent call last):
-      File "./bin/mantash", line 24, in <module>
-        import manta
-      File "/root/joy/python-manta/lib/manta/__init__.py", line 7, in <module>
-        from .auth import PrivateKeySigner, SSHAgentSigner, CLISigner
-      File "/root/joy/python-manta/lib/manta/auth.py", line 18, in <module>
-        from Crypto.Signature import PKCS1_v1_5
-    ImportError: No module named Signature
-
-then you have an insufficient PyCrypto package, likely from an old pkgsrc.
-For example, the old "sdc6/2011Q4" pkgsrc is not supported:
-
-    $ cat /opt/local/etc/pkg_install.conf
-    PKG_PATH=http://pkgsrc.joyent.com/sdc6/2011Q4/i386/All
-
-
-### 1. pycrypto dependency
-
-The 'pycrypto' (aka 'Crypto') Python module is a binary dependency of
-python-manta. Typically `pip install manta` (per the install instructions
-above) will install this for you. If not, here are some platform-specific notes
-for getting there. Please [let me
-know](https://github.com/joyent/python-manta/issues/new?title=PyCrypto+install+notes+for+XXX)
-if there are better instructions that I can provide for your system, so I can
-add them here.
-
-Typically one of the following will do it if you have `pip` (preferred) or
-`easy_install`:
-
-    pip install pycrypto
-    easy_install pycrypto
-
-**Mac** (using the system python at /usr/bin/python):
-
-    sudo easy_install pycrypto
-
-**SmartOS** with recent pkgsrc has a working Crypto package named
-"py27-crypto-2.6\*":
-
-    pkgin install -y py27-crypto
-
-**Older SmartOS** pkgsrc versions with a pycrypto version less than 2.6 (e.g.
-"py27-crypto-2.4.1"). PyCrypto less than 2.6 is insufficient, the
-`Crypto.Signature` subpackage is missing. To get a working Crypto for mantash
-you can do the following, or similarly for other Python versions:
-
-    pkgin rm py27-crypto   # must get this out of the way
-    pkgin install py27-setuptools
-    easy_install-2.7 pycrypto
-
-**Any platform using the ActivePython** distribution of Python (available
-for most platforms):
-
-    pypm install pycrypto
-
-
 # Limitations
 
 The python-manta Python API isn't currently well-suited to huge objects
@@ -308,6 +239,30 @@ For other limitations (also planned work) see TODO.txt.
 # Troubleshooting
 
 An attempt to cover some common install/setup issues.
+
+## `pynacl` dependency install failure
+
+This test failure:
+```
+    PASS: pwhash_argon2id
+    /tmp/pip-install-AIWK8Y/pynacl/src/libsodium/build-aux/test-driver: line 107: 53648: Memory fault(coredump)
+    FAIL: randombytes
+    PASS: scalarmult
+```
+
+Ultimately results in this install error:
+```
+
+  File "/opt/local/lib/python2.7/subprocess.py", line 186, in check_call
+      raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['make', 'check']' returned non-zero exit status 2
+
+            ----------------------------------------
+            Command "/opt/local/bin/python2.7 -u -c "import setuptools, tokenize;__file__='/tmp/pip-install-AIWK8Y/pynacl/setup.py';f=getattr(tokenize, 'open', open)(__file__);code=f.read().replace('\r\n', '\n');f.close();exec(compile(code, __file__, 'exec'))" install --record /tmp/pip-record-YflZ4O/install-record.txt --single-version-externally-managed --compile" failed with error code 1 in /tmp/pip-install-AIWK8Y/pynacl/
+
+```
+
+See: https://github.com/joyent/python-manta/issues/55
 
 ## `x509 certificate routines:X509_load_cert_crl_file` error
 
