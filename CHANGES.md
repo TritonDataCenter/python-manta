@@ -2,7 +2,7 @@
 
 ## 2.6.2 (not yet released)
 
-(nothing yet)
+- [issue #54] Fix a crash in `mantash find DIR -name NAME ...`.
 
 
 ## 2.6.1

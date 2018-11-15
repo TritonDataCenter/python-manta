@@ -1761,7 +1761,7 @@ class Mantash(cmdln.Cmdln):
                     continue
                 if opts.name:
                     base = dirent["name"]
-                    if not fnmatchcase(base, opts.name):
+                    if not fnmatch.fnmatchcase(base, opts.name):
                         continue
                 path = top + dirent["path"][len(ntop):]
                 if opts.ls:
