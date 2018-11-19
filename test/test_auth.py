@@ -8,7 +8,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.hashes import SHA1, SHA256, SHA384, SHA512
 from cryptography.hazmat.primitives.asymmetric import padding, ec
-from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 import base64
 
 import manta
