@@ -21,7 +21,6 @@ from cryptography.hazmat.primitives.asymmetric import padding, ec, rsa
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
 from paramiko import Agent
-from paramiko import __version__ as PARAMIKO_VERSION
 from paramiko.message import Message
 
 from manta.errors import MantaError
@@ -41,21 +40,19 @@ ECDSA_SHA384_STR = "ecdsa-sha384"
 ECDSA_SHA512_STR = "ecdsa-sha512"
 RSA_STR = "rsa-sha1"
 
-# TODO: add and test other ECC curves
-SSH_KEY_MAP = {
+# TODO: add and test other SSH key types
+ALGO_FROM_SSH_KEY_TYPE = {
     "ecdsa-sha2-nistp256": ECDSA_SHA256_STR,
     "ecdsa-sha2-nistp384": ECDSA_SHA384_STR,
     "ecdsa-sha2-nistp521": ECDSA_SHA512_STR,
     "ssh-rsa": RSA_STR
 }
 
-ECDSA_HASH_MAP = {
+ECDSA_ALGO_FROM_KEY_SIZE = {
     "256": ECDSA_SHA256_STR,
     "384": ECDSA_SHA384_STR,
     "521": ECDSA_SHA512_STR
 }
-
-PARAMIKO_VER_INFO = tuple(int(v) for v in PARAMIKO_VERSION.split('.'))
 
 
 #---- internal support stuff
@@ -132,6 +129,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
         - fingerprint
         - priv_key_path
         - priv_key
+        - algorithm
     """
     priv_key = None
 
@@ -153,8 +151,8 @@ def load_ssh_key(key_id, skip_priv_key=False):
 
         # XXX: pubkey should NOT be in PEM format.
         try:
-            algo = SSH_KEY_MAP[pub_key.split()[0]]
-        except:
+            algo = ALGO_FROM_SSH_KEY_TYPE[pub_key.split()[0]]
+        except KeyError:
             raise MantaError("Unsupported key type for: {}".format(key_id))
 
         return dict(
@@ -203,8 +201,8 @@ def load_ssh_key(key_id, skip_priv_key=False):
 
     # XXX: pubkey should NOT be in PEM format.
     try:
-        algo = SSH_KEY_MAP[pub_key.split()[0]]
-    except:
+        algo = ALGO_FROM_SSH_KEY_TYPE[pub_key.split()[0]]
+    except KeyError:
         raise MantaError("Unsupported key type for: {}".format(key_id))
 
     priv_key_path = os.path.splitext(pub_key_path)[0]
@@ -221,16 +219,16 @@ def load_ssh_key(key_id, skip_priv_key=False):
         priv_key=priv_key,
         algorithm=algo)
 
-def rsa_sig_from_agent_sign_response(response):
+def rsa_sig_from_agent_signed_response(response):
     msg = Message(response)
     algo = msg.get_string()
     signature = msg.get_string()
 
     return signature
 
-def ecdsa_sig_from_agent_signed_response(d):
-    msg = Message(d)
-    alg = msg.get_text()
+def ecdsa_sig_from_agent_signed_response(response):
+    msg = Message(response)
+    algo = msg.get_text()
     sig = msg.get_binary()
 
     sig_msg = Message(sig)
@@ -251,7 +249,7 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
         - type: "agent"
         - signer: Crypto signer class (a PKCS#1 v1.5 signer for RSA keys)
         - fingerprint: key md5 fingerprint
-        - algorithm: See SSH_KEY_MAP for supported list.
+        - algorithm: See ALGO_FROM_SSH_KEY_TYPE for supported list.
         - ... some others added by `load_ssh_key()`
     """
     if FINGERPRINT_RE.match(key_id) and priv_key:
@@ -299,7 +297,7 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
     # If load_ssh_key() wasn't run, set the algorithm here.
     if not key_info.has_key('algorithm'):
         if isinstance(key, ec.EllipticCurvePrivateKey):
-            key_info['algorithm'] = ECDSA_HASH_MAP[str(key.key_size)]
+            key_info['algorithm'] = ECDSA_ALGO_FROM_KEY_SIZE[str(key.key_size)]
         elif isinstance(key, rsa.RSAPrivateKey):
             key_info['algorithm'] = RSA_STR
         else:
@@ -358,7 +356,7 @@ def agent_key_info_from_key_id(key_id):
         "type": "agent",
         "agent_key": key,
         "fingerprint": md5_fingerprint,
-        "algorithm": SSH_KEY_MAP[key.name]
+        "algorithm": ALGO_FROM_SSH_KEY_TYPE[key.name]
     }
 
 
@@ -463,16 +461,12 @@ class SSHAgentSigner(Signer):
         key_info = self._get_key_info()
         assert key_info["type"] == "agent"
 
-        # XXX: Do we really need this check?
-        if PARAMIKO_VER_INFO >= (1, 14, 0):
-            response = key_info["agent_key"].sign_ssh_data(s)
-        else:
-            response = key_info["agent_key"].sign_ssh_data(None, s)
+        response = key_info["agent_key"].sign_ssh_data(s)
 
         if re.search(r'^ecdsa-', key_info['algorithm']):
             signed_raw = ecdsa_sig_from_agent_signed_response(response)
         else:
-            signed_raw = rsa_sig_from_agent_sign_response(response)
+            signed_raw = rsa_sig_from_agent_signed_response(response)
 
         signed = base64.b64encode(signed_raw)
 
@@ -526,16 +520,12 @@ class CLISigner(Signer):
             key_info["type"], key_info["algorithm"], key_info["fingerprint"])
 
         if key_info["type"] == "agent":
-            # XXX: Do we really need this check?
-            if PARAMIKO_VER_INFO >= (1, 14, 0):
-                response = key_info["agent_key"].sign_ssh_data(sigstr)
-            else:
-                response = key_info["agent_key"].sign_ssh_data(None, sigstr)
+            response = key_info["agent_key"].sign_ssh_data(sigstr)
 
             if re.search(r'^ecdsa-', key_info['algorithm']):
                 signed_raw = ecdsa_sig_from_agent_signed_response(response)
             else:
-                signed_raw = rsa_sig_from_agent_sign_response(response)
+                signed_raw = rsa_sig_from_agent_signed_response(response)
 
             signed = base64.b64encode(signed_raw)
         elif key_info["type"] == "ssh_key":

@@ -21,11 +21,15 @@ Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 tl;dr: `pip install --upgrade manta`
 
 
-## 0. install `pip` (and maybe PyCrypto)
+## 0. install `pip` (and maybe pynacl)
 
 **SmartOS**:
 
-    pkgin install py27-pip py27-crypto
+    pkgin install py27-pip
+
+    # And probably libsodium and pynacl
+    pkgin install libsodium
+    SODIUM_INSTALL=system pip install pynacl
 
 **Mac**:
 
@@ -37,8 +41,7 @@ tl;dr: `pip install --upgrade manta`
 
     sudo apt-get install python-pip
 
-Others? Please [let me
-know](https://github.com/joyent/python-manta/issues/new?title=pip+and+pycrypto+install+notes+for+XXX)
+Others? Please [let me know](https://github.com/joyent/python-manta/issues/new)
 if there are better instructions that I can provide for your system, so I can
 add them here.
 
@@ -240,7 +243,7 @@ For other limitations (also planned work) see TODO.txt.
 
 An attempt to cover some common install/setup issues.
 
-## `pynacl` dependency install failure
+## `pynacl` dependency install failure on SmartOS
 
 This test failure:
 ```
