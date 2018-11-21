@@ -3,6 +3,8 @@
 ## 2.7.0 (not yet released)
 
 - [issue #50, pull #56] Add support for ECDSA keys for auth (by Rui Loura).
+- [issue #51] Fix an issue with `MANTA_KEY_ID=MD5:...` handling (i.e. an
+  MD5 key that uses the now more common "MD5:" prefix.
 - [issue #54] Fix a crash in `mantash find DIR -name NAME ...`.
 
 
