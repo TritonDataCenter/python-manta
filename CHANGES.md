@@ -1,7 +1,8 @@
 # python-manta Changelog
 
-## 2.6.2 (not yet released)
+## 2.7.0 (not yet released)
 
+- [issue #50, pull #56] Add support for ECDSA keys for auth (by Rui Loura).
 - [issue #54] Fix a crash in `mantash find DIR -name NAME ...`.
 
 
