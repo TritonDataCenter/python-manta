@@ -1,4 +1,4 @@
-# Copyright 2012 Joyent, Inc.  All rights reserved.
+# Copyright 2018 Joyent, Inc.  All rights reserved.
 
 """Manta client auth."""
 
@@ -14,21 +14,16 @@ import re
 import struct
 from glob import glob
 
-try:
-    from Crypto.PublicKey import RSA
-    from Crypto.Signature import PKCS1_v1_5
-    from Crypto.Hash import SHA256, SHA, SHA512
-except ImportError:
-    sys.stderr.write(
-        "* * *\n"
-        "See <https://github.com/joyent/python-manta#1-pycrypto-dependency>\n"
-        "for help installing PyCrypto (the Python 'Crypto' package)\n"
-        "* * *\n")
-    raise
-import paramiko
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.hashes import SHA1, SHA256, SHA384, SHA512
+from cryptography.hazmat.primitives.asymmetric import padding, ec, rsa
+from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
+
+from paramiko import Agent
+from paramiko.message import Message
 
 from manta.errors import MantaError
-
 
 
 #---- globals
@@ -37,8 +32,27 @@ log = logging.getLogger('manta.auth')
 
 FINGERPRINT_RE = re.compile(r'(^(MD5:)?([a-f0-9]{2}:){15}[a-f0-9]{2})|(^SHA256:[a-zA-Z0-9\/\+]{43})$')
 
-PARAMIKO_VER_INFO = tuple(int(v) for v in paramiko.__version__.split('.'))
+PEM_STRING_RSA_RE = re.compile(r'RSA (PUBLIC|PRIVATE) KEY')
+PEM_STRING_ECDSA_RE = re.compile(r'EC(DSA)? (PUBLIC|PRIVATE) KEY')
 
+ECDSA_SHA256_STR = "ecdsa-sha256"
+ECDSA_SHA384_STR = "ecdsa-sha384"
+ECDSA_SHA512_STR = "ecdsa-sha512"
+RSA_STR = "rsa-sha1"
+
+# TODO: add and test other SSH key types
+ALGO_FROM_SSH_KEY_TYPE = {
+    "ecdsa-sha2-nistp256": ECDSA_SHA256_STR,
+    "ecdsa-sha2-nistp384": ECDSA_SHA384_STR,
+    "ecdsa-sha2-nistp521": ECDSA_SHA512_STR,
+    "ssh-rsa": RSA_STR
+}
+
+ECDSA_ALGO_FROM_KEY_SIZE = {
+    "256": ECDSA_SHA256_STR,
+    "384": ECDSA_SHA384_STR,
+    "521": ECDSA_SHA512_STR
+}
 
 
 #---- internal support stuff
@@ -60,7 +74,8 @@ def fingerprint_from_ssh_pub_key(data):
     #   'AAAAB3NzaC1yc2EAAAABIwAA...2l24uq9Lfw=='
     # - the full ssh pub key file content, e.g.:
     #   'ssh-rsa AAAAB3NzaC1yc2EAAAABIwAA...2l24uq9Lfw== my comment'
-    if (re.search(r'^ssh-(?:rsa|dss) ', data)):
+    if (re.search(r'^ssh-(?:rsa|dss) ', data) or
+        re.search(r'^ecdsa-sha2-nistp(?:[0-9]+)', data)):
         data = data.split(None, 2)[1]
 
     key = base64.b64decode(data)
@@ -81,7 +96,8 @@ def sha256_fingerprint_from_ssh_pub_key(data):
 
     # accept either base64 encoded data or full pub key file,
     # same as `fingerprint_from_ssh_pub_key`.
-    if (re.search(r'^ssh-(?:rsa|dss) ', data)):
+    if (re.search(r'^ssh-(?:rsa|dss) ', data) or
+        re.search(r'^ecdsa-sha2-nistp(?:[0-9]+)', data)):
         data = data.split(None, 2)[1]
 
     digest = hashlib.sha256(binascii.a2b_base64(data)).digest()
@@ -113,6 +129,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
         - fingerprint
         - priv_key_path
         - priv_key
+        - algorithm
     """
     priv_key = None
 
@@ -131,16 +148,25 @@ def load_ssh_key(key_id, skip_priv_key=False):
         finally:
             f.close()
         fingerprint = fingerprint_from_ssh_pub_key(pub_key)
+
+        # XXX: pubkey should NOT be in PEM format.
+        try:
+            algo = ALGO_FROM_SSH_KEY_TYPE[pub_key.split()[0]]
+        except KeyError:
+            raise MantaError("Unsupported key type for: {}".format(key_id))
+
         return dict(
             pub_key_path=pub_key_path,
             fingerprint=fingerprint,
             priv_key_path=key_id,
-            priv_key=priv_key)
+            priv_key=priv_key,
+            algorithm=algo)
 
     # Else, look at all pub/priv keys in "~/.ssh" for a matching fingerprint.
     fingerprint = key_id
 
     pub_key_glob = expanduser('~/.ssh/*.pub')
+    pub_key = None
     for pub_key_path in glob(pub_key_glob):
         try:
             f = open(pub_key_path)
@@ -172,6 +198,13 @@ def load_ssh_key(key_id, skip_priv_key=False):
         raise MantaError(
             "no '~/.ssh/*.pub' key found with fingerprint '%s'"
             % fingerprint)
+
+    # XXX: pubkey should NOT be in PEM format.
+    try:
+        algo = ALGO_FROM_SSH_KEY_TYPE[pub_key.split()[0]]
+    except KeyError:
+        raise MantaError("Unsupported key type for: {}".format(key_id))
+
     priv_key_path = os.path.splitext(pub_key_path)[0]
     if not skip_priv_key:
         f = open(priv_key_path)
@@ -183,21 +216,27 @@ def load_ssh_key(key_id, skip_priv_key=False):
         pub_key_path=pub_key_path,
         fingerprint=fingerprint,
         priv_key_path=priv_key_path,
-        priv_key=priv_key)
+        priv_key=priv_key,
+        algorithm=algo)
 
+def rsa_sig_from_agent_signed_response(response):
+    msg = Message(response)
+    algo = msg.get_string()
+    signature = msg.get_string()
 
-def unpack_agent_response(d):
-    parts = []
-    while d:
-        length = struct.unpack('>I', d[:4])[0]
-        bits = d[4:length+4]
-        parts.append(bits)
-        d = d[length+4:]
-    return parts
+    return signature
 
-def signature_from_agent_sign_response(d):
-    """h/t <https://github.com/atl/py-http-signature/blob/master/http_signature/sign.py>"""
-    return unpack_agent_response(d)[1]
+def ecdsa_sig_from_agent_signed_response(response):
+    msg = Message(response)
+    algo = msg.get_text()
+    sig = msg.get_binary()
+
+    sig_msg = Message(sig)
+    r = sig_msg.get_mpint()
+    s = sig_msg.get_mpint()
+    signature = encode_dss_signature(r, s)
+
+    return signature
 
 def ssh_key_info_from_key_data(key_id, priv_key=None):
     """Get/load SSH key info necessary for signing.
@@ -210,8 +249,7 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
         - type: "agent"
         - signer: Crypto signer class (a PKCS#1 v1.5 signer for RSA keys)
         - fingerprint: key md5 fingerprint
-        - algorithm: 'rsa-sha256'  DSA not current supported. Hash algorithm
-          selection is not exposed.
+        - algorithm: See ALGO_FROM_SSH_KEY_TYPE for supported list.
         - ... some others added by `load_ssh_key()`
     """
     if FINGERPRINT_RE.match(key_id) and priv_key:
@@ -223,11 +261,14 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
         # Otherwise, we attempt to load necessary details from ~/.ssh.
         key_info = load_ssh_key(key_id)
 
-    # Load an RSA key signer.
+    # Load a key signer.
     key = None
     try:
-        key = RSA.importKey(key_info["priv_key"])
-    except ValueError, ex:
+        key = serialization.load_pem_private_key(
+            key_info["priv_key"],
+            password=None,
+            backend=default_backend())
+    except TypeError, ex:
         log.debug("could not import key without passphrase (will "
             "try with passphrase): %s", ex)
         if "priv_key_path" in key_info:
@@ -239,7 +280,10 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
             if not passphrase:
                 break
             try:
-                key = RSA.importKey(key_info["priv_key"], passphrase)
+                key = serialization.load_pem_private_key(
+                    key_info["priv_key"],
+                    password=passphrase,
+                    backend=default_backend())
             except ValueError:
                 continue
             else:
@@ -249,10 +293,18 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
             if "priv_key_path" in key_info:
                 details = " (%s)" % key_info["priv_key_path"]
             raise MantaError("could not import key" + details)
-    key_info["signer"] = PKCS1_v1_5.new(key)
 
+    # If load_ssh_key() wasn't run, set the algorithm here.
+    if not key_info.has_key('algorithm'):
+        if isinstance(key, ec.EllipticCurvePrivateKey):
+            key_info['algorithm'] = ECDSA_ALGO_FROM_KEY_SIZE[str(key.key_size)]
+        elif isinstance(key, rsa.RSAPrivateKey):
+            key_info['algorithm'] = RSA_STR
+        else:
+            raise MantaError("Unsupported key type for: {}".format(key_id))
+
+    key_info["signer"] = key
     key_info["type"] = "ssh_key"
-    key_info["algorithm"] = "rsa-sha256"
     return key_info
 
 
@@ -277,8 +329,8 @@ def agent_key_info_from_key_id(key_id):
         fingerprint = key_id
 
     # Look for a matching fingerprint in the ssh-agent keys.
-    import paramiko
-    keys = paramiko.Agent().get_keys()
+    keys = Agent().get_keys()
+
     for key in keys:
         raw_key = str(key)
 
@@ -300,16 +352,40 @@ def agent_key_info_from_key_id(key_id):
         raise MantaError(
             'no ssh-agent key with fingerprint "%s"' % fingerprint)
 
-    # TODO:XXX DSA support possible with paramiko?
-    algorithm = 'rsa-sha1'
-
     return {
         "type": "agent",
         "agent_key": key,
         "fingerprint": md5_fingerprint,
-        "algorithm": algorithm
+        "algorithm": ALGO_FROM_SSH_KEY_TYPE[key.name]
     }
 
+
+def ssh_key_sign(key_info, message):
+    algo = key_info["algorithm"].split('-')
+    hash_algo = algo[1]
+    key_type = algo[0]
+
+    hash_class = {
+        "sha1": SHA1,
+        "sha256": SHA256,
+        "sha384": SHA384,
+        "sha512": SHA512
+    }[hash_algo]
+
+    if key_type == 'ecdsa':
+        signed_raw = key_info["signer"].sign(
+            message,
+            ec.ECDSA(hash_class())
+        )
+    else:
+        assert (key_type == 'rsa')
+        signed_raw = key_info["signer"].sign(
+            message,
+            padding.PKCS1v15(),
+            hash_class()
+        )
+    signed = base64.b64encode(signed_raw)
+    return signed
 
 
 #---- exports
@@ -357,16 +433,8 @@ class PrivateKeySigner(Signer):
         key_info = self._get_key_info()
 
         assert key_info["type"] == "ssh_key"
-        hash_algo = key_info["algorithm"].split('-')[1]
-        hash_class = {
-            "sha1": SHA,
-            "sha256": SHA256,
-            "sha512": SHA512
-        }[hash_algo]
-        hasher = hash_class.new()
-        hasher.update(s)
-        signed_raw = key_info["signer"].sign(hasher)
-        signed = base64.b64encode(signed_raw)
+
+        signed = ssh_key_sign(key_info, s)
 
         return (key_info["algorithm"], key_info["fingerprint"], signed)
 
@@ -392,11 +460,14 @@ class SSHAgentSigner(Signer):
 
         key_info = self._get_key_info()
         assert key_info["type"] == "agent"
-        if PARAMIKO_VER_INFO >= (1, 14, 0):
-            response = key_info["agent_key"].sign_ssh_data(s)
+
+        response = key_info["agent_key"].sign_ssh_data(s)
+
+        if re.search(r'^ecdsa-', key_info['algorithm']):
+            signed_raw = ecdsa_sig_from_agent_signed_response(response)
         else:
-            response = key_info["agent_key"].sign_ssh_data(None, s)
-        signed_raw = signature_from_agent_sign_response(response)
+            signed_raw = rsa_sig_from_agent_signed_response(response)
+
         signed = base64.b64encode(signed_raw)
 
         return (key_info["algorithm"], key_info["fingerprint"], signed)
@@ -449,23 +520,16 @@ class CLISigner(Signer):
             key_info["type"], key_info["algorithm"], key_info["fingerprint"])
 
         if key_info["type"] == "agent":
-            if PARAMIKO_VER_INFO >= (1, 14, 0):
-                response = key_info["agent_key"].sign_ssh_data(sigstr)
+            response = key_info["agent_key"].sign_ssh_data(sigstr)
+
+            if re.search(r'^ecdsa-', key_info['algorithm']):
+                signed_raw = ecdsa_sig_from_agent_signed_response(response)
             else:
-                response = key_info["agent_key"].sign_ssh_data(None, sigstr)
-            signed_raw = signature_from_agent_sign_response(response)
+                signed_raw = rsa_sig_from_agent_signed_response(response)
+
             signed = base64.b64encode(signed_raw)
         elif key_info["type"] == "ssh_key":
-            hash_algo = key_info["algorithm"].split('-')[1]
-            hash_class = {
-                "sha1": SHA,
-                "sha256": SHA256,
-                "sha512": SHA512
-            }[hash_algo]
-            hasher = hash_class.new()
-            hasher.update(sigstr)
-            signed_raw = key_info["signer"].sign(hasher)
-            signed = base64.b64encode(signed_raw)
+            signed = ssh_key_sign(key_info, sigstr)
         else:
             raise MantaError("internal error: unknown key type: %r"
                 % key_info["type"])
