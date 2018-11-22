@@ -65,9 +65,9 @@ cutarelease: versioncheck
 	    read
 	ver=$(shell python ./setup.py --version) && \
 	    date=$(shell date -u "+%Y-%m-%d") && \
-	    echo git tag -a "$$ver" -m "version $$ver ($$date)" && \
-	    echo git push --tags origin && \
-	    echo COPY_EXTENDED_ATTRIBUTES_DISABLE=1 python setup.py sdist --formats zip upload
+	    git tag -a "$$ver" -m "version $$ver ($$date)" && \
+	    git push --tags origin && \
+	    COPY_EXTENDED_ATTRIBUTES_DISABLE=1 python setup.py sdist --formats zip upload
 
 
 # Only have this around to retry package uploads on a tag created by
