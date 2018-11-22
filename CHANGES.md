@@ -1,6 +1,11 @@
 # python-manta Changelog
 
-## 2.7.0 (not yet released)
+## not yet released
+
+(nothing yet)
+
+
+## 2.7.0
 
 - [issue #50, pull #56] Add support for ECDSA keys for auth (by Rui Loura).
 - [issue #51] Fix an issue with `MANTA_KEY_ID=MD5:...` handling (i.e. an

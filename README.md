@@ -297,7 +297,7 @@ $ sudo chmod 644 $(python -c 'from os.path import dirname; import httplib2; prin
 Password:
 ```
 
-# Development and Testing
+# Development and Testing Notes
 
 In order to make sure testing covers RBAC, you'll want to make sure you have a
 subuser set up with appropriate permissions for Manta in addition to the
@@ -334,5 +334,36 @@ sdc-role create --name=python_manta \
 
 # create a directory with our role assigned to it
 mmkdir ${MANTA_USER}/stor/tmp --role-tag=python_manta
-
 ```
+
+
+## Release process
+
+Here is how to cut a release:
+
+1. Make a commit to set the intended version in
+   [manta/version.py](manta/version.py) and changing `## not yet released` at
+   the top of "CHANGES.md" to:
+
+    ```
+    ## not yet released
+
+    (nothing yet)
+
+
+    ## $version
+    ```
+
+   Run `make versioncheck` to ensure you have the version updated correctly.
+
+2. Commit and push that change.
+
+3. Use the following make target to do the release:
+
+    ```
+    make cutarelease
+    ```
+
+   This will run a couple checks (clean working copy, versioncheck) and
+   then will git tag and publish to pypi. If the PyPI upload fails, you can
+   retry it via `make pypi-upload`.
