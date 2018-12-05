@@ -30,8 +30,7 @@ from manta.errors import MantaError
 
 log = logging.getLogger('manta.auth')
 
-FINGERPRINT_RE = re.compile(
-    r'(^(MD5:)?([a-f0-9]{2}:){15}[a-f0-9]{2})|(^SHA256:[a-zA-Z0-9\/\+]{43})$')
+FINGERPRINT_RE = re.compile(r'(^(MD5:)?([a-f0-9]{2}:){15}[a-f0-9]{2})|(^SHA256:[a-zA-Z0-9\/\+]{43})$')
 
 PEM_STRING_RSA_RE = re.compile(r'RSA (PUBLIC|PRIVATE) KEY')
 PEM_STRING_ECDSA_RE = re.compile(r'EC(DSA)? (PUBLIC|PRIVATE) KEY')
@@ -54,6 +53,7 @@ ECDSA_ALGO_FROM_KEY_SIZE = {
     "384": ECDSA_SHA384_STR,
     "521": ECDSA_SHA512_STR
 }
+
 
 #---- internal support stuff
 
@@ -111,7 +111,8 @@ def sha256_fingerprint_from_raw_ssh_pub_key(raw_key):
     `str(paramiko.AgentKey)`) to a fingerprint in the SHA256 form:
         SHA256:j2WoSeOWhFy69BQ39fuafFAySp9qCZTSCEyT2vRKcL+s
     """
-    h = hashlib.sha256(raw_key).digest().encode('base64')
+    digest = hashlib.sha256(raw_key).digest()
+    h = base64.b64encode(digest).decode('utf-8')
     h = h.rstrip().rstrip('=')  # drop newline and possible base64 padding
     return 'SHA256:' + h
 
@@ -172,7 +173,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
     for pub_key_path in glob(pub_key_glob):
         try:
             f = open(pub_key_path)
-        except IOError, ex:
+        except IOError:
             # This can happen if the .pub file is a broken symlink.
             log.debug("could not open '%s', skip it", pub_key_path)
             continue
@@ -267,7 +268,7 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
             key_info["priv_key"],
             password=None,
             backend=default_backend())
-    except TypeError, ex:
+    except TypeError as ex:
         log.debug("could not import key without passphrase (will "
             "try with passphrase): %s", ex)
         if "priv_key_path" in key_info:
@@ -294,7 +295,7 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
             raise MantaError("could not import key" + details)
 
     # If load_ssh_key() wasn't run, set the algorithm here.
-    if not key_info.has_key('algorithm'):
+    if 'algorithm' not in key_info:
         if isinstance(key, ec.EllipticCurvePrivateKey):
             key_info['algorithm'] = ECDSA_ALGO_FROM_KEY_SIZE[str(key.key_size)]
         elif isinstance(key, rsa.RSAPrivateKey):
@@ -305,7 +306,6 @@ def ssh_key_info_from_key_data(key_id, priv_key=None):
     key_info["signer"] = key
     key_info["type"] = "ssh_key"
     return key_info
-
 
 def agent_key_info_from_key_id(key_id):
     """Find a matching key in the ssh-agent.
@@ -331,7 +331,9 @@ def agent_key_info_from_key_id(key_id):
     keys = Agent().get_keys()
 
     for key in keys:
-        raw_key = str(key)
+        #raw_key = str(key)
+        raw_key = key.blob
+
 
         # The MD5 fingerprint functions return the hexdigest without the hash
         # algorithm prefix ("MD5:"), and the SHA256 functions return the
@@ -357,7 +359,6 @@ def agent_key_info_from_key_id(key_id):
         "fingerprint": md5_fingerprint,
         "algorithm": ALGO_FROM_SSH_KEY_TYPE[key.name]
     }
-
 
 def ssh_key_sign(key_info, message):
     algo = key_info["algorithm"].split('-')
