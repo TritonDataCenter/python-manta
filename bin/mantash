@@ -1111,10 +1111,13 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        #upath = path.decode(sys.stdin.encoding)
-        npath = unormpath(ujoin(self.cwd, uexpanduser(upath, self.home)))
+        if isinstance(path, bytes):
+            upath = path.decode('utf-8')
+        else:
+            upath = path
+        npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
         url = self.manta_url + npath
-        webbrowser.open(url.encode('utf-8'))
+        webbrowser.open(url)
 
     def do_exit(self, subcmd, opts):
         """${cmd_name}: exit the shell"""

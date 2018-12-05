@@ -23,22 +23,27 @@ class OptionsTestCase(MantaTestCase):
         self.assertEqual(code, 0)
 
     def test_help(self):
-        # TODO: Clean up the below assertIn failures. See https://github.com/joyent/python-manta/issues/37
-        #no_man_pages = "No manual entry for mlogin\nNo manual entry for msign\n"
+        # XXX What is no_man_pages for?  There's no msign or mlogin here.
+        no_man_pages = "No manual entry for mlogin\nNo manual entry for msign\n"
         code, stdout, stderr = self.mantash(['help'])
+        print(stderr)
         stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
-        #self.assertIn(stderr, ("", no_man_pages))
+        self.assertIn(stderr, (b"", no_man_pages))
         self.assertEqual(code, 0)
+
         code, stdout, stderr = self.mantash(['--help'])
+        print(stderr)
         stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
-        #self.assertIn(stderr, ("", no_man_pages))
+        self.assertIn(stderr, (b"", no_man_pages))
         self.assertEqual(code, 0)
+
         code, stdout, stderr = self.mantash(['-h'])
+        print(stderr)
         stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
-        #self.assertIn(stderr, ("", no_man_pages))
+        self.assertIn(stderr, (b"", no_man_pages))
         self.assertEqual(code, 0)
 
 

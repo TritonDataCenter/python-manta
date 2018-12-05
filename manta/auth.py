@@ -331,7 +331,6 @@ def agent_key_info_from_key_id(key_id):
     keys = Agent().get_keys()
 
     for key in keys:
-        #raw_key = str(key)
         raw_key = key.blob
 
 
