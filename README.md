@@ -26,9 +26,12 @@ tl;dr: `pip install --upgrade manta`
 
 **SmartOS**:
 
+1. Install pip:
     pkgin install py27-pip
+    or
+    pkgin install py34-pip
 
-    # And probably libsodium and pynacl
+2. Install libsodium and pynacl
     pkgin install libsodium
     SODIUM_INSTALL=system pip install pynacl
 
@@ -40,19 +43,9 @@ tl;dr: `pip install --upgrade manta`
 
 **Ubuntu**:
 
-    sudo apt install libssl-dev
-
-py3k
-
-This is currently is development.
-
-    sudo apt install python3-pip python3-crypto python3-paramiko
-    sudo pip3 install git+https://github.com/joyent/python-manta@feature/python3#egg=manta --upgrade
-
-py2.7
-
-    sudo apt-get install python-pip python-crypto python-paramiko
-    pip install --upgrade manta
+    sudo apt-get install python3-pip 
+    or
+    sudo apt-get install python-pip
 
 Others? Please [let me know](https://github.com/joyent/python-manta/issues/new)
 if there are better instructions that I can provide for your system, so I can

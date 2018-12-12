@@ -371,6 +371,8 @@ def ssh_key_sign(key_info, message):
         "sha512": SHA512
     }[hash_algo]
 
+    assert isinstance(message, bytes)
+
     if key_type == 'ecdsa':
         signed_raw = key_info["signer"].sign(
             message,
@@ -432,11 +434,10 @@ class PrivateKeySigner(Signer):
         return self._key_info_cache
 
     def sign(self, s):
-
-        if isinstance(s, str):
+        if not isinstance(s, bytes):
+            assert isinstance(s, str)
             s = s.encode("utf-8")
 
-        #assert isinstance(s, str) or isinstance(s, bytes)
         key_info = self._get_key_info()
 
         assert key_info["type"] == "ssh_key"
@@ -466,7 +467,10 @@ class SSHAgentSigner(Signer):
         return self._key_info_cache
 
     def sign(self, s):
-        assert isinstance(s, str) or isinstance(s, bytes)
+
+        if not isinstance(s, bytes):
+            assert isinstance(s, str)
+            s = s.encode("utf-8")
 
         key_info = self._get_key_info()
         assert key_info["type"] == "agent"
@@ -526,8 +530,9 @@ class CLISigner(Signer):
                          "; ".join(map(str, errors)))
 
     def sign(self, sigstr):
-        # python 2 str, python 3 bytes
-        assert isinstance(sigstr, str) or isinstance(sigstr, bytes)
+        if not isinstance(sigstr, bytes):
+            assert isinstance(sigstr, str)
+            sigstr = sigstr.encode("utf-8")
 
         key_info = self._get_key_info()
         log.debug("sign %r with %s key (algo %s, fp %s)", sigstr,

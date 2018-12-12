@@ -88,7 +88,7 @@ def _sign_message(self, key_name, message='signme'):
     self.assertTrue(key)
 
     # We want to be able to pass in either bytes or str data
-    if isinstance(message , str):
+    if isinstance(message, str):
         bmessage = message.encode('utf-8')
     else:
         bmessage = message
@@ -101,9 +101,9 @@ def _sign_message(self, key_name, message='signme'):
     signed = signer.sign(message)
     self.assertEqual(len(signed), 3)
     self.assertTrue(signed[0] == key["sighash"])
+
     signature = base64.b64decode(signed[2])
     hash_class = get_hash_class_from_algorithm(signed[0])
-
     vkey = serialization.load_pem_private_key(
         priv_key,
         password=None,

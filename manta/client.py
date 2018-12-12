@@ -82,7 +82,10 @@ class MantaHttp(httplib2.Http):
     def _request(self, conn, host, absolute_uri, request_uri, method, body,
                  headers, redirections, cachekey):
         if log.isEnabledFor(logging.DEBUG):
-            body_str = body.decode('utf-8', 'backslashreplace') if body is not None else '(none)'
+            if body is not None:
+                body_str = body.decode('utf-8', 'backslashreplace')
+            else:
+                body_str = '(none)'
             if len(body_str) > 1024:
                 body_str = body_str[:1021] + '...'
             log.debug("req: %s %s\n%s",
@@ -101,11 +104,9 @@ class MantaHttp(httplib2.Http):
                                               request_uri, method, body,
                                               headers, redirections, cachekey)
         if log.isEnabledFor(logging.DEBUG):
-            ucontent = content.decode('utf-8')
-            log.debug("res: %s %s\n%s\n%s", method, request_uri,
-                      _indent(pformat(res)),
-                      (len(ucontent) < 1024 and _indent(ucontent) or
-                       _indent(ucontent[:1021] + u'...')))
+            log.debug("res: %s %s\n%s", method, request_uri,
+                      _indent(pformat(res)))
+
         return (res, content)
 
 #---- exports
@@ -227,7 +228,7 @@ class RawMantaClient(object):
 
         # python 3
         try:
-            url = url.decode('utf-8')  # encoding='utf-8')
+            url = url.decode('utf-8')  # encoding='utf-8'
         except:
             pass
 
@@ -398,7 +399,10 @@ class RawMantaClient(object):
         """
         res, content = self.get_object2(mpath, path=path, accept=accept)
         try:
-            return content.decode("utf-8")
+            if isinstance(content, bytes):
+                return content.decode(sys.stdout.encoding)
+            else:
+                return content
         except UnicodeDecodeError:
             return content
 
