@@ -3,6 +3,7 @@
 
 import sys
 import logging
+import io
 import os
 from os.path import exists
 from posixpath import join as ujoin, dirname as udirname, basename as ubasename
@@ -359,7 +360,7 @@ class RawMantaClient(object):
         if content is not None:
             pass
         elif path:
-            f = open(path, 'rb')
+            f = io.open(path, 'rb')
             try:
                 content = f.read()
             finally:
@@ -432,7 +433,7 @@ class RawMantaClient(object):
                                         "got %s" %
                                         (res["content-md5"], content_md5))
         if path is not None:
-            f = open(path, 'wb')
+            f = io.open(path, 'wb')
             try:
                 f.write(content)
             finally:

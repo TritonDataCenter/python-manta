@@ -23,24 +23,23 @@ class OptionsTestCase(MantaTestCase):
         self.assertEqual(code, 0)
 
     def test_help(self):
-        # XXX What is no_man_pages for?  There's no msign or mlogin here.
-        no_man_pages = "No manual entry for mlogin\nNo manual entry for msign\n"
+        no_man_page = b"No manual entry for mlogin\nNo manual entry for msign\n"
         code, stdout, stderr = self.mantash(['help'])
         stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
-        self.assertIn(stderr, (b"", no_man_pages))
+        self.assertIn(stderr, (b"", no_man_page))
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(['--help'])
         stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
-        self.assertIn(stderr, (b"", no_man_pages))
+        self.assertIn(stderr, (b"", no_man_page))
         self.assertEqual(code, 0)
 
         code, stdout, stderr = self.mantash(['-h'])
         stdout = stdout.decode("utf-8")
         self.assertTrue("mantash help" in stdout)
-        self.assertIn(stderr, (b"", no_man_pages))
+        self.assertIn(stderr, (b"", no_man_page))
         self.assertEqual(code, 0)
 
 

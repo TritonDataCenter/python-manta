@@ -4,6 +4,7 @@
 
 import binascii
 import sys
+import io
 import os
 from os.path import expanduser
 import logging
@@ -139,13 +140,13 @@ def load_ssh_key(key_id, skip_priv_key=False):
     # If `key_id` is already a private key path, then easy.
     if not FINGERPRINT_RE.match(key_id):
         if not skip_priv_key:
-            f = open(key_id)
+            f = io.open(key_id, 'rb')
             try:
                 priv_key = f.read()
             finally:
                 f.close()
         pub_key_path = key_id + '.pub'
-        f = open(pub_key_path)
+        f = io.open(pub_key_path, 'r')
         try:
             pub_key = f.read()
         finally:
@@ -172,7 +173,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
     pub_key = None
     for pub_key_path in glob(pub_key_glob):
         try:
-            f = open(pub_key_path)
+            f = io.open(pub_key_path, 'r')
         except IOError:
             # This can happen if the .pub file is a broken symlink.
             log.debug("could not open '%s', skip it", pub_key_path)
@@ -210,7 +211,7 @@ def load_ssh_key(key_id, skip_priv_key=False):
 
     priv_key_path = os.path.splitext(pub_key_path)[0]
     if not skip_priv_key:
-        f = open(priv_key_path)
+        f = io.open(priv_key_path, 'rb')
         try:
             priv_key = f.read()
         finally:
