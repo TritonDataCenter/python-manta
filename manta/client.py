@@ -1,6 +1,7 @@
 # Copyright (c) 2016 Joyent, Inc.  All rights reserved.
 """The Manta client."""
 
+from __future__ import absolute_import
 import sys
 import logging
 import io
@@ -43,23 +44,6 @@ DEFAULT_HTTP_CACHE_DIR = appdirs.user_cache_dir("python-manta-%s" %
 
 DEFAULT_USER_AGENT = "python-manta/%s (%s) Python/%s" % (
     __version__, sys.platform, sys.version.split(None, 1)[0])
-
-#---- compat
-
-# Python version compat
-# Use `bytes` for byte strings and `unicode` for unicode strings (str in Py3).
-if sys.version_info[0] <= 2:
-    py3 = False
-    try:
-        bytes
-    except NameError:
-        bytes = str
-    base_string_type = basestring
-elif sys.version_info[0] >= 3:
-    py3 = True
-    unicode = str
-    base_string_type = str
-    unichr = chr
 
 #---- internal support stuff
 
@@ -193,7 +177,7 @@ class RawMantaClient(object):
 
         # Presuming utf-8 encoding here for requests. Not sure if that is
         # technically correct.
-        if isinstance(path, unicode):
+        if not isinstance(path, bytes):
             spath = path.encode('utf-8')
         else:
             spath = path
@@ -798,7 +782,7 @@ class MantaClient(RawMantaClient):
             end = len(parts) + 1
             start = 3  # Index of the first possible dir to create.
             while start < end - 1:
-                idx = int((end - start) / 2 + start)
+                idx = int((end - start) // 2 + start)
                 d = '/'.join(parts[:idx])
                 try:
                     self.put_directory(d)

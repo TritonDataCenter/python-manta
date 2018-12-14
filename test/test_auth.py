@@ -3,6 +3,8 @@
 
 """Test the python-manta auth methods."""
 
+from __future__ import absolute_import
+
 from os.path import abspath, curdir
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization

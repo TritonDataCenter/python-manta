@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 """Manta shell."""
+
+from __future__ import absolute_import
+from __future__ import print_function
+
 import sys
 import os
 from posixpath import dirname as udirname, join as ujoin, \
@@ -8,6 +12,7 @@ from posixpath import dirname as udirname, join as ujoin, \
 import datetime
 import logging
 import json
+import base64
 from pprint import pprint, pformat
 import re
 import time
@@ -573,7 +578,7 @@ class Mantash(cmdln.Cmdln):
             d, b = usplit(npath)
             if '*' in b or '?' in b or '[' in b:  # we have a glob
                 candidates = self.client.ls(d)
-                for match in fnmatch.filter(candidates.keys(), b):
+                for match in fnmatch.filter(list(candidates), b):
                     e = candidates[match]
                     e["path"] = ujoin(d, match)
                     dirents.append(e)
@@ -1075,7 +1080,13 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        from cStringIO import StringIO
+        try:
+            # Python 2
+            from StringIO import StringIO as create_stream
+        except ImportError:
+            # Python 3
+            from io import BytesIO as create_stream
+
         import gzip
 
         retval = None
@@ -1095,11 +1106,11 @@ class Mantash(cmdln.Cmdln):
                 retval = 1
                 continue
             content = self.client.get(npath)
-            f = StringIO(content)
+            f = create_stream(content)
             unzipper = gzip.GzipFile(npath, 'rb', fileobj=f)
-            sys.stdout.write(unzipper.read())
+            sys.stdout.write(unzipper.read().decode('utf-8'))
             f.close()
-        if content and not content.endswith('\n'):
+        if content and not content.endswith(b'\n'):
             sys.stdout.write('\n')
         return retval
 
@@ -1490,7 +1501,7 @@ class Mantash(cmdln.Cmdln):
             d, b = usplit(npath)
             if '*' in b or '?' in b or '[' in b:  # we have a glob
                 candidates = self.client.ls(d)
-                for match in fnmatch.filter(candidates.keys(), b):
+                for match in fnmatch.filter(list(candidates), b):
                     e = candidates[match]
                     e["path"] = ujoin(d, match)
                     dirents.append(e)
@@ -1918,7 +1929,7 @@ class Mantash(cmdln.Cmdln):
         try:
             res, _ = self.client.get_object2(npath, path=local_path)
             is_new = False
-            old_digest = res["content-md5"].decode("base64")
+            old_digest = base64.b64decode(res["content-md5"])
             content_type = res["content-type"]
         except manta.MantaAPIError:
             _, ex, _ = sys.exc_info()

@@ -4,6 +4,9 @@
 # Run the test suite against all the Python versions we can find.
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import sys
 import os
 from os.path import dirname, abspath, join

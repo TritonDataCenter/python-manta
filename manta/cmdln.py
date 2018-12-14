@@ -34,6 +34,7 @@ See the README.txt or <http://trentm.com/projects/cmdln/> for more
 details.
 """
 
+from __future__ import absolute_import
 from __future__ import print_function
 
 __version_info__ = (2, 0, 0)

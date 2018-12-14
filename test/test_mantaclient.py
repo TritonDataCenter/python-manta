@@ -2,6 +2,9 @@
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
 """Test the python-manta MantaClient."""
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import re
 from posixpath import dirname as udirname, basename as ubasename, join as ujoin
 

@@ -1,6 +1,8 @@
 # Copyright 2012 Joyent, Inc.  All rights reserved.
 """python-manta errors"""
 
+from __future__ import absolute_import
+
 __all__ = ["MantaError", "MantaResourceNotFoundError", "MantaAPIError"]
 
 import logging

@@ -2,6 +2,8 @@
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
 """Shared code for test case files."""
 
+from __future__ import absolute_import
+
 __all__ = ["stor", "MantaTestCase"]
 
 import sys

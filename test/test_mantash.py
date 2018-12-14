@@ -2,6 +2,8 @@
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
 """Test mantash."""
 
+from __future__ import absolute_import
+
 import re
 from posixpath import join as ujoin
 
