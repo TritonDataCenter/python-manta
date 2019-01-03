@@ -304,8 +304,11 @@ class Mantash(cmdln.Cmdln):
 
         allkeys = ''.join(codes.keys()).replace('\\', '\\\\')
         uprompt = re.sub(r'\\([%s])' % allkeys, repl, self.ps1)
+        self._prompt_str = uprompt
+        '''
         self._prompt_str = uprompt.encode(sys.stdout.encoding or 'UTF-8',
                                           'replace')
+        '''
 
     def do_lpwd(self, subcmd, opts):
         """${cmd_name}: print the local cwd"""
