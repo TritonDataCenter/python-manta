@@ -11,9 +11,11 @@ See <http://github.com/ActiveState/appdirs> for details and usage.
 # - Mac OS X: http://developer.apple.com/documentation/MacOSX/Conceptual/BPFileSystem/index.html
 # - XDG spec for Un*x: http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 __version_info__ = (1, 2, 0)
 __version__ = '.'.join(map(str, __version_info__))
-
 
 import sys
 import os

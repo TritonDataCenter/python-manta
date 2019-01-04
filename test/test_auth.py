@@ -3,6 +3,8 @@
 
 """Test the python-manta auth methods."""
 
+from __future__ import absolute_import
+
 from os.path import abspath, curdir
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -16,7 +18,6 @@ import unittest
 
 #---- globals
 
-message = "hello"
 DIR = abspath(curdir)
 
 #---- internal support stuff
@@ -84,51 +85,57 @@ KEYS = {
     },
 }
 
-def _sign_message(self, key_name):
-        key = KEYS[key_name]
-        self.assertTrue(key)
+def _sign_message(self, key_name, message='signme'):
+    key = KEYS[key_name]
+    self.assertTrue(key)
 
-        with open(key["file"], 'rb') as f:
-            priv_key = f.read()
-            f.close()
+    # We want to be able to pass in either bytes or str data
+    if isinstance(message, str):
+        bmessage = message.encode('utf-8')
+    else:
+        bmessage = message
 
-        signer = manta.PrivateKeySigner(key["fp"], priv_key)
-        signed = signer.sign(message)
-        self.assertEqual(len(signed), 3)
-        self.assertTrue(signed[0] == key["sighash"])
-        signature = base64.b64decode(signed[2])
-        hash_class = get_hash_class_from_algorithm(signed[0])
+    with open(key["file"], 'rb') as f:
+        priv_key = f.read()
+        f.close()
 
-        vkey = serialization.load_pem_private_key(
-            priv_key,
-            password=None,
-            backend=default_backend()
+    signer = manta.PrivateKeySigner(key["fp"], priv_key)
+    signed = signer.sign(message)
+    self.assertEqual(len(signed), 3)
+    self.assertTrue(signed[0] == key["sighash"])
+
+    signature = base64.b64decode(signed[2])
+    hash_class = get_hash_class_from_algorithm(signed[0])
+    vkey = serialization.load_pem_private_key(
+        priv_key,
+        password=None,
+        backend=default_backend()
+    )
+
+    self.assertTrue(vkey)
+    vkey = vkey.public_key()
+    self.assertTrue(vkey)
+
+    # vkey.verify() raises exception if verification fails
+    if key["type"] == "RSA":
+        verified = vkey.verify(
+            signature,
+            bmessage,
+            padding.PKCS1v15(),
+            hash_class()
         )
+    elif key["type"] == "ECDSA":
+        verified = vkey.verify(
+            signature,
+            bmessage,
+            ec.ECDSA(hash_class())
+        )
+    else:
+        self.assertFalse("Unknown Key Type: {}".format(key["type"]))
 
-        self.assertTrue(vkey)
-        vkey = vkey.public_key()
-        self.assertTrue(vkey)
+    self.assertTrue(verified is None)
 
-        # vkey.verify() raises exception if verification fails
-        if key["type"] == "RSA":
-            verified = vkey.verify(
-                signature,
-                message,
-                padding.PKCS1v15(),
-                hash_class()
-            )
-        elif key["type"] == "ECDSA":
-            verified = vkey.verify(
-                signature,
-                message,
-                ec.ECDSA(hash_class())
-            )
-        else:
-            self.assertFalse("Unknown Key Type: {}".format(key["type"]))
-
-        self.assertTrue(verified is None)
-
-        return
+    return
 
 #---- Test cases
 
@@ -156,6 +163,9 @@ class PrivateKeyTestCase(unittest.TestCase):
 
     def test_sign_and_verify_rsa_md5(self):
         _sign_message(self, "RSA-SHA256")
+
+    def test_sign_and_verify_binary_ecdsa_sha256(self):
+        _sign_message(self, "ECDSA-SHA256", message=b'signme')
 
 
 ## TODO: add test cases for SSHAgentSigner and CLISigner.

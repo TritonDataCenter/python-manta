@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-
 """Manta shell."""
+
+from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
 import os
@@ -10,6 +12,7 @@ from posixpath import dirname as udirname, join as ujoin, \
 import datetime
 import logging
 import json
+import base64
 from pprint import pprint, pformat
 import re
 import time
@@ -34,16 +37,12 @@ if _dev_package_dir in sys.path:
     sys.path.remove(_dev_package_dir)
 del _dev_package_dir
 
-
-
 #---- Python version compat
 
 try:
-    from urllib.parse import urlparse # python3
+    from urllib.parse import urlparse  # python3
 except ImportError:
-    from urlparse import urlparse # python2
-
-
+    from urlparse import urlparse  # python2
 
 #---- globals
 
@@ -55,23 +54,21 @@ log = logging.getLogger("mantash")
 CACHE_DIR = appdirs.user_cache_dir("mantash-%s" % os.geteuid(), "Joyent")
 HTTP_CACHE_DIR = os.path.join(CACHE_DIR, "http")
 
-USER_AGENT = "mantash/%s (%s) Python/%s" % (
-    manta.__version__, sys.platform, sys.version.split(None, 1)[0])
+USER_AGENT = "mantash/%s (%s) Python/%s" % (manta.__version__, sys.platform,
+                                            sys.version.split(None, 1)[0])
 KNOWN_USERS_PATH = os.path.join(CACHE_DIR, 'known-users.json')
 
 DEFAULT_PS1 = r'[\m\w]$ '
 
-
-
-
 #---- errors
+
 
 class MantashError(Exception):
     pass
 
+
 class MantaObjectDoesNotExist(MantashError):
     pass
-
 
 #---- the shell
 
@@ -80,13 +77,16 @@ def optparser_setattr(**kwargs):
     """Set attrs on the function's `optparser` attribute.
 
     This is modelled off `cmdln.option()`."""
+
     def decorate(f):
         if not hasattr(f, "optparser"):
             f.optparser = SubCmdOptionParser()
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             setattr(f.optparser, k, v)
         return f
+
     return decorate
+
 
 class Mantash(cmdln.Cmdln):
     r"""${name} -- a Manta shell
@@ -117,41 +117,64 @@ class Mantash(cmdln.Cmdln):
     name = "mantash"
     version = manta.__version__
     manta_url = None
-    cwd = None          # initialized in `postoptparse`
-    last_cwd = None     # ditto
+    cwd = None  # initialized in `postoptparse`
+    last_cwd = None  # ditto
 
     def get_optparser(self):
         parser = cmdln.Cmdln.get_optparser(self)
         #parser.add_option("--version", action="store_true",
         #    help="print mantash version and exit")
-        parser.add_option("-v", "--verbose", dest="verbose",
-            action="store_true", help="Verbose/debug logging.")
-        parser.add_option("-u", "--url", dest="manta_url",
-            help="Manta URL. Environment: MANTA_URL=URL",
-            default=os.environ.get("MANTA_URL"))
-        parser.add_option("-a", "--account", dest="account",
+        parser.add_option("-v",
+                          "--verbose",
+                          dest="verbose",
+                          action="store_true",
+                          help="Verbose/debug logging.")
+        parser.add_option("-u",
+                          "--url",
+                          dest="manta_url",
+                          help="Manta URL. Environment: MANTA_URL=URL",
+                          default=os.environ.get("MANTA_URL"))
+        parser.add_option(
+            "-a",
+            "--account",
+            dest="account",
             help="Manta account (login name). Environment: MANTA_USER=ACCOUNT",
             default=os.environ.get("MANTA_USER"))
-        parser.add_option("--user", "--subuser", dest="subuser",
+        parser.add_option(
+            "--user",
+            "--subuser",
+            dest="subuser",
             help="Manta user (login name). Environment: MANTA_SUBUSER=USER",
             default=os.environ.get("MANTA_SUBUSER", None))
-        parser.add_option("--role", dest="role",
-                          help=("Assume a role. Use multiple times or once with "
-                                "a list. Environment: MANTA_ROLE=ROLE,ROLE..."),
-            default=os.environ.get("MANTA_ROLE", None))
-        parser.add_option("-k", "--keyId", dest="key_id",
+        parser.add_option("--role",
+                          dest="role",
+                          help=(
+                              "Assume a role. Use multiple times or once with "
+                              "a list. Environment: MANTA_ROLE=ROLE,ROLE..."),
+                          default=os.environ.get("MANTA_ROLE", None))
+        parser.add_option(
+            "-k",
+            "--keyId",
+            dest="key_id",
             help="SSH key fingerprint (or path to private key file). See "
-                "note below. Environment: MANTA_KEY_ID=FINGERPRINT",
+            "note below. Environment: MANTA_KEY_ID=FINGERPRINT",
             default=os.environ.get("MANTA_KEY_ID"))
-        parser.add_option("-i", "--insecure", action="store_true",
+        parser.add_option(
+            "-i",
+            "--insecure",
+            action="store_true",
             dest="insecure",
             help="Do not validate SSL/TLS certificate. Not recommended but "
-                "useful for dev. Environment: MANTA_TLS_INSECURE=1",
+            "useful for dev. Environment: MANTA_TLS_INSECURE=1",
             default=(os.environ.get("MANTA_TLS_INSECURE") == "1"))
-        parser.add_option("-C", dest="cd", metavar="DIRECTORY",
-            help="first change to the given directory")
-        parser.add_option("--drop-cache", dest="drop_cache", action="store_true",
-            help="drop the current HTTP cache before starting")
+        parser.add_option("-C",
+                          dest="cd",
+                          metavar="DIRECTORY",
+                          help="first change to the given directory")
+        parser.add_option("--drop-cache",
+                          dest="drop_cache",
+                          action="store_true",
+                          help="drop the current HTTP cache before starting")
         return parser
 
     def postoptparse(self):
@@ -175,17 +198,20 @@ class Mantash(cmdln.Cmdln):
 
         no_auth = (os.environ.get("MANTA_NO_AUTH", "false") == "true")
         if not self.options.manta_url:
-            raise MantashError("no Manta URL: use '--url' or 'MANTA_URL' envvar")
+            raise MantashError(
+                "no Manta URL: use '--url' or 'MANTA_URL' envvar")
         if not self.options.account:
-            raise MantashError("no Manta account: use '--account' or 'MANTA_USER' envvar")
+            raise MantashError(
+                "no Manta account: use '--account' or 'MANTA_USER' envvar")
         if not no_auth and not self.options.key_id:
-            raise MantashError("no Manta key ID: use '-i' or 'MANTA_KEY_ID' envvar")
+            raise MantashError(
+                "no Manta key ID: use '-i' or 'MANTA_KEY_ID' envvar")
         self.manta_url = self.options.manta_url
 
         self.ps1 = os.environ.get("MANTASH_PS1", DEFAULT_PS1)
 
         if (not self.manta_url.startswith('http://') and
-            not self.manta_url.startswith('https://')):
+                not self.manta_url.startswith('https://')):
             self.manta_url = 'https://' + self.manta_url
         if self.manta_url.endswith('/'):
             self.manta_url = self.manta_url[:-1]
@@ -201,12 +227,15 @@ class Mantash(cmdln.Cmdln):
             signer = None
         else:
             signer = manta.CLISigner(self.options.key_id)
-        self.client = manta.MantaClient(self.manta_url, self.account,
+        self.client = manta.MantaClient(
+            self.manta_url,
+            self.account,
             subuser=self.subuser,
             role=self.role,
             signer=signer,
             disable_ssl_certificate_validation=self.options.insecure,
-            user_agent=USER_AGENT, verbose=self.options.verbose)
+            user_agent=USER_AGENT,
+            verbose=self.options.verbose)
 
         self.do_help.aliases.append("man")
 
@@ -215,7 +244,7 @@ class Mantash(cmdln.Cmdln):
         try:
             f = codecs.open(KNOWN_USERS_PATH, 'r', 'utf8')
             self._known_users = json.load(f, encoding='utf8')
-        except Exception, ex:
+        except Exception as ex:
             pass
         finally:
             if f:
@@ -234,6 +263,7 @@ class Mantash(cmdln.Cmdln):
             print(doc)
         else:
             cmdln.Cmdln.do_help(self, argv)
+
     do_help.aliases = cmdln.Cmdln.do_help.aliases
 
     def _update_prompt(self):
@@ -268,12 +298,17 @@ class Mantash(cmdln.Cmdln):
             'e': '\033',
             '\\': '\\',
         }
+
         def repl(match):
             return codes[match.group(1)]
+
         allkeys = ''.join(codes.keys()).replace('\\', '\\\\')
         uprompt = re.sub(r'\\([%s])' % allkeys, repl, self.ps1)
-        self._prompt_str = uprompt.encode(
-            sys.stdout.encoding or 'UTF-8', 'replace')
+        self._prompt_str = uprompt
+        '''
+        self._prompt_str = uprompt.encode(sys.stdout.encoding or 'UTF-8',
+                                          'replace')
+        '''
 
     def do_lpwd(self, subcmd, opts):
         """${cmd_name}: print the local cwd"""
@@ -324,6 +359,7 @@ class Mantash(cmdln.Cmdln):
                 raise
 
     _is_glob_re = re.compile(r'(?<!\\)[*?\[]')
+
     def _ls_path(self, path, listDirs):
         """Get the set of directory entries (dirents) matching the
         given path, which may be a glob pattern.
@@ -340,8 +376,10 @@ class Mantash(cmdln.Cmdln):
               {'bar.py': {'mtime': 1341422663102L, 'type': 'object'},
                'baz': {'mtime': 1341422663102L, 'type': 'directory'}})]
         """
-        upath = uexpanduser(path, self.home)    # user-expanded
-        npath = unormpath(upath)                # normalized
+        if isinstance(path, bytes):
+            path = path.decode("utf-8")
+        upath = uexpanduser(path, self.home)  # user-expanded
+        npath = unormpath(upath)  # normalized
         abspath = unormpath(ujoin(self.cwd, npath))
         absparts = abspath.split('/')
         parts = upath.split('/')
@@ -349,7 +387,7 @@ class Mantash(cmdln.Cmdln):
         head = '/'.join(absparts[:3])
         if self._is_glob_re.search(head):
             raise MantashError("cannot use glob chars in first two parts "
-                "of a Manta path: %r" % head)
+                               "of a Manta path: %r" % head)
 
         DEBUG = False
         if DEBUG:
@@ -371,26 +409,29 @@ class Mantash(cmdln.Cmdln):
                 # TODO: Just the user for now. Add cached visited public
                 # users eventually.
                 dirents = {
-                    self.account: {"name": self.account, "type": "directory"}
+                    self.account: {"name": self.account,
+                                   "type": "directory"}
                 }
             hits = [(is_dir, upath, dirents)]
 
-        elif len(absparts) == 2:   # '/USER'
+        elif len(absparts) == 2:  # '/USER'
             # '/USER'. Just presume that user exists for now.
             is_dir = True
             if listDirs:
                 dirents = {abspath: {"name": absparts[1], "type": "directory"}}
             elif absparts[1] == self.account:
                 dirents = {
-                    "stor": {"name": "stor", "type": "directory"},
-                    "public": {"name": "public", "type": "directory"},
-                    "jobs": {"name": "jobs", "type": "directory"},
-                    "reports": {"name": "reports", "type": "directory"},
+                    "stor": {"name": "stor",
+                             "type": "directory"},
+                    "public": {"name": "public",
+                               "type": "directory"},
+                    "jobs": {"name": "jobs",
+                             "type": "directory"},
+                    "reports": {"name": "reports",
+                                "type": "directory"},
                 }
             else:
-                dirents = {
-                    "public": {"name": "public", "type": "directory"}
-                }
+                dirents = {"public": {"name": "public", "type": "directory"}}
             hits = [(is_dir, upath, dirents)]
 
         elif not is_glob:
@@ -399,7 +440,7 @@ class Mantash(cmdln.Cmdln):
                 # '/USER/{stor,public,jobs,reports}'
                 if absparts[2] not in ("stor", "public", "jobs", "reports"):
                     raise MantashError("%s: invalid manta path" %
-                        (path or '/'))
+                                       (path or '/'))
                 dirent = {"name": absparts[2], "type": "directory"}
             else:
                 # Ensure it exists.
@@ -412,29 +453,24 @@ class Mantash(cmdln.Cmdln):
                     dirent = pdirents.get(name)
             if not dirent:
                 raise MantashError("%s: no such object or directory" %
-                    (path or '/'))
+                                   (path or '/'))
             if DEBUG:
                 print("  dirent: %r" % dirent)
-
             if dirent.get("type") == "directory":
                 is_dir = True
                 if listDirs:
-                    dirents = {
-                        upath: dirent
-                    }
+                    dirents = {upath: dirent}
                 else:
                     dirents = self.client.ls(abspath)
             else:
                 is_dir = False
-                dirents = {
-                    upath: dirent
-                }
+                dirents = {upath: dirent}
             hits = [(is_dir, upath, dirents)]
 
         else:
             # Work up to first dir with a glob char.
             lead = absparts[:3]  # no glob in first two segments allowed
-            for i in range(3, len(absparts)-1):
+            for i in range(3, len(absparts) - 1):
                 if self._is_glob_re.search(absparts[i]):
                     break
                 lead.append(absparts[i])
@@ -457,28 +493,33 @@ class Mantash(cmdln.Cmdln):
             matches = {'/'.join(lead): {"type": "directory"}}
             for i in range(len(lead), len(absparts)):
                 p = absparts[i]
-                patterns = [unormpath(ujoin(m, p)) for m,dirent in matches.items()
-                    if dirent["type"] == "directory"]
+                patterns = [unormpath(ujoin(m, p))
+                            for m, dirent in matches.items()
+                            if dirent["type"] == "directory"]
                 if DEBUG:
-                    print("  glob part %r: patterns %s from matches %r" % (p, patterns, matches))
+                    print("  glob part %r: patterns %s from matches %r" %
+                          (p, patterns, matches))
                 matches = {}
                 for pattern in patterns:
                     parent = udirname(pattern)
                     basepat = ubasename(pattern)
                     dirents = self._get_dir(ujoin(self.cwd, parent))
                     if DEBUG:
-                        print("    pattern %r:\n\tparent %r\n\tbasepat %r\n\tdirents %r" % (pattern, parent, basepat, dirents))
+                        print(
+                            "    pattern %r:\n\tparent %r\n\tbasepat %r\n\tdirents %r"
+                            % (pattern, parent, basepat, dirents))
                     if dirents:
                         for name, dirent in dirents.items():
                             if fnmatch.fnmatchcase(name, basepat):
                                 matches[ujoin(parent, name)] = dirent
                             elif DEBUG:
-                                print("    discard %r (does not match %r)" % (name, basepat))
+                                print("    discard %r (does not match %r)" %
+                                      (name, basepat))
                 if DEBUG:
                     print("    new matches: %r" % matches)
                 if not matches:
                     raise MantashError("%s: no such object or directory" %
-                        (path or '/'))
+                                       (path or '/'))
 
             # Any leaf directories are recursed into... unless `ls -d`.
             #
@@ -486,7 +527,7 @@ class Mantash(cmdln.Cmdln):
             # again (if the given start path was relative).
             hits = []
             if not listDirs:
-                for name,dirent in matches.items():
+                for name, dirent in dict(matches).items():
                     if dirent["type"] == "directory":
                         if DEBUG:
                             print("    descend into dir %r" % name)
@@ -501,18 +542,21 @@ class Mantash(cmdln.Cmdln):
                         relkey = key.replace(absprefix, prefix, 1)
                         relmatches[relkey] = matches[key]
                 hits.append((False, upath, relmatches))
-
         if hits and hits[0][-1]:
             self._visited_known_mpath(abspath)
         if DEBUG:
             print("  hits:\n%s" % _indent(pformat(hits)))
         return hits
 
-    @cmdln.option("-h", action="store_true", dest="human",
-        help="display human-readable sizes")
+    @cmdln.option("-h",
+                  action="store_true",
+                  dest="human",
+                  help="display human-readable sizes")
     @optparser_setattr(conflict_handler="resolve")
-    @cmdln.option("-s", action="store_true", dest="summary",
-        help="display an entry for each specified file")
+    @cmdln.option("-s",
+                  action="store_true",
+                  dest="summary",
+                  help="display an entry for each specified file")
     def do_du(self, subcmd, opts, *paths):
         """disk usage
 
@@ -535,9 +579,9 @@ class Mantash(cmdln.Cmdln):
         for path in paths:
             npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
             d, b = usplit(npath)
-            if '*' in b or '?' in b or '[' in b: # we have a glob
+            if '*' in b or '?' in b or '[' in b:  # we have a glob
                 candidates = self.client.ls(d)
-                for match in fnmatch.filter(candidates.keys(), b):
+                for match in fnmatch.filter(list(candidates), b):
                     e = candidates[match]
                     e["path"] = ujoin(d, match)
                     dirents.append(e)
@@ -570,19 +614,28 @@ class Mantash(cmdln.Cmdln):
             else:
                 du(dirent)
 
-
-    @cmdln.option("-h", action="store_true", dest="human",
-        help="display human-readable sizes")
+    @cmdln.option("-h",
+                  action="store_true",
+                  dest="human",
+                  help="display human-readable sizes")
     @cmdln.option("-a", action="store_true", help=optparse.SUPPRESS_HELP)
-    @cmdln.option("-l", action="store_true", dest="long",
-        help="list in long format")
-    @cmdln.option("-d", action="store_true", dest="dir",
-        help="list directory names, do not search recursively")
-    @cmdln.option("-F", action="store_true", dest="format",
-        help="display a '/' after a directory name")
+    @cmdln.option("-l",
+                  action="store_true",
+                  dest="long",
+                  help="list in long format")
+    @cmdln.option("-d",
+                  action="store_true",
+                  dest="dir",
+                  help="list directory names, do not search recursively")
+    @cmdln.option("-F",
+                  action="store_true",
+                  dest="format",
+                  help="display a '/' after a directory name")
     @optparser_setattr(conflict_handler="resolve")
-    @cmdln.option("-j", "--json", action="store_true",
-        help="display the listing in JSON")
+    @cmdln.option("-j",
+                  "--json",
+                  action="store_true",
+                  help="display the listing in JSON")
     def do_ls(self, subcmd, opts, *paths):
         """list objects, directories and links
 
@@ -594,13 +647,16 @@ class Mantash(cmdln.Cmdln):
         retval = None  # set to 1 for any errors
 
         # Gather list of things to print.
-        paths = paths or ['']
+        paths = paths or [b'']
         all_to_print = []  # list of (<is-dir>, <path>, <dirents>)
         for path in paths:
-            upath = path.decode(sys.stdin.encoding)
+            if isinstance(path, bytes):
+                upath = path.decode(sys.stdin.encoding)
+            else:
+                upath = path
             try:
-                to_print = self._ls_path(path, opts.dir)
-            except (MantaError, MantashError):
+                to_print = self._ls_path(upath, opts.dir)
+            except (MantaError, MantashError, Exception):
                 _, ex, _ = sys.exc_info()
                 log.error(ex)
                 retval = 1
@@ -610,8 +666,9 @@ class Mantash(cmdln.Cmdln):
         # Do non-dirs first, as does `ls dirA fileB dirC fileD`.
         if opts.json:
             listing = {}
-        for i, (is_dir, path, dirents) in enumerate(
-                sorted(all_to_print, key=itemgetter(0))):
+        for i, (
+                is_dir, path, dirents
+        ) in enumerate(sorted(all_to_print, key=itemgetter(0))):
             if opts.json:
                 listing[path] = dirents
                 continue
@@ -619,20 +676,25 @@ class Mantash(cmdln.Cmdln):
                 if i > 0:
                     print("")
                 print("%s:" % path)
-            for name, dirent in sorted(dirents.iteritems()):
-                self._ls_print_dirent(name, dirent, long=opts.long,
-                    format=opts.format, human=opts.human)
+            for name, dirent in sorted(dirents.items()):
+                self._ls_print_dirent(name,
+                                      dirent,
+                                      long=opts.long,
+                                      format=opts.format,
+                                      human=opts.human)
         if opts.json:
             print(json.dumps(listing, indent=2))
         return retval
 
-    def _ls_print_dirent(self, name, dirent, long=False, format=False,
+    def _ls_print_dirent(self,
+                         name,
+                         dirent,
+                         long=False,
+                         format=False,
                          human=False):
+
         if format:
-            name += {
-                "directory": "/",
-                "link": "@"
-            }.get(dirent["type"], "")
+            name += {"directory": "/", "link": "@"}.get(dirent["type"], "")
         if long:
             if human:
                 dirent_fmt = "%9s  %s  %04s  %24s  %s"
@@ -652,8 +714,8 @@ class Mantash(cmdln.Cmdln):
             #    # AFAIK Python's strptime doesn't support milliseconds.
             #    mtime = time.asctime(
             #        time.strptime(dirent["mtime"], "%Y-%m-%dT%H:%M:%S.721Z"))
-            print(dirent_fmt % (
-                dirent.get("type", "unknown"), self.account, sz, mtime, name))
+            print(dirent_fmt % (dirent.get("type", "unknown"), self.account,
+                                sz, mtime, name))
         else:
             print(name)
 
@@ -688,8 +750,8 @@ class Mantash(cmdln.Cmdln):
         area = parts[2]
         if area != 'public':
             area = 'private'
-        if (area == 'public' and user not in self._known_users
-            or self._known_users.get('user') != 'private'):
+        if (area == 'public' and user not in self._known_users or
+                self._known_users.get('user') != 'private'):
             self._known_users[user] = area
             f = None
             try:
@@ -707,7 +769,10 @@ class Mantash(cmdln.Cmdln):
         Usage:
             ${cmd_name} [DIRECTORY]
         """
-        udirectory = directory.decode(sys.stdin.encoding)
+        if isinstance(directory, bytes):
+            udirectory = directory.decode(sys.stdin.encoding)
+        else:
+            udirectory = directory
         ndir = unormpath(ujoin(self.cwd, uexpanduser(udirectory, self.home)))
         nparts = ndir.split('/')
         last_cwd = self.cwd
@@ -728,7 +793,7 @@ class Mantash(cmdln.Cmdln):
             name = ubasename(ndir)
             try:
                 dirents = self.client.ls(parent)
-            except manta.MantaAPIError, ex:
+            except manta.MantaAPIError as ex:
                 if ex.code == 'ResourceNotFound':
                     log.error("%s: no such directory", directory)
                     return 1
@@ -750,8 +815,8 @@ class Mantash(cmdln.Cmdln):
         try:
             DEBUG = False
             if DEBUG:
-                print("\n-- completedefault:",)
-                print("  %r" % ((text, line, begidx, endidx),))
+                print("\n-- completedefault:", )
+                print("  %r" % ((text, line, begidx, endidx), ))
             subcmd = line and line.split(None, 1)[0]
             start = line[begidx:endidx]
             if DEBUG:
@@ -797,19 +862,19 @@ class Mantash(cmdln.Cmdln):
                 parent = unormpath(ujoin(self.cwd, udirname(start)))
                 if parent == '/':
                     matches = ['/' + u + '/' for u in self._known_users.keys()
-                        if u.startswith(startbase)]
+                               if u.startswith(startbase)]
                 elif parent.count('/') == 1:
                     # Infer if have private access from previous successful
                     # operations on files in private dirs.
                     account = self.cwd.split('/')[1]
-                    priv_access = (account == self.account
-                        or self._known_users.get(account) == 'private')
+                    priv_access = (account == self.account or
+                                   self._known_users.get(account) == 'private')
                     if priv_access:
                         dirs = ['jobs', 'public', 'reports', 'stor']
                     else:
                         dirs = ['public']
                     matches = [ujoin(startdir, n) + '/' for n in dirs
-                        if n.startswith(startbase)]
+                               if n.startswith(startbase)]
                 else:
                     dirents = self._get_dir(parent)
                     if DEBUG:
@@ -818,29 +883,34 @@ class Mantash(cmdln.Cmdln):
                         matches = []
                     elif mode == "manta-dir":
                         matches = [
-                            ujoin(startdir, n) + '/' for n,d in dirents.items()
-                            if n.startswith(startbase)
-                            and n.startswith('.') == startbase.startswith('.')
-                            and d["type"] == "directory"]
+                            ujoin(startdir, n) + '/'
+                            for n, d in dirents.items()
+                            if n.startswith(startbase) and n.startswith('.') ==
+                            startbase.startswith('.') and d["type"] ==
+                            "directory"
+                        ]
                     else:
                         matches = [
-                            ujoin(startdir, n) + (d["type"] == "directory" and "/" or "")
-                            for n,d in dirents.items()
-                            if n.startswith(startbase)
-                            and n.startswith('.') == startbase.startswith('.')]
+                            ujoin(startdir, n) +
+                            (d["type"] == "directory" and "/" or "")
+                            for n, d in dirents.items()
+                            if n.startswith(startbase) and n.startswith('.') ==
+                            startbase.startswith('.')
+                        ]
             elif mode in ("local-path", "local-dir"):
                 start = os.path.expanduser(start)
                 startdir = os.path.dirname(start)
                 startbase = os.path.basename(start)
                 parent = os.path.join(os.getcwd(), startdir)
-                matches = [os.path.join(startdir, n) for n in os.listdir(parent)
-                           if n.startswith(startbase)
-                           and not n.startswith('.')]
+                matches = [os.path.join(startdir, n)
+                           for n in os.listdir(parent)
+                           if n.startswith(startbase) and not n.startswith('.')
+                           ]
                 if mode == "local-dir":
                     matches = [m + '/' for m in matches if os.path.isdir(m)]
                 else:
                     matches = [m + (os.path.isdir(m) and '/' or '')
-                        for m in matches]
+                               for m in matches]
             if startbase == '.':
                 matches.append('.')
                 matches.append('..')
@@ -912,7 +982,7 @@ class Mantash(cmdln.Cmdln):
         """
         retval = None
         head = None
-        n = 10   # TODO: option for '-n'. optional '-10' support?
+        n = 10  # TODO: option for '-n'. optional '-10' support?
         for i, path in enumerate(paths):
             #TODO: check its dir to make sure it is an object
             npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
@@ -930,8 +1000,8 @@ class Mantash(cmdln.Cmdln):
             content = self.client.get(npath)
             if len(paths) > 1:
                 if i != 0:
-                    print
-                print '==> %s <==' % npath
+                    print('')
+                print('==> %s <==' % npath)
             head = ''.join(content.splitlines(True)[:n])
             sys.stdout.write(head)
             if head and not head.endswith('\n'):
@@ -948,7 +1018,7 @@ class Mantash(cmdln.Cmdln):
         """
         retval = None
         tail = None
-        n = 10   # TODO: option for '-n'. optional '-10' support?
+        n = 10  # TODO: option for '-n'. optional '-10' support?
         for i, path in enumerate(paths):
             #TODO: check its dir to make sure it is an object
             npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
@@ -967,13 +1037,12 @@ class Mantash(cmdln.Cmdln):
             if len(paths) > 1:
                 if i != 0:
                     print
-                print '==> %s <==' % npath
+                print('==> %s <==' % npath)
             tail = ''.join(content.splitlines(True)[-n:])
             sys.stdout.write(tail)
             if tail and not tail.endswith('\n'):
                 sys.stdout.write('\n')
         return retval
-
 
     def do_json(self, subcmd, opts, path):
         """Download a Manta objects and JSON pretty-print it.
@@ -1014,7 +1083,13 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        from cStringIO import StringIO
+        try:
+            # Python 2
+            from StringIO import StringIO as create_stream
+        except ImportError:
+            # Python 3
+            from io import BytesIO as create_stream
+
         import gzip
 
         retval = None
@@ -1034,11 +1109,11 @@ class Mantash(cmdln.Cmdln):
                 retval = 1
                 continue
             content = self.client.get(npath)
-            f = StringIO(content)
+            f = create_stream(content)
             unzipper = gzip.GzipFile(npath, 'rb', fileobj=f)
-            sys.stdout.write(unzipper.read())
+            sys.stdout.write(unzipper.read().decode('utf-8'))
             f.close()
-        if content and not content.endswith('\n'):
+        if content and not content.endswith(b'\n'):
             sys.stdout.write('\n')
         return retval
 
@@ -1050,18 +1125,23 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
-        upath = path.decode(sys.stdin.encoding)
-        npath = unormpath(ujoin(self.cwd, uexpanduser(upath, self.home)))
+        if isinstance(path, bytes):
+            upath = path.decode('utf-8')
+        else:
+            upath = path
+        npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
         url = self.manta_url + npath
-        webbrowser.open(url.encode('utf-8'))
+        webbrowser.open(url)
 
     def do_exit(self, subcmd, opts):
         """${cmd_name}: exit the shell"""
         print("exit")
         self.stop = True
 
-    @cmdln.option("-p", dest="parents", action="store_true",
-        help="create intermediate directories as require")
+    @cmdln.option("-p",
+                  dest="parents",
+                  action="store_true",
+                  help="create intermediate directories as require")
     def do_mkdir(self, subcmd, opts, *paths):
         """create a directory
 
@@ -1084,19 +1164,34 @@ class Mantash(cmdln.Cmdln):
                 retval = 1
         return retval
 
-    @cmdln.option("-v", "--verbose", action="store_true",
+    @cmdln.option(
+        "-v",
+        "--verbose",
+        action="store_true",
         help="show files (and content-type) as they are being copied")
-    @cmdln.option("-d", "--durability-level",
+    @cmdln.option(
+        "-d",
+        "--durability-level",
         help="Tell Manta the number of copies to keep. Default is 2.")
-    @cmdln.option("-t", "--content-type",
+    @cmdln.option(
+        "-t",
+        "--content-type",
         help="specify content-type, else this will attempt to guess based "
-            "on the filename. This 'wins' over '-b'.")
-    @cmdln.option("-b", "--binary", action="store_true",
-        help="disable content-type guessing and use 'application/octet-stream'")
-    @cmdln.option("-R", "-r", dest="recursive", action="store_true",
-        help="recursively copy a source directory")
-    @cmdln.option("--dry-run", action="store_true",
-        help="do a dry-run, implies '--verbose'")
+        "on the filename. This 'wins' over '-b'.")
+    @cmdln.option(
+        "-b",
+        "--binary",
+        action="store_true",
+        help="disable content-type guessing and use 'application/octet-stream'"
+    )
+    @cmdln.option("-R",
+                  "-r",
+                  dest="recursive",
+                  action="store_true",
+                  help="recursively copy a source directory")
+    @cmdln.option("--dry-run",
+                  action="store_true",
+                  help="do a dry-run, implies '--verbose'")
     def do_put(self, subcmd, opts, *paths):
         """put a local file to manta
 
@@ -1135,8 +1230,8 @@ class Mantash(cmdln.Cmdln):
 
         # Get info on dest path
         # TODO: could switch to self._manta_isdir()
-        dst_realpath = unormpath(ujoin(self.cwd,
-            uexpanduser(dst_path, self.home)))
+        dst_realpath = unormpath(ujoin(self.cwd, uexpanduser(dst_path,
+                                                             self.home)))
         dst_parts = dst_realpath.split('/')
         if len(dst_parts) <= 3:
             dst_is_existing_dir = True
@@ -1147,8 +1242,8 @@ class Mantash(cmdln.Cmdln):
             if dirents is None:
                 log.error("%s: no such remote directory", dst_parent)
                 return 1
-            dst_is_existing_dir = (dst_base in dirents
-                and dirents[dst_base]["type"] == "directory")
+            dst_is_existing_dir = (dst_base in dirents and
+                                   dirents[dst_base]["type"] == "directory")
 
         # Sanity checks on args.
         if len(src_paths) > 1 or dst_path.endswith('/'):
@@ -1163,15 +1258,16 @@ class Mantash(cmdln.Cmdln):
             elif opts.binary:
                 content_type = "application/octet-stream"
             else:
-                content_type = (mimetypes.guess_type(src_file)[0]
-                    or "application/octet-stream")
+                content_type = (mimetypes.guess_type(src_file)[0] or
+                                "application/octet-stream")
 
             if opts.verbose:
                 log.info("put %s %s  # %s", src_file, dst_file, content_type)
             if not opts.dry_run:
-                self.client.put(dst_file, path=src_file,
-                    content_type=content_type,
-                    durability_level=opts.durability_level)
+                self.client.put(dst_file,
+                                path=src_file,
+                                content_type=content_type,
+                                durability_level=opts.durability_level)
 
         # Copy the files.
         retval = None
@@ -1179,7 +1275,8 @@ class Mantash(cmdln.Cmdln):
             if not opts.recursive:
                 # Must be regular file.
                 if not os.path.isfile(src_path):
-                    log.error("%s is not a regular file (not copied)", src_path)
+                    log.error("%s is not a regular file (not copied)",
+                              src_path)
                     retval = 1
                     continue
                 if dst_is_existing_dir:
@@ -1199,35 +1296,44 @@ class Mantash(cmdln.Cmdln):
                     if not opts.dry_run:
                         self.client.mkdir(dst_realpath)
 
-                rel_prefix = ((dst_is_existing_dir and not src_path.endswith('/'))
-                    and os.path.basename(src_path) + '/' or '')
+                rel_prefix = (
+                    (dst_is_existing_dir and not src_path.endswith('/')) and
+                    os.path.basename(src_path) + '/' or '')
                 if rel_prefix:
                     if not opts.dry_run:
                         self.client.mkdir(ujoin(dst_realpath, rel_prefix))
                 norm_src_path = src_path.rstrip('/')
                 for dirpath, dirnames, filenames in os.walk(norm_src_path):
-                    reldirpath = unormpath(
-                        rel_prefix + dirpath[len(norm_src_path)+1:])
+                    reldirpath = unormpath(rel_prefix + dirpath[len(
+                        norm_src_path) + 1:])
                     for filename in filenames:
-                        put_file(os.path.join(dirpath, filename), unormpath(
-                            ujoin(dst_realpath, reldirpath, filename)))
+                        put_file(
+                            os.path.join(dirpath, filename), unormpath(ujoin(
+                                dst_realpath, reldirpath, filename)))
                     if not opts.dry_run:
                         for dirname in dirnames:
-                            self.client.mkdir(unormpath(
-                                ujoin(dst_realpath, reldirpath, dirname)))
+                            self.client.mkdir(unormpath(ujoin(
+                                dst_realpath, reldirpath, dirname)))
             else:
                 log.error("%s is not a regular file or directory (not copied)",
-                    src_path)
+                          src_path)
                 retval = 1
                 continue
         return retval
 
-    @cmdln.option("-v", "--verbose", action="store_true",
+    @cmdln.option(
+        "-v",
+        "--verbose",
+        action="store_true",
         help="show files (and content-type) as they are being copied")
-    @cmdln.option("-R", "-r", dest="recursive", action="store_true",
-        help="recursively copy a source directory")
-    @cmdln.option("--dry-run", action="store_true",
-        help="do a dry-run, implies '--verbose'")
+    @cmdln.option("-R",
+                  "-r",
+                  dest="recursive",
+                  action="store_true",
+                  help="recursively copy a source directory")
+    @cmdln.option("--dry-run",
+                  action="store_true",
+                  help="do a dry-run, implies '--verbose'")
     def do_get(self, subcmd, opts, *paths):
         """get a file from manta
 
@@ -1269,8 +1375,8 @@ class Mantash(cmdln.Cmdln):
         #   put -r file1 dir1 dir2   assert dir2 is a dir
 
         # Get info on dest path
-        dst_normpath = os.path.normpath(os.path.join(os.getcwd(),
-            os.path.expanduser(dst_path)))
+        dst_normpath = os.path.normpath(os.path.join(os.getcwd(
+        ), os.path.expanduser(dst_path)))
         dst_is_existing_dir = os.path.isdir(dst_normpath)
 
         # Sanity checks on args.
@@ -1289,13 +1395,14 @@ class Mantash(cmdln.Cmdln):
         # Copy the files.
         retval = None
         for src_path in src_paths:
-            src_npath = unormpath(ujoin(self.cwd,
-                uexpanduser(src_path, self.home)))
+            src_npath = unormpath(ujoin(self.cwd, uexpanduser(src_path,
+                                                              self.home)))
             src_type = self.client.type(src_npath)
             if not opts.recursive:
                 # Must be manta object (as opposed to a dir).
                 if src_type != "object":
-                    log.error("%s is not a Manta object (not copied)", src_path)
+                    log.error("%s is not a Manta object (not copied)",
+                              src_path)
                     retval = 1
                     continue
                 if dst_is_existing_dir:
@@ -1316,21 +1423,22 @@ class Mantash(cmdln.Cmdln):
                         log.info("mkdir %s", dst_path)
                         os.mkdir(dst_path)
 
-                rel_prefix = ((dst_is_existing_dir and not src_path.endswith('/'))
-                    and ubasename(src_npath) + '/' or '')
+                rel_prefix = (
+                    (dst_is_existing_dir and not src_path.endswith('/')) and
+                    ubasename(src_npath) + '/' or '')
                 if rel_prefix:
                     d = os.path.join(dst_path, rel_prefix)
                     if not opts.dry_run:
                         log.info("mkdir %s", d)
                         os.mkdir(d)
                 for dirpath, dirents, objents in self.client.walk(src_npath):
-                    #pprint((dirpath, dirents, objents))
-                    reldirpath = os.path.normpath(
-                        rel_prefix + dirpath[len(src_npath)+1:])
+                    reldirpath = os.path.normpath(rel_prefix + dirpath[len(
+                        src_npath) + 1:])
                     for objent in objents:
-                        get_file(ujoin(dirpath, objent["name"]),
-                            os.path.normpath(os.path.join(
-                                dst_path, reldirpath, objent["name"])))
+                        get_file(
+                            ujoin(dirpath, objent["name"]),
+                            os.path.normpath(os.path.join(dst_path, reldirpath,
+                                                          objent["name"])))
                     for dirent in dirents:
                         if not opts.dry_run:
                             d = os.path.normpath(os.path.join(
@@ -1343,19 +1451,26 @@ class Mantash(cmdln.Cmdln):
                 continue
             else:
                 log.error("%s (manta path) is of unknown type, not an object "
-                    "or directory (not copied)", src_path)
+                          "or directory (not copied)", src_path)
                 retval = 1
                 continue
         return retval
 
-    @cmdln.option("-v", "--verbose", action="store_true",
-        help="show files as they are being removed")
-    @cmdln.option("-f", "--force", action="store_true",
-        help="force removal, don't complain about file not existing")
-    @cmdln.option("-r", "--recursive", action="store_true",
-        help="recursively delete a directory")
-    @cmdln.option("--dry-run", action="store_true",
-        help="do a dry-run, implies '--verbose'")
+    @cmdln.option("-v",
+                  "--verbose",
+                  action="store_true",
+                  help="show files as they are being removed")
+    @cmdln.option("-f",
+                  "--force",
+                  action="store_true",
+                  help="force removal, don't complain about file not existing")
+    @cmdln.option("-r",
+                  "--recursive",
+                  action="store_true",
+                  help="recursively delete a directory")
+    @cmdln.option("--dry-run",
+                  action="store_true",
+                  help="do a dry-run, implies '--verbose'")
     def do_rm(self, subcmd, opts, *paths):
         """rm a file from manta
 
@@ -1387,9 +1502,9 @@ class Mantash(cmdln.Cmdln):
         for path in paths:
             npath = unormpath(ujoin(self.cwd, uexpanduser(path, self.home)))
             d, b = usplit(npath)
-            if '*' in b or '?' in b or '[' in b: # we have a glob
+            if '*' in b or '?' in b or '[' in b:  # we have a glob
                 candidates = self.client.ls(d)
-                for match in fnmatch.filter(candidates.keys(), b):
+                for match in fnmatch.filter(list(candidates), b):
                     e = candidates[match]
                     e["path"] = ujoin(d, match)
                     dirents.append(e)
@@ -1417,14 +1532,22 @@ class Mantash(cmdln.Cmdln):
 
         return retval
 
-    @cmdln.option("-v", "--verbose",
-        dest="verbose", action="store_true", default=True,
+    @cmdln.option(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        default=True,
         help="show files as they are being moved. This is the default.")
-    @cmdln.option("-q", "--quiet",
-        dest="verbose", action="store_false",
-        help="show files as they are being moved")
-    @cmdln.option("-f", "--force", action="store_true",
-        help="do not stop on overwriting a target file")
+    @cmdln.option("-q",
+                  "--quiet",
+                  dest="verbose",
+                  action="store_false",
+                  help="show files as they are being moved")
+    @cmdln.option("-f",
+                  "--force",
+                  action="store_true",
+                  help="do not stop on overwriting a target file")
     @cmdln.option("--dry-run", action="store_true", help="do a dry-run")
     def do_mv(self, subcmd, opts, *paths):
         """move file(s)/dir(s) in manta
@@ -1438,6 +1561,7 @@ class Mantash(cmdln.Cmdln):
         Note: The eventual goal is to behave like a typical `mv` but for now
         this will error out if it hits target files in the way.
         """
+
         def move_dir(a, b):
             if opts.verbose:
                 log.info("mkdir -p %s", b)
@@ -1473,22 +1597,24 @@ class Mantash(cmdln.Cmdln):
         if dst_type is not None:
             # TODO: support this eventually
             log.error("target %s exists: this is not yet supported by "
-                "the mv command", dst)
+                      "the mv command", dst)
             return 1
 
         if len(srcs) > 1 and dst_type != "directory":
-            log.error("incorrect usage, destination %s is not a directory", dst)
+            log.error("incorrect usage, destination %s is not a directory",
+                      dst)
             return 1
 
         try:
-            prepend = (dst_type == "directory") #TODO: use this
+            prepend = (dst_type == "directory")  #TODO: use this
             for src in srcs:
                 nsrc = unormpath(ujoin(self.cwd, uexpanduser(src, self.home)))
                 src_stat = self.client.stat(nsrc)
                 if src_stat["type"] != "directory":
                     move_obj(nsrc, ndst)
                 else:
-                    for dirpath, dirents, objents in self.client.walk(nsrc, False):
+                    for dirpath, dirents, objents in self.client.walk(nsrc,
+                                                                      False):
                         #pprint((dirpath, dirents, objents))
                         subpath = dirpath[len(nsrc) + 1:]
                         move_dir(dirpath, ujoin(ndst, subpath))
@@ -1502,17 +1628,26 @@ class Mantash(cmdln.Cmdln):
             log.error(ex)
             return 1
 
-    @cmdln.option("-v", "--verbose",
-        dest="verbose", action="store_true", default=True,
+    @cmdln.option(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        default=True,
         help="List files as they are being copied. This is the default.")
-    @cmdln.option("-q", "--quiet",
-        dest="verbose", action="store_false",
-        help="Do not list files as they are being copied.")
-    @cmdln.option("-R", dest="recursive", action="store_true",
+    @cmdln.option("-q",
+                  "--quiet",
+                  dest="verbose",
+                  action="store_false",
+                  help="Do not list files as they are being copied.")
+    @cmdln.option(
+        "-R",
+        dest="recursive",
+        action="store_true",
         help="If SOURCE-MFILE is a directory, copy the directory and the "
-            "entire subtree. If SOURCE-MFILE ends in a '/' and TARGET-MDIR "
-            "exists, the contents of the directory are copied, rather than "
-            "the directory itself.")
+        "entire subtree. If SOURCE-MFILE ends in a '/' and TARGET-MDIR "
+        "exists, the contents of the directory are copied, rather than "
+        "the directory itself.")
     @cmdln.option("--dry-run", action="store_true", help="Do a dry-run.")
     def do_cp(self, subcmd, opts, *paths):
         """Copy files and dirs in Manta.
@@ -1523,6 +1658,7 @@ class Mantash(cmdln.Cmdln):
 
         ${cmd_option_list}
         """
+
         def cp_dir(a, b):
             if opts.verbose:
                 sys.stdout.write("%s -> %s\n" % (a, b))
@@ -1549,12 +1685,13 @@ class Mantash(cmdln.Cmdln):
             dst_type = None
 
         if len(srcs) > 1 and dst_type != "directory":
-            log.error("incorrect usage: destination %s is not a directory", dst)
+            log.error("incorrect usage: destination %s is not a directory",
+                      dst)
             return 1
 
         numWarns = 0
         try:
-            prepend = (dst_type == "directory") #TODO: use this
+            prepend = (dst_type == "directory")  #TODO: use this
             for src in srcs:
                 nsrc = unormpath(ujoin(self.cwd, uexpanduser(src, self.home)))
                 try:
@@ -1585,7 +1722,7 @@ class Mantash(cmdln.Cmdln):
                     #   cp -R adir/ bdir        # recursive cp adir bdir
                     if not opts.recursive:
                         sys.stderr.write("cp: %s is a directory "
-                            "(not copied, use '-R')\n" % src)
+                                         "(not copied, use '-R')\n" % src)
                         numWarns += 1
                         continue
                     elif dst_type not in (None, "directory"):
@@ -1599,8 +1736,8 @@ class Mantash(cmdln.Cmdln):
                         # and then "afile.txt" has the contents of the last
                         # thing copied to it. This is at least how `cp` on my
                         # Mac behaves.
-                        sys.stderr.write("cp: %s: Not a Manta directory\n"
-                            % dst)
+                        sys.stderr.write("cp: %s: Not a Manta directory\n" %
+                                         dst)
                         numWarns += 1
                         continue
 
@@ -1619,8 +1756,8 @@ class Mantash(cmdln.Cmdln):
                             subpath = srcpath[len(nsrc) + 1:]
                             cp_obj(srcpath, ujoin(ndst_base, subpath))
                 else:
-                    raise manta.MantaError("unknown manta type for %s: %s"
-                        % (nsrc, src_type))
+                    raise manta.MantaError("unknown manta type for %s: %s" %
+                                           (nsrc, src_type))
         except manta.MantaError:
             _, ex, _ = sys.exc_info()
             log.error(ex)
@@ -1637,8 +1774,10 @@ class Mantash(cmdln.Cmdln):
         """
         return unormpath(ujoin(self.cwd, uexpanduser(mpath, self.home)))
 
-    @cmdln.option("-v", "--verbose", action="store_true",
-        help="show link details as it is being linked")
+    @cmdln.option("-v",
+                  "--verbose",
+                  action="store_true",
+                  help="show link details as it is being linked")
     def do_ln(self, subcmd, opts, object_path, *link_path_args):
         """Create a snaplink to an object.
 
@@ -1662,8 +1801,8 @@ class Mantash(cmdln.Cmdln):
         elif len(link_path_args) == 0:
             link_path = unormpath(ujoin('.', ubasename(object_path)))
         else:
-            raise cmdln.CmdlnUserError("too many arguments: %s %s"
-                % (object_path, ' '.join(link_path_args)))
+            raise cmdln.CmdlnUserError("too many arguments: %s %s" %
+                                       (object_path, ' '.join(link_path_args)))
         object_npath = self._realpath(object_path)
         link_npath = self._realpath(link_path)
         if opts.verbose:
@@ -1685,14 +1824,16 @@ class Mantash(cmdln.Cmdln):
                             'o' (for objects) or 'f' (for objects).
             -ls             Print the long `ls` output for each entry.
         """
+
         class Options:
             def __init__(self, *opts):
                 for name in opts:
                     setattr(self, name, None)
+
             def __repr__(self):
-                return "<Options: %s>" % dict(
-                    (o, getattr(opts, o)) for o in dir(opts)
-                      if not o.startswith('__'))
+                return "<Options: %s>" % dict((o, getattr(opts, o))
+                                              for o in dir(opts)
+                                              if not o.startswith('__'))
 
         # Parse DIRS.
         argv.pop(0)  # "find"
@@ -1743,7 +1884,8 @@ class Mantash(cmdln.Cmdln):
                 log.error("%s: no such remote directory", d)
             elif dirents[base]["type"] == "directory":
                 for dirpath, dirents, objents in self.client.walk(d):
-                    yield {"type": "directory", "name": ubasename(dirpath),
+                    yield {"type": "directory",
+                           "name": ubasename(dirpath),
                            "path": dirpath}
                     for objent in sorted(objents, key=itemgetter("name")):
                         objent["path"] = ujoin(dirpath, objent["name"])
@@ -1783,14 +1925,14 @@ class Mantash(cmdln.Cmdln):
         npath = self._realpath(path)
         base = ubasename(npath)
         local_path = os.path.join(CACHE_DIR, "vi",
-            "%s-local.%s" % (os.getpid(), base))
+                                  "%s-local.%s" % (os.getpid(), base))
         if not os.path.exists(os.path.dirname(local_path)):
             os.makedirs(os.path.dirname(local_path))
 
         try:
             res, _ = self.client.get_object2(npath, path=local_path)
             is_new = False
-            old_digest = res["content-md5"].decode("base64")
+            old_digest = base64.b64decode(res["content-md5"])
             content_type = res["content-type"]
         except manta.MantaAPIError:
             _, ex, _ = sys.exc_info()
@@ -1807,7 +1949,7 @@ class Mantash(cmdln.Cmdln):
 
         os.system('vi -f "%s"' % local_path)
 
-        f = open(local_path, 'rb') # TODO: would md5 comparison be preferable?
+        f = open(local_path, 'rb')  # TODO: would md5 comparison be preferable?
         new_digest = md5(f.read()).digest()
         f.close()
         if new_digest == old_digest:
@@ -1816,11 +1958,16 @@ class Mantash(cmdln.Cmdln):
         else:
             self.client.put(npath, path=local_path, content_type=content_type)
             log.info("'%s' saved.", path)
+
     do_vi.aliases = ["vim"]
 
-    @cmdln.option("-j", "--json", action="store_true",
-        help="display the jobs in JSON")
-    @cmdln.option("-s", "--state",
+    @cmdln.option("-j",
+                  "--json",
+                  action="store_true",
+                  help="display the jobs in JSON")
+    @cmdln.option(
+        "-s",
+        "--state",
         help="limit to jobs in the given state: 'running', 'done', etc.")
     def do_jobs(self, subcmd, opts):
         """List Manta jobs
@@ -1838,7 +1985,7 @@ class Mantash(cmdln.Cmdln):
             print(json.dumps(jobs, indent=2))
         else:
             for job in jobs:
-                print job['name']
+                print(job['name'])
 
     def do_jobinfo(self, subcmd, opts, job_id):
         """Get details for a Manta job.
@@ -1904,8 +2051,8 @@ class Mantash(cmdln.Cmdln):
                 return 0
             pipe_chars_str = "', '".join(pipe_chars[:-1]) \
                 + "' or '%s" % pipe_chars[-1]
-            raise MantashError("no '%s' pipe char found in job request"
-                % pipe_chars_str)
+            raise MantashError("no '%s' pipe char found in job request" %
+                               pipe_chars_str)
         pipe_idx = min(pipe_idxs)
         first_argv = argv[:pipe_idx]
         rest_argv = argv[pipe_idx:]
@@ -1951,8 +2098,8 @@ class Mantash(cmdln.Cmdln):
                     for pname, dirent in dirents.items():
                         if dirent["type"] != "object":
                             raise MantashError(
-                                "'%s' is a %s (can only process objects)" % (
-                                pname, dirent["type"]))
+                                "'%s' is a %s (can only process objects)" %
+                                (pname, dirent["type"]))
                         keys.append(unormpath(ujoin(self.cwd, pname)))
 
         if DEBUG:
@@ -1968,7 +2115,8 @@ class Mantash(cmdln.Cmdln):
         self.client.end_job_input(job_id)
         #TODO: support cancel_job on ^C
         if opts.verbose:
-            sys.stderr.write("Waiting for job %s to complete\n" % job_id)  #TODO log?
+            sys.stderr.write("Waiting for job %s to complete\n" %
+                             job_id)  #TODO log?
         self._wait_for_job(job_id, timeout=opts.timeout)
         outkeys = self.client.get_job_output(job_id)
         for outkey in outkeys:
@@ -2021,9 +2169,12 @@ class Mantash(cmdln.Cmdln):
                 # Last arg is an existing manta path.
                 args[-1] = candidate
         opts = [
-            '-u', self.manta_url,
-            '-k', self.options.key_id,
-            '-a', self.account,
+            '-u',
+            self.manta_url,
+            '-k',
+            self.options.key_id,
+            '-a',
+            self.account,
         ]
         if self.options.insecure:
             opts += ['-i']
@@ -2041,7 +2192,7 @@ class Mantash(cmdln.Cmdln):
         else:
             stdout, stderr = p.communicate()
             p.wait()
-            return self.do_login.__doc__ + '\n\n' + stdout
+            return self.do_login.__doc__ + '\n\n' + stdout.decode('utf-8')
 
     def do_sign(self, argv):
         """Produce a signed URL for the given manta path.
@@ -2064,9 +2215,12 @@ class Mantash(cmdln.Cmdln):
                 # Last arg is an existing manta path.
                 args[-1] = candidate
         opts = [
-            '-u', self.manta_url,
-            '-k', self.options.key_id,
-            '-a', self.account,
+            '-u',
+            self.manta_url,
+            '-k',
+            self.options.key_id,
+            '-a',
+            self.account,
         ]
         if self.options.insecure:
             opts += ['-i']
@@ -2084,11 +2238,10 @@ class Mantash(cmdln.Cmdln):
         else:
             stdout, stderr = p.communicate()
             p.wait()
-            return self.do_sign.__doc__ + '\n\n' + stdout
-
-
+            return self.do_sign.__doc__ + '\n\n' + stdout.decode("utf-8")
 
 #---- internal support stuff
+
 
 def uexpanduser(mpath, home):
     """Like os.path.expanduser for mpaths."""
@@ -2128,7 +2281,7 @@ def argv2line(argv):
     for arg in argv:
         if ' ' in arg or '\t' in arg:
             arg = arg.replace("'", r"\'")
-            arg = "'"+arg+"'"
+            arg = "'" + arg + "'"
         escapedArgs.append(arg)
     return ' '.join(escapedArgs)
 
@@ -2136,16 +2289,14 @@ def argv2line(argv):
 def _indent(s, indent='    '):
     return indent + indent.join(s.splitlines(True))
 
-
-
 #---- mainline
+
 
 def main(argv=sys.argv):
     logging.basicConfig(format='%(name)s: %(levelname)s: %(message)s')
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.ERROR)
     shell = Mantash()
     return shell.main(argv, loop=cmdln.LOOP_IF_EMPTY)
-
 
 ## {{{ http://code.activestate.com/recipes/577258/ (r5)
 if __name__ == "__main__":
@@ -2168,13 +2319,12 @@ if __name__ == "__main__":
                 skip_it = True
             if not skip_it:
                 tb_path, tb_lineno, tb_func = traceback.extract_tb(tb)[-1][:3]
-                log.error("%s (%s:%s in %s)", exc_info[1], tb_path,
-                    tb_lineno, tb_func)
+                log.error("%s (%s:%s in %s)", exc_info[1], tb_path, tb_lineno,
+                          tb_func)
         else:  # string exception
             log.error(exc_info[0])
         if not skip_it:
             if True or log.isEnabledFor(logging.DEBUG):
-                print('')
                 traceback.print_exception(*exc_info)
             sys.exit(1)
     else:

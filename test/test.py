@@ -3,6 +3,8 @@
 
 """The python-manta test suite entry point."""
 
+from __future__ import absolute_import
+
 import os
 from os.path import abspath, dirname
 import sys
