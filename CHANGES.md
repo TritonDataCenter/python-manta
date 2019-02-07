@@ -5,6 +5,10 @@
 (nothing yet)
 
 
+## 3.0.0
+
+- [issue #58] Add Python 3 support.
+
 ## 2.7.0
 
 - [issue #50, pull #56] Add support for ECDSA keys for auth (by Rui Loura).
