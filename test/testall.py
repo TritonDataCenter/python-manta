@@ -4,6 +4,9 @@
 # Run the test suite against all the Python versions we can find.
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import sys
 import os
 from os.path import dirname, abspath, join
@@ -25,8 +28,7 @@ def _python_ver_from_python(python):
 
 def _gen_python_names():
     yield "python"
-    for ver in [(2,2), (2,3), (2,4), (2,5), (2,6), (2,7), (3,0), (3,1),
-                (3,2), (3,3)]:
+    for ver in [(2,6), (2,7), (3,3), (3,4), (3,5), (3,6), (3,7)]:
         yield "python%d.%d" % ver
         if sys.platform == "win32":
             yield "python%d%d" % ver
@@ -47,7 +49,7 @@ def testall():
             # Don't support Python < 2.3.
             continue
         ver_str = "%s.%s" % ver
-        print "-- test with Python %s (%s)" % (ver_str, python)
+        print ("-- test with Python %s (%s)" % (ver_str, python))
         assert ' ' not in python
         test_py = join(TOP, "test", "test.py")
         rv = os.system("%s %s -- -knownfailure" % (python, test_py))

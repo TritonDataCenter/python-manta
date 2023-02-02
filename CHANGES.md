@@ -1,8 +1,33 @@
 # python-manta Changelog
 
-## 2.5.1 (not yet released)
+## not yet released
 
 (nothing yet)
+
+
+## 3.0.0
+
+- [issue #58] Add Python 3 support.
+
+## 2.7.0
+
+- [issue #50, pull #56] Add support for ECDSA keys for auth (by Rui Loura).
+- [issue #51] Fix an issue with `MANTA_KEY_ID=MD5:...` handling (i.e. an
+  MD5 key that uses the now more common "MD5:" prefix.
+- [issue #54] Fix a crash in `mantash find DIR -name NAME ...`.
+
+
+## 2.6.1
+
+- [issue #41] Support `MANTA_KEY_ID=SHA256:...` fingerprint form.
+- [issue #43] Ensure a broken `~/.ssh/*.pub` symlink doesn't break
+  finding a key for a given `MANTA_KEY_ID`.
+
+
+## 2.6.0
+
+- [MANTA-2925] `mantash cp [-R] ...` command for copying files within Manta
+  (including recursive dir copy).
 
 
 ## 2.5.0

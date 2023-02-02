@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Copyright (c) 2012 Joyent, Inc.  All rights reserved.
-
 """Test the python-manta MantaClient."""
+
+from __future__ import absolute_import
+from __future__ import print_function
 
 import re
 from posixpath import dirname as udirname, basename as ubasename, join as ujoin
@@ -9,16 +11,11 @@ from posixpath import dirname as udirname, basename as ubasename, join as ujoin
 from common import *
 import manta
 
-
-
 #---- globals
 
 TDIR = "tmp/test_mantaclient"
 
-
-
 #---- internal support stuff
-
 
 #---- Test cases
 #
@@ -27,8 +24,10 @@ TDIR = "tmp/test_mantaclient"
 # and working in there.
 #
 
+
 class MiscTestCase(MantaTestCase):
     """Miscellaneous 'manta' module tests."""
+
     def test_imports(self):
         self.assertTrue(manta.MantaClient)
         self.assertTrue(manta.PrivateKeySigner)
@@ -42,12 +41,13 @@ class MiscTestCase(MantaTestCase):
         self.assertTrue(manta.__version__)
         self.assertTrue(VERSION_RE.search(manta.__version__))
 
+
 class CleanTestAreaTestCase(MantaTestCase):
     def test_clean(self):
         client = self.get_client()
         try:
             client.list_directory(stor(TDIR))
-        except manta.MantaError, ex:
+        except manta.MantaError as ex:
             if ex.code == "ResourceNotFound":
                 return
             else:
@@ -61,6 +61,7 @@ class CleanTestAreaTestCase(MantaTestCase):
             for nondir in nondirs:
                 client.delete_object(ujoin(mdir, nondir["name"]))
             client.delete_object(mdir)
+
 
 class DirTestCase(MantaTestCase):
     def test_put(self):
@@ -76,12 +77,14 @@ class DirTestCase(MantaTestCase):
         for d in ['a', 'b', 'c']:
             client.mkdirp(stor(TDIR, 'dir', d))
         dirents = client.list_directory(stor(TDIR, 'dir'))
-        self.assertEqual(len(dirents), 3,
-            'unexpected number of dirents: got %d, expected 3, dirents %r' % (
-                len(dirents), dirents))
+        self.assertEqual(
+            len(dirents), 3,
+            'unexpected number of dirents: got %d, expected 3, dirents %r' %
+            (len(dirents), dirents))
         dirents = client.list_directory(stor(TDIR, 'dir'), limit=2)
         self.assertEqual(len(dirents), 2)
-        dirents = client.list_directory(stor(TDIR, 'dir'), marker=dirents[-1]["name"])
+        dirents = client.list_directory(
+            stor(TDIR, 'dir'), marker=dirents[-1]["name"])
         self.assertEqual(len(dirents), 2)
         self.assertEqual(dirents[1]["name"], "c")
 
@@ -92,6 +95,7 @@ class DirTestCase(MantaTestCase):
             client.delete_directory(stor(TDIR, 'dir', d))
         dirents = client.list_directory(stor(TDIR, 'dir'))
         self.assertEqual(len(dirents), 0)
+
 
 class ObjectTestCase(MantaTestCase):
     def test_putgetdel(self):
@@ -104,8 +108,9 @@ class ObjectTestCase(MantaTestCase):
         self.assertEqual(content, got)
         client.delete_object(mpath)
         dirents = [e for e in client.list_directory(stor(TDIR))
-            if e["name"] == "foo.txt"]
+                   if e["name"] == "foo.txt"]
         self.assertEqual(len(dirents), 0)
+
 
 class LinkTestCase(MantaTestCase):
     def test_put(self):
@@ -129,7 +134,7 @@ class LinkTestCase(MantaTestCase):
         self.assertEqual(content, got2)
         client.delete_object(link_path)
         dirents = [e for e in client.list_directory(stor(TDIR))
-            if e["name"] in ("obj.txt", "link.txt")]
+                   if e["name"] in ("obj.txt", "link.txt")]
         self.assertEqual(len(dirents), 0)
 
 

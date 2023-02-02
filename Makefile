@@ -45,13 +45,30 @@ testall:
 # Ensure json.js and package.json have the same version.
 .PHONY: versioncheck
 versioncheck:
-	@echo manta/version.py ver is: $(shell python -c 'import manta.version; print manta.version.__version__')
-	@echo CHANGES.md ver is: $(shell grep '^## ' CHANGES.md | head -1 | awk '{print $$2}')
-	[[ $(shell python -c 'import manta.version; print manta.version.__version__') == $(shell grep '^## ' CHANGES.md | head -1 | awk '{print $$2}') ]]
+	@echo manta/version.py ver is: $(shell python manta/version.py)
+	@echo CHANGES.md ver is: $(shell grep '^## ' CHANGES.md | head -2 | tail -1 | awk '{print $$2}')
+	@[[ $(shell python manta/version.py) == $(shell grep '^## ' CHANGES.md | head -2 | tail -1 | awk '{print $$2}') ]]
 
 .PHONY: cutarelease
 cutarelease: versioncheck
-	./tools/cutarelease.py -f manta/version.py
+	[[ -z `git status --short` ]]  # If this fails, the working dir is dirty.
+	@which json 2>/dev/null 1>/dev/null && \
+	    name=$(shell python ./setup.py --name) && \
+	    ver=$(shell python ./setup.py --version) && \
+	    publishedInfo="$(shell curl -sS https://pypi.org/pypi/$(shell python setup.py --name)/json | json "releases['$(shell python setup.py --version)']")" && \
+	    if [[ -n "$$publishedInfo" ]]; then \
+		echo "cutarelease error: https://pypi.org/project/$$name/$$ver/ is already published to pypi"; \
+		exit 1; \
+	    fi && \
+	    echo "** Are you sure you want to tag and publish $$name@$$ver to pypi?" && \
+	    echo "** Enter to continue, Ctrl+C to abort." && \
+	    read
+	ver=$(shell python ./setup.py --version) && \
+	    date=$(shell date -u "+%Y-%m-%d") && \
+	    git tag -a "$$ver" -m "version $$ver ($$date)" && \
+	    git push --tags origin && \
+	    COPY_EXTENDED_ATTRIBUTES_DISABLE=1 python setup.py sdist --formats zip upload
+
 
 # Only have this around to retry package uploads on a tag created by
 # 'make cutarelease' because PyPI upload is super-flaky (at least for me).

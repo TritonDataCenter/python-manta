@@ -1,9 +1,10 @@
 # Copyright (c) 2016 Joyent, Inc.  All rights reserved.
-
 """The Manta client."""
 
+from __future__ import absolute_import
 import sys
 import logging
+import io
 import os
 from os.path import exists
 from posixpath import join as ujoin, dirname as udirname, basename as ubasename
@@ -20,8 +21,6 @@ from . import errors
 
 import httplib2
 
-
-
 #---- Python version compat
 
 try:
@@ -33,8 +32,6 @@ except ImportError:
     from urllib import urlencode
     from urllib import quote as urlquote
 
-
-
 #---- globals
 
 log = logging.getLogger("manta.client")
@@ -42,33 +39,14 @@ log = logging.getLogger("manta.client")
 # Use a separate cache dir tree if running with a different UID (e.g. if
 # acting as root via `sudo -E`). This avoids cache dir permission
 # issues. See <https://github.com/joyent/python-manta/issues/20>.
-DEFAULT_HTTP_CACHE_DIR = appdirs.user_cache_dir(
-    "python-manta-%s" % os.geteuid(), "Joyent", "http")
+DEFAULT_HTTP_CACHE_DIR = appdirs.user_cache_dir("python-manta-%s" %
+                                                os.geteuid(), "Joyent", "http")
 
 DEFAULT_USER_AGENT = "python-manta/%s (%s) Python/%s" % (
     __version__, sys.platform, sys.version.split(None, 1)[0])
 
-
-#---- compat
-
-# Python version compat
-# Use `bytes` for byte strings and `unicode` for unicode strings (str in Py3).
-if sys.version_info[0] <= 2:
-    py3 = False
-    try:
-        bytes
-    except NameError:
-        bytes = str
-    base_string_type = basestring
-elif sys.version_info[0] >= 3:
-    py3 = True
-    unicode = str
-    base_string_type = str
-    unichr = chr
-
-
-
 #---- internal support stuff
+
 
 def http_date(d=None):
     """Return HTTP Date format string for the given date.
@@ -84,32 +62,40 @@ def http_date(d=None):
 def _indent(s, indent='    '):
     return indent + indent.join(s.splitlines(True))
 
+
 class MantaHttp(httplib2.Http):
-    def _request(self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey):
+    def _request(self, conn, host, absolute_uri, request_uri, method, body,
+                 headers, redirections, cachekey):
         if log.isEnabledFor(logging.DEBUG):
-            body_str = body or '(none)'
-            if body and len(body) > 1024:
-                body_str = body[:1021] + '...'
-            log.debug("req: %s %s\n%s", method, request_uri,
-                '\n'.join([
-                    _indent("host: " + host),
-                    _indent("headers: " + pformat(headers)),
-                    #_indent("cachekey: " + pformat(cachekey)), #XXX
-                    _indent("body: " + body_str)
-                ]))
-        res, content = httplib2.Http._request(self, conn, host, absolute_uri, request_uri, method, body, headers, redirections, cachekey)
+            if body is not None:
+                body_str = body.decode('utf-8', 'backslashreplace')
+            else:
+                body_str = '(none)'
+            if len(body_str) > 1024:
+                body_str = body_str[:1021] + '...'
+            log.debug("req: %s %s\n%s",
+                      method,
+                      request_uri,
+                      '\n'.join([
+                          _indent("host: " + host),
+                          _indent("headers: " + pformat(headers)),
+                          #_indent("cachekey: " + pformat(cachekey)), #XXX
+                          _indent("body: " + body_str)
+                      ]))
+
+        if 'location' in headers:
+            headers['location'] = urlquote(headers['location'])
+        res, content = httplib2.Http._request(self, conn, host, absolute_uri,
+                                              request_uri, method, body,
+                                              headers, redirections, cachekey)
         if log.isEnabledFor(logging.DEBUG):
-            ucontent = content.decode('utf-8')
-            log.debug("res: %s %s\n%s\n%s", method, request_uri,
-                _indent(pformat(res)),
-                (len(ucontent) < 1024 and _indent(ucontent)
-                 or _indent(ucontent[:1021] + u'...')))
+            log.debug("res: %s %s\n%s", method, request_uri,
+                      _indent(pformat(res)))
+
         return (res, content)
 
-
-
-
 #---- exports
+
 
 class RawMantaClient(object):
     """A raw client for accessing the Manta REST API. Here "raw" means that
@@ -133,8 +119,16 @@ class RawMantaClient(object):
     @param verbose {bool} Optional. Default false. If true, then will log
         debugging info.
     """
-    def __init__(self, url, account, subuser=None, role=None, sign=None,
-                 signer=None, user_agent=None, cache_dir=None,
+
+    def __init__(self,
+                 url,
+                 account,
+                 subuser=None,
+                 role=None,
+                 sign=None,
+                 signer=None,
+                 user_agent=None,
+                 cache_dir=None,
                  disable_ssl_certificate_validation=False,
                  verbose=False):
         assert account, 'account'
@@ -157,15 +151,23 @@ class RawMantaClient(object):
             manta.auth.log.setLevel(logging.DEBUG)
 
     _http_cache = None
+
     def _get_http(self):
         if not self._http_cache:
             if not exists(self.cache_dir):
                 os.makedirs(self.cache_dir)
-            self._http_cache = MantaHttp(self.cache_dir,
-                disable_ssl_certificate_validation=self.disable_ssl_certificate_validation)
+            self._http_cache = MantaHttp(
+                self.cache_dir,
+                disable_ssl_certificate_validation=self.
+                disable_ssl_certificate_validation)
         return self._http_cache
 
-    def _request(self, path, method="GET", query=None, body=None, headers=None):
+    def _request(self,
+                 path,
+                 method="GET",
+                 query=None,
+                 body=None,
+                 headers=None):
         """Make a Manta request
 
         ...
@@ -175,7 +177,7 @@ class RawMantaClient(object):
 
         # Presuming utf-8 encoding here for requests. Not sure if that is
         # technically correct.
-        if isinstance(path, unicode):
+        if not isinstance(path, bytes):
             spath = path.encode('utf-8')
         else:
             spath = path
@@ -198,14 +200,22 @@ class RawMantaClient(object):
             if "Date" not in headers:
                 headers["Date"] = http_date()
             sigstr = 'date: ' + headers["Date"]
-            algorithm, fingerprint, signature = self.signer.sign(sigstr)
+            algorithm, fingerprint, signature = self.signer.sign(sigstr.encode(
+                'utf-8'))
             auth = 'Signature keyId="/%s/keys/%s",algorithm="%s",signature="%s"'\
                    % ('/'.join(filter(None, [self.account, self.subuser])),
-                      fingerprint, algorithm, signature)
+                      fingerprint, algorithm, signature.decode('utf-8'))
+
             headers["Authorization"] = auth
 
             if self.role:
                 headers['Role'] = self.role
+
+        # python 3
+        try:
+            url = url.decode('utf-8')  # encoding='utf-8'
+        except:
+            pass
 
         return http.request(url, method, ubody, headers)
 
@@ -216,9 +226,7 @@ class RawMantaClient(object):
         @param mdir {str} A manta path, e.g. '/trent/stor/mydir'.
         """
         log.debug('PutDirectory %r', mdir)
-        headers = {
-            "Content-Type": "application/json; type=directory"
-        }
+        headers = {"Content-Type": "application/json; type=directory"}
         res, content = self._request(mdir, "PUT", headers=headers)
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
@@ -262,7 +270,7 @@ class RawMantaClient(object):
             if not line.strip():
                 continue
             try:
-                dirents.append(json.loads(line))
+                dirents.append(json.loads(line.decode("utf-8")))
             except ValueError:
                 raise errors.MantaError('invalid directory entry: %r' % line)
         return res, dirents
@@ -294,7 +302,11 @@ class RawMantaClient(object):
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
 
-    def put_object(self, mpath, content=None, path=None, file=None,
+    def put_object(self,
+                   mpath,
+                   content=None,
+                   path=None,
+                   file=None,
                    content_length=None,
                    content_type="application/octet-stream",
                    durability_level=None):
@@ -321,33 +333,38 @@ class RawMantaClient(object):
             Manta the number of copies to keep.
         """
         log.debug('PutObject %r', mpath)
-        headers = {
-            "Content-Type": content_type,
-        }
+        headers = {"Content-Type": content_type, }
         if durability_level:
             headers["x-durability-level"] = durability_level
 
         methods = [m for m in [content, path, file] if m is not None]
         if len(methods) != 1:
             raise errors.MantaError("exactly one of 'content', 'path' or "
-                "'file' must be provided")
+                                    "'file' must be provided")
         if content is not None:
             pass
         elif path:
-            f = open(path)
+            f = io.open(path, 'rb')
             try:
                 content = f.read()
             finally:
                 f.close()
         else:
             content = file.read()
-        if not isinstance(content, bytes):
-            raise errors.MantaError("'content' must be bytes, not unicode")
+
+        try:
+            # python 3
+            content_bytes = bytes(content, encoding='utf-8')
+        except:
+            # python 2
+            content_bytes = content
 
         headers["Content-Length"] = str(len(content))
-        md5 = hashlib.md5(content)
+        md5 = hashlib.md5(content_bytes)
         headers["Content-MD5"] = base64.b64encode(md5.digest())
-        res, content = self._request(mpath, "PUT", body=content,
+        res, content = self._request(mpath,
+                                     "PUT",
+                                     body=content,
                                      headers=headers)
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
@@ -366,7 +383,13 @@ class RawMantaClient(object):
             content.
         """
         res, content = self.get_object2(mpath, path=path, accept=accept)
-        return content
+        try:
+            if isinstance(content, bytes):
+                return content.decode(sys.stdout.encoding)
+            else:
+                return content
+        except UnicodeDecodeError:
+            return content
 
     def get_object2(self, mpath, path=None, accept="*/*"):
         """A lower-level version of `get_object` that returns the
@@ -377,24 +400,24 @@ class RawMantaClient(object):
             provided
         """
         log.debug('GetObject %r', mpath)
-        headers = {
-            "Accept": accept
-        }
+        headers = {"Accept": accept}
 
         res, content = self._request(mpath, "GET", headers=headers)
         if res["status"] not in ("200", "304"):
             raise errors.MantaAPIError(res, content)
         if len(content) != int(res["content-length"]):
             raise errors.MantaError("content-length mismatch: expected %d, "
-                "got %d" % (int(res["content-length"]), len(content)))
+                                    "got %d" % 
+                                    (int(res["content-length"]), len(content)))
         if res.get("content-md5"):
             md5 = hashlib.md5(content)
-            content_md5 = base64.b64encode(md5.digest())
+            content_md5 = base64.b64encode(md5.digest()).decode("utf-8")
             if content_md5 != res["content-md5"]:
                 raise errors.MantaError("content-md5 mismatch: expected %s, "
-                    "got %s" % (res["content-md5"], content_md5))
+                                        "got %s" %
+                                        (res["content-md5"], content_md5))
         if path is not None:
-            f = open(path, 'wb')
+            f = io.open(path, 'wb')
             try:
                 f.write(content)
             finally:
@@ -441,13 +464,15 @@ class RawMantaClient(object):
         log.debug('CreateJob')
         path = '/%s/jobs' % self.account
         body = {"phases": phases}
-        if name: body["name"] = name
-        if input: body["input"] = input
-        headers = {
-            "Content-Type": "application/json"
-        }
-        res, content = self._request(path, "POST", body=json.dumps(body),
-            headers=headers)
+        if name:
+            body["name"] = name
+        if input:
+            body["input"] = input
+        headers = {"Content-Type": "application/json"}
+        res, content = self._request(path,
+                                     "POST",
+                                     body=json.dumps(body),
+                                     headers=headers)
         if res["status"] != '201':
             raise errors.MantaAPIError(res, content)
         location = res["location"]
@@ -489,9 +514,7 @@ class RawMantaClient(object):
         """
         log.debug("CancelJob %r", job_id)
         path = "/%s/jobs/%s/live/cancel" % (self.account, job_id)
-        headers = {
-            "Content-Length": "0"
-        }
+        headers = {"Content-Length": "0"}
         res, content = self._request(path, "POST", headers=headers)
         if res["status"] != "204":
             raise errors.MantaAPIError(res, content)
@@ -608,7 +631,6 @@ class RawMantaClient(object):
         return errs
 
 
-
 class MantaClient(RawMantaClient):
     """A Manta client that builds on `RawMantaClient` to provide some
     API sugar.
@@ -698,8 +720,7 @@ class MantaClient(RawMantaClient):
         else:
             marker = None
             while True:
-                res, entries = self.list_directory2(
-                    mdir, marker=marker)
+                res, entries = self.list_directory2(mdir, marker=marker)
                 if marker:
                     entries.pop(0)  # first one is a repeat (the marker)
                 if not entries:
@@ -759,9 +780,9 @@ class MantaClient(RawMantaClient):
             #       i=6 -> d: /trent/stor/builds/a/b
             #       i=7 -> d: /trent/stor/builds/a/b/c
             end = len(parts) + 1
-            start = 3 # Index of the first possible dir to create.
+            start = 3  # Index of the first possible dir to create.
             while start < end - 1:
-                idx = (end - start) / 2 + start
+                idx = int((end - start) // 2 + start)
                 d = '/'.join(parts[:idx])
                 try:
                     self.put_directory(d)
@@ -793,8 +814,8 @@ class MantaClient(RawMantaClient):
         if len(parts) == 0:
             raise errors.MantaError("cannot stat empty manta path: %r" % mpath)
         elif len(parts) <= 3:
-            raise errors.MantaError(
-                "cannot stat special manta path: %r" % mpath)
+            raise errors.MantaError("cannot stat special manta path: %r" %
+                                    mpath)
         mparent = udirname(mpath)
         name = ubasename(mpath)
         dirents = self.ls(mparent)
@@ -831,7 +852,7 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job(self, job_id)
-        except errors.MantaAPIError, ex:
+        except errors.MantaAPIError as ex:
             if ex.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
@@ -851,7 +872,7 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_input(self, job_id)
-        except errors.MantaAPIError, ex:
+        except errors.MantaAPIError as ex:
             if ex.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
@@ -869,7 +890,7 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_output(self, job_id)
-        except errors.MantaAPIError, ex:
+        except errors.MantaAPIError as ex:
             if ex.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
@@ -887,7 +908,7 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_failures(self, job_id)
-        except errors.MantaAPIError, ex:
+        except errors.MantaAPIError as ex:
             if ex.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.
@@ -905,7 +926,7 @@ class MantaClient(RawMantaClient):
         """
         try:
             return RawMantaClient.get_job_errors(self, job_id)
-        except errors.MantaAPIError, ex:
+        except errors.MantaAPIError as ex:
             if ex.res.status != 404:
                 raise
             # Job was archived, try to retrieve the archived data.

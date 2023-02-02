@@ -1,17 +1,18 @@
-A Python SDK for [the Joyent Manta
-Service](http://www.joyent.com/products/manta) (a.k.a. Manta). This provides
-a Python 'manta' package (for using the [Manta REST
-API](http://apidocs.joyent.com/manta/api.html) and a 'mantash' (MANTA SHell)
-CLI and shell. For an introduction to Manta in general, see [Manta getting
-started docs](http://apidocs.joyent.com/manta/index.html).
+python-manta is a community-maintained Python SDK for [the Joyent Manta
+Object Storage Service](http://www.joyent.com/manta) (a.k.a. Manta). This
+provides a Python 'manta' package (for using the [Manta REST
+API](http://apidocs.joyent.com/manta/api.html) and a 'mantash' (MANTA SHell) CLI
+and shell. For an introduction to Manta in general, see [Manta getting started
+docs](http://apidocs.joyent.com/manta/index.html).
 
 
 # Current Status
 
-Tested mostly on Mac and SmartOS using Python 2.6 or 2.7. Linux should work.
-The *intention* is to support Windows as well. Python 3 is not currently
-supported (currently because the dependency paramiko does not work with
-Python 3).
+Tested mostly on Mac and SmartOS using Python 2.7. Linux should work.
+The *intention* is to support Windows as well. Python 3 support is new and we
+welcome feedback.
+
+Python 2.6 support has been dropped in python-manta 2.7.
 
 Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 
@@ -21,11 +22,18 @@ Feedback and issues here please: <https://github.com/joyent/python-manta/issues>
 tl;dr: `pip install --upgrade manta`
 
 
-## 0. install `pip` (and maybe PyCrypto)
+## 0. install `pip` (and maybe pynacl)
 
 **SmartOS**:
 
-    pkgin install py27-pip py27-crypto
+1. Install pip:
+    pkgin install py27-pip
+    or
+    pkgin install py34-pip
+
+2. Install libsodium and pynacl
+    pkgin install libsodium
+    SODIUM_INSTALL=system pip install pynacl
 
 **Mac**:
 
@@ -35,12 +43,14 @@ tl;dr: `pip install --upgrade manta`
 
 **Ubuntu**:
 
+    sudo apt-get install python3-pip 
+    or
     sudo apt-get install python-pip
 
-Others? Please [let me
-know](https://github.com/joyent/python-manta/issues/new?title=pip+and+pycrypto+install+notes+for+XXX)
+Others? Please [let me know](https://github.com/joyent/python-manta/issues/new)
 if there are better instructions that I can provide for your system, so I can
 add them here.
+
 
 
 ## 1. install python-manta
@@ -80,7 +90,7 @@ First setup your environment to match your Joyent Manta account. Adjust
 accordingly for your SSH key and Manta login. The SSH key here must match
 one of keys uploaded for your Joyent Public Cloud account.
 
-    export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}' | tr -d '\n'`
+    export MANTA_KEY_ID=`ssh-keygen -l -f ~/.ssh/id_rsa.pub | awk '{print $2}'`
     export MANTA_URL=https://us-east.manta.joyent.com
     export MANTA_USER=jill
     export MANTA_SUBUSER=bob # optional, if using RBAC subuser
@@ -225,75 +235,6 @@ respective licenses:
 - appdirs (https://github.com/ActiveState/appdirs): MIT
 
 
-# Troubleshooting
-
-
-
-### `ImportError: No module named Signature`
-
-If you see this attempting to run mantash on SmartOS:
-
-    $ ./bin/mantash
-    * * *
-    See <https://github.com/joyent/python-manta#1-pycrypto-dependency>
-    for help installing PyCrypto (the Python 'Crypto' package)
-    * * *
-    Traceback (most recent call last):
-      File "./bin/mantash", line 24, in <module>
-        import manta
-      File "/root/joy/python-manta/lib/manta/__init__.py", line 7, in <module>
-        from .auth import PrivateKeySigner, SSHAgentSigner, CLISigner
-      File "/root/joy/python-manta/lib/manta/auth.py", line 18, in <module>
-        from Crypto.Signature import PKCS1_v1_5
-    ImportError: No module named Signature
-
-then you have an insufficient PyCrypto package, likely from an old pkgsrc.
-For example, the old "sdc6/2011Q4" pkgsrc is not supported:
-
-    $ cat /opt/local/etc/pkg_install.conf
-    PKG_PATH=http://pkgsrc.joyent.com/sdc6/2011Q4/i386/All
-
-
-### 1. pycrypto dependency
-
-The 'pycrypto' (aka 'Crypto') Python module is a binary dependency of
-python-manta. Typically `pip install manta` (per the install instructions
-above) will install this for you. If not, here are some platform-specific notes
-for getting there. Please [let me
-know](https://github.com/joyent/python-manta/issues/new?title=PyCrypto+install+notes+for+XXX)
-if there are better instructions that I can provide for your system, so I can
-add them here.
-
-Typically one of the following will do it if you have `pip` (preferred) or
-`easy_install`:
-
-    pip install pycrypto
-    easy_install pycrypto
-
-**Mac** (using the system python at /usr/bin/python):
-
-    sudo easy_install pycrypto
-
-**SmartOS** with recent pkgsrc has a working Crypto package named
-"py27-crypto-2.6\*":
-
-    pkgin install -y py27-crypto
-
-**Older SmartOS** pkgsrc versions with a pycrypto version less than 2.6 (e.g.
-"py27-crypto-2.4.1"). PyCrypto less than 2.6 is insufficient, the
-`Crypto.Signature` subpackage is missing. To get a working Crypto for mantash
-you can do the following, or similarly for other Python versions:
-
-    pkgin rm py27-crypto   # must get this out of the way
-    pkgin install py27-setuptools
-    easy_install-2.7 pycrypto
-
-**Any platform using the ActivePython** distribution of Python (available
-for most platforms):
-
-    pypm install pycrypto
-
-
 # Limitations
 
 The python-manta Python API isn't currently well-suited to huge objects
@@ -308,6 +249,30 @@ For other limitations (also planned work) see TODO.txt.
 # Troubleshooting
 
 An attempt to cover some common install/setup issues.
+
+## `pynacl` dependency install failure on SmartOS
+
+This test failure:
+```
+    PASS: pwhash_argon2id
+    /tmp/pip-install-AIWK8Y/pynacl/src/libsodium/build-aux/test-driver: line 107: 53648: Memory fault(coredump)
+    FAIL: randombytes
+    PASS: scalarmult
+```
+
+Ultimately results in this install error:
+```
+
+  File "/opt/local/lib/python2.7/subprocess.py", line 186, in check_call
+      raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['make', 'check']' returned non-zero exit status 2
+
+            ----------------------------------------
+            Command "/opt/local/bin/python2.7 -u -c "import setuptools, tokenize;__file__='/tmp/pip-install-AIWK8Y/pynacl/setup.py';f=getattr(tokenize, 'open', open)(__file__);code=f.read().replace('\r\n', '\n');f.close();exec(compile(code, __file__, 'exec'))" install --record /tmp/pip-record-YflZ4O/install-record.txt --single-version-externally-managed --compile" failed with error code 1 in /tmp/pip-install-AIWK8Y/pynacl/
+
+```
+
+See: https://github.com/joyent/python-manta/issues/55
 
 ## `x509 certificate routines:X509_load_cert_crl_file` error
 
@@ -339,7 +304,7 @@ $ sudo chmod 644 $(python -c 'from os.path import dirname; import httplib2; prin
 Password:
 ```
 
-# Development and Testing
+# Development and Testing Notes
 
 In order to make sure testing covers RBAC, you'll want to make sure you have a
 subuser set up with appropriate permissions for Manta in addition to the
@@ -376,5 +341,36 @@ sdc-role create --name=python_manta \
 
 # create a directory with our role assigned to it
 mmkdir ${MANTA_USER}/stor/tmp --role-tag=python_manta
-
 ```
+
+
+## Release process
+
+Here is how to cut a release:
+
+1. Make a commit to set the intended version in
+   [manta/version.py](manta/version.py) and changing `## not yet released` at
+   the top of "CHANGES.md" to:
+
+    ```
+    ## not yet released
+
+    (nothing yet)
+
+
+    ## $version
+    ```
+
+   Run `make versioncheck` to ensure you have the version updated correctly.
+
+2. Commit and push that change.
+
+3. Use the following make target to do the release:
+
+    ```
+    make cutarelease
+    ```
+
+   This will run a couple checks (clean working copy, versioncheck) and
+   then will git tag and publish to pypi. If the PyPI upload fails, you can
+   retry it via `make pypi-upload`.

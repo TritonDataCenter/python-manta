@@ -3,7 +3,6 @@
 # Copyright (c) 2002-2009 ActiveState Software Inc.
 # License: MIT (see LICENSE.txt for license details)
 # Author:  Trent Mick
-
 """An improvement on Python's standard cmd.py module.
 
 As with cmd.py, this module provides "a simple framework for writing
@@ -35,7 +34,10 @@ See the README.txt or <http://trentm.com/projects/cmdln/> for more
 details.
 """
 
-__version_info__ = (1, 2, 1)
+from __future__ import absolute_import
+from __future__ import print_function
+
+__version_info__ = (2, 0, 0)
 __version__ = '.'.join(map(str, __version_info__))
 
 import os
@@ -47,8 +49,6 @@ from pprint import pprint
 import sys
 import datetime
 
-
-
 #---- globals
 
 LOOP_ALWAYS, LOOP_NEVER, LOOP_IF_EMPTY = range(3)
@@ -56,30 +56,29 @@ LOOP_ALWAYS, LOOP_NEVER, LOOP_IF_EMPTY = range(3)
 # An unspecified optional argument when None is a meaningful value.
 _NOT_SPECIFIED = ("Not", "Specified")
 
-# Pattern to match a TypeError message from a call that
-# failed because of incorrect number of arguments (see
-# Python/getargs.c).
-_INCORRECT_NUM_ARGS_RE = re.compile(
-    r"(takes [\w ]+ )(\d+)( arguments? \()(\d+)( given\))")
-
-
+PY3 = (sys.version_info[0] >= 3)
+if not PY3:
+    input = raw_input
 
 #---- exceptions
 
+
 class CmdlnError(Exception):
     """A cmdln.py usage error."""
+
     def __init__(self, msg):
         self.msg = msg
+
     def __str__(self):
         return self.msg
+
 
 class CmdlnUserError(Exception):
     """An error by a user of a cmdln-based tool/shell."""
     pass
 
-
-
 #---- public methods and classes
+
 
 def alias(*aliases):
     """Decorator to add aliases for Cmdln.do_* command handlers.
@@ -90,11 +89,13 @@ def alias(*aliases):
             def do_shell(self, argv):
                 #...implement 'shell' command
     """
+
     def decorate(f):
         if not hasattr(f, "aliases"):
             f.aliases = []
         f.aliases += aliases
         return f
+
     return decorate
 
 
@@ -119,19 +120,22 @@ class RawCmdln(cmd.Cmd):
             retval = shell.main()
             sys.exit(retval)
     """
-    name = None      # if unset, defaults basename(sys.argv[0])
-    prompt = None    # if unset, defaults to self.name+"> "
-    version = None   # if set, default top-level options include --version
+    name = None  # if unset, defaults basename(sys.argv[0])
+    prompt = None  # if unset, defaults to self.name+"> "
+    version = None  # if set, default top-level options include --version
 
     # Default messages for some 'help' command error cases.
     # They are interpolated with one arg: the command.
     nohelp = "no help on '%s'"
     unknowncmd = "unknown command: '%s'"
 
-    helpindent = '' # string with which to indent help output
+    helpindent = ''  # string with which to indent help output
 
-    def __init__(self, completekey='tab',
-                 stdin=None, stdout=None, stderr=None):
+    def __init__(self,
+                 completekey='tab',
+                 stdin=None,
+                 stdout=None,
+                 stderr=None):
         """Cmdln(completekey='tab', stdin=None, stdout=None, stderr=None)
 
         The optional argument 'completekey' is the readline name of a
@@ -151,9 +155,8 @@ class RawCmdln(cmd.Cmd):
         if self.name is None:
             self.name = os.path.basename(sys.argv[0])
         if self.prompt is None:
-            self.prompt = self.name+"> "
+            self.prompt = self.name + "> "
         self._name_str = self._str(self.name)
-        self._prompt_str = self._str(self.prompt)
         if stdin is not None:
             self.stdin = stdin
         else:
@@ -183,9 +186,8 @@ class RawCmdln(cmd.Cmd):
         can return None to have no options at the top-level. Typically
         an instance of CmdlnOptionParser should be returned.
         """
-        version = (self.version is not None
-                    and "%s %s" % (self._name_str, self.version)
-                    or None)
+        version = (self.version is not None and
+                   "%s %s" % (self._name_str, self.version) or None)
         return CmdlnOptionParser(self, version=version)
 
     def postoptparse(self):
@@ -231,19 +233,19 @@ class RawCmdln(cmd.Cmd):
             import sys
             argv = sys.argv
         else:
-            argv = argv[:] # don't modify caller's list
+            argv = argv[:]  # don't modify caller's list
 
         self.optparser = self.get_optparser()
-        if self.optparser: # i.e. optparser=None means don't process for opts
+        if self.optparser:  # i.e. optparser=None means don't process for opts
             try:
                 self.options, args = self.optparser.parse_args(argv[1:])
-            except CmdlnUserError, ex:
-                msg = "%s: %s\nTry '%s help' for info.\n"\
-                      % (self.name, ex, self.name)
+            except CmdlnUserError as ex:
+                msg = "%s: %s\nTry '%s help' for info.\n" % (self.name, ex,
+                                                             self.name)
                 self.stderr.write(self._str(msg))
                 self.stderr.flush()
                 return 1
-            except StopOptionProcessing, ex:
+            except StopOptionProcessing as ex:
                 return 0
         else:
             self.options, args = None, argv[1:]
@@ -320,7 +322,7 @@ class RawCmdln(cmd.Cmd):
                 if sys.platform == "darwin":
                     readline.parse_and_bind("bind ^I rl_complete")
                 else:
-                    readline.parse_and_bind(self.completekey+": complete")
+                    readline.parse_and_bind(self.completekey + ": complete")
             except ImportError:
                 pass
         try:
@@ -328,7 +330,7 @@ class RawCmdln(cmd.Cmd):
                 intro = self.intro
             if intro:
                 intro_str = self._str(intro)
-                self.stdout.write(intro_str+'\n')
+                self.stdout.write(intro_str + '\n')
             self.stop = False
             retval = None
             while not self.stop:
@@ -339,19 +341,19 @@ class RawCmdln(cmd.Cmd):
                 else:
                     if self.use_rawinput:
                         try:
-                            line = raw_input(self._prompt_str)
+                            line = input(self._str(self._prompt_str))
                         except EOFError:
                             line = 'EOF'
                         except KeyboardInterrupt:
                             line = 'KeyboardInterrupt'
                     else:
-                        self.stdout.write(self._prompt_str)
+                        self.stdout.write(self._str(self._prompt_str))
                         self.stdout.flush()
                         line = self.stdin.readline()
                         if not len(line):
                             line = 'EOF'
                         else:
-                            line = line[:-1] # chop '\n'
+                            line = line[:-1]  # chop '\n'
                     argv = line2argv(line)
                 try:
                     argv = self.precmd(argv)
@@ -422,6 +424,8 @@ class RawCmdln(cmd.Cmd):
                     return self._dispatch_cmd(handler, argv)
                 except KeyboardInterrupt:
                     return self.onecmd(["KeyboardInterrupt"])
+                except Exception as ex:
+                    raise ex
         return self.default(argv)
 
     def _dispatch_cmd(self, handler, argv):
@@ -437,12 +441,12 @@ class RawCmdln(cmd.Cmd):
 
         Returns a numeric command exit status.
         """
-        errmsg = self._str(self.unknowncmd % (argv[0],))
+        errmsg = self._str(self.unknowncmd % (argv[0], ))
         if self.cmdlooping:
-            self.stderr.write(errmsg+"\n")
+            self.stderr.write(errmsg + "\n")
         else:
-            self.stderr.write("%s: %s\nTry '%s help' for info.\n"
-                              % (self._name_str, errmsg, self._name_str))
+            self.stderr.write("%s: %s\nTry '%s help' for info.\n" %
+                              (self._name_str, errmsg, self._name_str))
         self.stderr.flush()
         return 1
 
@@ -456,7 +460,8 @@ class RawCmdln(cmd.Cmd):
         elif line[0] == '?':
             line = 'help ' + line[1:]
         i, n = 0, len(line)
-        while i < n and line[i] in self.identchars: i = i+1
+        while i < n and line[i] in self.identchars:
+            i = i + 1
         cmd, arg = line[:i], line[i:].strip()
         return cmd, arg, line
 
@@ -471,19 +476,19 @@ class RawCmdln(cmd.Cmd):
         Returns a return code.
         """
         if known:
-            msg = self._str(self.nohelp % (cmd,))
+            msg = self._str(self.nohelp % (cmd, ))
             if self.cmdlooping:
                 self.stderr.write(msg + '\n')
             else:
                 self.stderr.write("%s: %s\n" % (self.name, msg))
         else:
-            msg = self.unknowncmd % (cmd,)
+            msg = self.unknowncmd % (cmd, )
             if self.cmdlooping:
                 self.stderr.write(msg + '\n')
             else:
                 self.stderr.write("%s: %s\n"
-                                  "Try '%s help' for info.\n"
-                                  % (self.name, msg, self.name))
+                                  "Try '%s help' for info.\n" %
+                                  (self.name, msg, self.name))
         self.stderr.flush()
         return 1
 
@@ -493,13 +498,13 @@ class RawCmdln(cmd.Cmd):
         Usage:
             ${name} help [COMMAND]
         """
-        if len(argv) > 1: # asking for help on a particular command
+        if len(argv) > 1:  # asking for help on a particular command
             doc = None
             cmdname = self._get_canonical_cmd_name(argv[1]) or argv[1]
             if not cmdname:
                 return self.helpdefault(argv[1], False)
             else:
-                helpfunc = getattr(self, "help_"+cmdname, None)
+                helpfunc = getattr(self, "help_" + cmdname, None)
                 if helpfunc:
                     doc = helpfunc()
                 else:
@@ -508,12 +513,12 @@ class RawCmdln(cmd.Cmd):
                         doc = handler.__doc__
                     if doc is None:
                         return self.helpdefault(argv[1], handler != None)
-        else: # bare "help" command
+        else:  # bare "help" command
             doc = self.__class__.__doc__  # try class docstring
             if doc is None:
                 # Try to provide some reasonable useful default help.
                 if self.cmdlooping: prefix = ""
-                else:               prefix = self.name+' '
+                else: prefix = self.name + ' '
                 doc = """Usage:
                     %sCOMMAND [ARGS...]
                     %shelp [COMMAND]
@@ -524,12 +529,13 @@ class RawCmdln(cmd.Cmd):
                 """ % (prefix, prefix)
             cmdname = None
 
-        if doc: # *do* have help content, massage and print that
+        if doc:  # *do* have help content, massage and print that
             doc = self._help_reindent(doc)
             doc = self._help_preprocess(doc, cmdname)
-            doc = doc.rstrip() + '\n' # trim down trailing space
+            doc = doc.rstrip() + '\n'  # trim down trailing space
             self.stdout.write(self._str(doc))
             self.stdout.flush()
+
     do_help.aliases = ["?"]
 
     def _help_reindent(self, help, indent=None):
@@ -557,7 +563,7 @@ class RawCmdln(cmd.Cmd):
             indent = self.helpindent
         lines = help.splitlines(0)
         _dedentlines(lines, skip_first_line=True)
-        lines = [(indent+line).rstrip() for line in lines]
+        lines = [(indent + line).rstrip() for line in lines]
         return '\n'.join(lines)
 
     def _help_preprocess(self, help, cmdname):
@@ -596,12 +602,12 @@ class RawCmdln(cmd.Cmd):
         Returns the processed help.
         """
         preprocessors = {
-            "${name}":            self._help_preprocess_name,
-            "${option_list}":     self._help_preprocess_option_list,
-            "${command_list}":    self._help_preprocess_command_list,
-            "${help_list}":       self._help_preprocess_help_list,
-            "${cmd_name}":        self._help_preprocess_cmd_name,
-            "${cmd_usage}":       self._help_preprocess_cmd_usage,
+            "${name}": self._help_preprocess_name,
+            "${option_list}": self._help_preprocess_option_list,
+            "${command_list}": self._help_preprocess_command_list,
+            "${help_list}": self._help_preprocess_help_list,
+            "${cmd_name}": self._help_preprocess_cmd_name,
+            "${cmd_usage}": self._help_preprocess_cmd_usage,
             "${cmd_option_list}": self._help_preprocess_cmd_option_list,
         }
 
@@ -629,7 +635,7 @@ class RawCmdln(cmd.Cmd):
         else:
             block = ""
 
-        help = help.replace(indent+marker+suffix, block, 1)
+        help = help.replace(indent + marker + suffix, block, 1)
         return help
 
     def _get_cmds_data(self):
@@ -642,14 +648,12 @@ class RawCmdln(cmd.Cmd):
 
         # Get the list of (non-hidden) commands and their
         # documentation, if any.
-        cmdnames = {} # use a dict to strip duplicates
+        cmdnames = set()
         for attr in self.get_names():
             if attr.startswith("do_"):
-                cmdnames[attr[3:]] = True
-        cmdnames = cmdnames.keys()
-        cmdnames.sort()
+                cmdnames.add(attr[3:])
         linedata = []
-        for cmdname in cmdnames:
+        for cmdname in sorted(cmdnames):
             if aliases.get(cmdname):
                 a = aliases[cmdname]
                 a.sort()
@@ -658,7 +662,7 @@ class RawCmdln(cmd.Cmd):
                 cmdstr = cmdname
             doc = None
             try:
-                helpfunc = getattr(self, 'help_'+cmdname)
+                helpfunc = getattr(self, 'help_' + cmdname)
             except AttributeError:
                 handler = self._get_cmd_handler(cmdname)
                 if handler:
@@ -674,7 +678,7 @@ class RawCmdln(cmd.Cmd):
                 #log.debug("stripping %r from start of %s's help string",
                 #          to_strip, cmdname)
                 doc = doc[len(to_strip):].lstrip()
-            linedata.append( (cmdstr, doc) )
+            linedata.append((cmdstr, doc))
 
         return linedata
 
@@ -685,11 +689,11 @@ class RawCmdln(cmd.Cmd):
 
         linedata = self._get_cmds_data()
         if linedata:
-            subindent = indent + ' '*4
-            lines = _format_linedata(linedata, subindent, indent_width+4)
+            subindent = indent + ' ' * 4
+            lines = _format_linedata(linedata, subindent, indent_width + 4)
             block = indent + "Commands:\n" \
                     + '\n'.join(lines) + "\n\n"
-            help = help.replace(indent+marker+suffix, block, 1)
+            help = help.replace(indent + marker + suffix, block, 1)
         return help
 
     def _gen_names_and_attrs(self):
@@ -726,15 +730,13 @@ class RawCmdln(cmd.Cmd):
             linedata = [(n, a.__doc__ or "") for n, a in help_names.items()]
             linedata.sort()
 
-            subindent = indent + ' '*4
-            lines = _format_linedata(linedata, subindent, indent_width+4)
-            block = (indent
-                    + "Additional help topics (run `%s help TOPIC'):\n" % self.name
-                    + '\n'.join(lines)
-                    + "\n\n")
+            subindent = indent + ' ' * 4
+            lines = _format_linedata(linedata, subindent, indent_width + 4)
+            block = (indent + "Additional help topics (run `%s help TOPIC'):\n"
+                     % self.name + '\n'.join(lines) + "\n\n")
         else:
             block = ''
-        help = help.replace(indent+marker+suffix, block, 1)
+        help = help.replace(indent + marker + suffix, block, 1)
         return help
 
     def _help_preprocess_cmd_name(self, help, cmdname=None):
@@ -742,8 +744,8 @@ class RawCmdln(cmd.Cmd):
         handler = self._get_cmd_handler(cmdname)
         if not handler:
             raise CmdlnError("cannot preprocess '%s' into help string: "
-                             "could not find command handler for %r"
-                             % (marker, cmdname))
+                             "could not find command handler for %r" %
+                             (marker, cmdname))
         s = cmdname
         if hasattr(handler, "aliases"):
             s += " (%s)" % (", ".join(handler.aliases))
@@ -758,33 +760,33 @@ class RawCmdln(cmd.Cmd):
         handler = self._get_cmd_handler(cmdname)
         if not handler:
             raise CmdlnError("cannot preprocess '%s' into help string: "
-                             "could not find command handler for %r"
-                             % (marker, cmdname))
+                             "could not find command handler for %r" %
+                             (marker, cmdname))
         indent, indent_width = _get_indent(marker, help)
         suffix = _get_trailing_whitespace(marker, help)
 
         # Extract the introspection bits we need.
-        func = handler.im_func
-        if func.func_defaults:
-            func_defaults = list(func.func_defaults)
+        func = handler.__func__
+        if func.__defaults__:
+            func_defaults = list(func.__defaults__)
         else:
             func_defaults = []
-        co_argcount = func.func_code.co_argcount
-        co_varnames = func.func_code.co_varnames
-        co_flags = func.func_code.co_flags
+        co_argcount = func.__code__.co_argcount
+        co_varnames = func.__code__.co_varnames
+        co_flags = func.__code__.co_flags
         CO_FLAGS_ARGS = 4
         CO_FLAGS_KWARGS = 8
 
         # Adjust argcount for possible *args and **kwargs arguments.
         argcount = co_argcount
-        if co_flags & CO_FLAGS_ARGS:   argcount += 1
+        if co_flags & CO_FLAGS_ARGS: argcount += 1
         if co_flags & CO_FLAGS_KWARGS: argcount += 1
 
         # Determine the usage string.
         usage = "%s %s" % (self.name, cmdname)
-        if argcount <= 2:   # handler ::= do_FOO(self, argv)
+        if argcount <= 2:  # handler ::= do_FOO(self, argv)
             usage += " [ARGS...]"
-        elif argcount >= 3: # handler ::= do_FOO(self, subcmd, opts, ...)
+        elif argcount >= 3:  # handler ::= do_FOO(self, subcmd, opts, ...)
             argnames = list(co_varnames[3:argcount])
             tail = ""
             if co_flags & CO_FLAGS_KWARGS:
@@ -794,9 +796,8 @@ class RawCmdln(cmd.Cmd):
                 # keyword arguments from the command line. Could
                 # *perhaps* consider: arg=value arg2=value2 ...
                 warnings.warn("argument '**%s' on '%s.%s' command "
-                              "handler will never get values"
-                              % (name, self.__class__.__name__,
-                                 func.func_name))
+                              "handler will never get values" %
+                              (name, self.__class__.__name__, func.func_name))
             if co_flags & CO_FLAGS_ARGS:
                 name = argnames.pop(-1)
                 tail = "[%s...]" % name.upper()
@@ -810,12 +811,11 @@ class RawCmdln(cmd.Cmd):
             usage += ' ' + tail
 
         block_lines = [
-            self.helpindent + "Usage:",
-            self.helpindent + ' '*4 + usage
+            self.helpindent + "Usage:", self.helpindent + ' ' * 4 + usage
         ]
         block = '\n'.join(block_lines) + '\n\n'
 
-        help = help.replace(indent+marker+suffix, block, 1)
+        help = help.replace(indent + marker + suffix, block, 1)
         return help
 
     #TODO: this only makes sense as part of the Cmdln class.
@@ -826,8 +826,8 @@ class RawCmdln(cmd.Cmd):
         handler = self._get_cmd_handler(cmdname)
         if not handler:
             raise CmdlnError("cannot preprocess '%s' into help string: "
-                             "could not find command handler for %r"
-                             % (marker, cmdname))
+                             "could not find command handler for %r" %
+                             (marker, cmdname))
         indent, indent_width = _get_indent(marker, help)
         suffix = _get_trailing_whitespace(marker, help)
         if hasattr(handler, "optparser"):
@@ -841,7 +841,7 @@ class RawCmdln(cmd.Cmd):
         else:
             block = ""
 
-        help = help.replace(indent+marker+suffix, block, 1)
+        help = help.replace(indent + marker + suffix, block, 1)
         return help
 
     def _get_canonical_cmd_name(self, token):
@@ -856,23 +856,23 @@ class RawCmdln(cmd.Cmd):
         if not hasattr(self, cacheattr):
             # Get the list of commands and their aliases, if any.
             token2canonical = {}
-            cmd2funcname = {} # use a dict to strip duplicates
+            cmd2funcname = {}  # use a dict to strip duplicates
             for attr in self.get_names():
-                if attr.startswith("do_"):    cmdname = attr[3:]
+                if attr.startswith("do_"): cmdname = attr[3:]
                 elif attr.startswith("_do_"): cmdname = attr[4:]
                 else:
                     continue
                 cmd2funcname[cmdname] = attr
                 token2canonical[cmdname] = cmdname
-            for cmdname, funcname in cmd2funcname.items(): # add aliases
+            for cmdname, funcname in cmd2funcname.items():  # add aliases
                 func = getattr(self, funcname)
                 aliases = getattr(func, "aliases", [])
                 for alias in aliases:
                     if alias in cmd2funcname:
                         import warnings
                         warnings.warn("'%s' alias for '%s' command conflicts "
-                                      "with '%s' handler"
-                                      % (alias, cmdname, cmd2funcname[alias]))
+                                      "with '%s' handler" %
+                                      (alias, cmdname, cmd2funcname[alias]))
                         continue
                     token2canonical[alias] = cmdname
             setattr(self, cacheattr, token2canonical)
@@ -913,11 +913,11 @@ class RawCmdln(cmd.Cmd):
         else:
             return self.do_help(["help"])
 
-
 #---- optparse.py extension to fix (IMO) some deficiencies
 #
 # See the class _OptionParserEx docstring for details.
 #
+
 
 class StopOptionProcessing(Exception):
     """Indicate that option *and argument* processing should stop
@@ -938,6 +938,7 @@ class StopOptionProcessing(Exception):
             # normal termination, "--help" was probably given
             sys.exit(0)
     """
+
 
 class _OptionParserEx(optparse.OptionParser):
     """An optparse.OptionParser that uses exceptions instead of sys.exit.
@@ -961,6 +962,7 @@ class _OptionParserEx(optparse.OptionParser):
       These are good practices, just not valid defaults if they can
       get in the way.
     """
+
     def error(self, msg):
         raise optparse.OptParseError(msg)
 
@@ -971,9 +973,8 @@ class _OptionParserEx(optparse.OptionParser):
             #TODO: don't lose status info here
             raise optparse.OptParseError(msg)
 
-
-
 #---- optparse.py-based option processing support
+
 
 class CmdlnOptionParser(_OptionParserEx):
     """An optparse.OptionParser class more appropriate for top-level
@@ -990,6 +991,7 @@ class CmdlnOptionParser(_OptionParserEx):
       make error handling clearer.
     - Also see the changes in _OptionParserEx.
     """
+
     def __init__(self, cmdln, **kwargs):
         self.cmdln = cmdln
         kwargs["prog"] = self.cmdln.name
@@ -1028,6 +1030,7 @@ def option(*args, **kwargs):
             def do_remove(self, subcmd, opts, *args):
                 #...
     """
+
     #XXX Is there a possible optimization for many options to not have a
     #    large stack depth here?
     def decorate(f):
@@ -1035,6 +1038,7 @@ def option(*args, **kwargs):
             f.optparser = SubCmdOptionParser()
         f.optparser.add_option(*args, **kwargs)
         return f
+
     return decorate
 
 
@@ -1067,6 +1071,7 @@ class Cmdln(RawCmdln):
     integration.  See this class' _dispatch_cmd() docstring and general
     cmdln document for more information.
     """
+
     def _dispatch_cmd(self, handler, argv):
         """Introspect sub-command handler signature to determine how to
         dispatch the command. The raw handler provided by the base
@@ -1104,14 +1109,14 @@ class Cmdln(RawCmdln):
         and an appropriate error message will be raised/printed if the
         command is called with a different number of args.
         """
-        co_argcount = handler.im_func.func_code.co_argcount
-        if co_argcount == 2:   # handler ::= do_foo(self, argv)
+        co_argcount = handler.__func__.__code__.co_argcount
+        if co_argcount == 2:  # handler ::= do_foo(self, argv)
             return handler(argv)
-        elif co_argcount >= 3: # handler ::= do_foo(self, subcmd, opts, ...)
+        elif co_argcount >= 3:  # handler ::= do_foo(self, subcmd, opts, ...)
             try:
                 optparser = handler.optparser
             except AttributeError:
-                optparser = handler.im_func.optparser = SubCmdOptionParser()
+                optparser = handler.__func__.optparser = SubCmdOptionParser()
             assert isinstance(optparser, SubCmdOptionParser)
             optparser.set_cmdln_info(self, argv[0])
             try:
@@ -1119,19 +1124,16 @@ class Cmdln(RawCmdln):
             except StopOptionProcessing:
                 #TODO: this doesn't really fly for a replacement of
                 #      optparse.py behaviour, does it?
-                return 0 # Normal command termination
+                return 0  # Normal command termination
 
             try:
                 return handler(argv[0], opts, *args)
-            except TypeError, ex:
-                # Some TypeError's are user errors:
-                #   do_foo() takes at least 4 arguments (3 given)
-                #   do_foo() takes at most 5 arguments (6 given)
-                #   do_foo() takes exactly 5 arguments (6 given)
-                # Raise CmdlnUserError for these with a suitably
+            except TypeError as ex:
+                # Some TypeError's are user errors because of incorrect number
+                # of arguments. Raise CmdlnUserError for these with a suitably
                 # massaged error message.
                 import sys
-                tb = sys.exc_info()[2] # the traceback object
+                tb = sys.exc_info()[2]  # the traceback object
                 if tb.tb_next is not None:
                     # If the traceback is more than one level deep, then the
                     # TypeError do *not* happen on the "handler(...)" call
@@ -1139,15 +1141,9 @@ class Cmdln(RawCmdln):
                     # here: it would falsely mask deeper code errors.
                     raise
                 msg = ex.args[0]
-                match = _INCORRECT_NUM_ARGS_RE.search(msg)
-                if match:
-                    msg = list(match.groups())
-                    msg[1] = int(msg[1]) - 3
-                    if msg[1] == 1:
-                        msg[2] = msg[2].replace("arguments", "argument")
-                    msg[3] = int(msg[3]) - 3
-                    msg = ''.join(map(str, msg))
-                    raise CmdlnUserError(msg)
+                userErr = self._userErrFromNumArgsErrmsg(msg)
+                if userErr:
+                    raise userErr
                 else:
                     raise
         else:
@@ -1155,9 +1151,36 @@ class Cmdln(RawCmdln):
                              "take 2 for 'argv' signature or 3+ for 'opts' "
                              "signature" % (handler.__name__, co_argcount))
 
-
+    def _userErrFromNumArgsErrmsg(self, msg):
+        if sys.version_info[0] < 3:
+            # Examples (see Python/getargs.c):
+            #   do_foo() takes at least 4 arguments (3 given)
+            #   do_foo() takes at most 5 arguments (6 given)
+            #   do_foo() takes exactly 5 arguments (6 given)
+            pattern = re.compile(
+                r"(takes [\w ]+ )(\d+)( arguments? \()(\d+)( given\))")
+            match = pattern.search(msg)
+            if match:
+                msg = list(match.groups())
+                msg[1] = int(msg[1]) - 3
+                if msg[1] == 1:
+                    msg[2] = msg[2].replace("arguments", "argument")
+                msg[3] = int(msg[3]) - 3
+                msg = ''.join(map(str, msg))
+                return CmdlnUserError(msg)
+        else:
+            # Examples:
+            #   do_foo() missing 1 required positional argument: 'bar'
+            patterns = [
+                re.compile(r"missing \d+ required positional argument"),
+            ]
+            for pat in patterns:
+                match = pat.search(msg)
+                if match:
+                    return CmdlnUserError("incorrect number of arguments")
 
 #---- support for generating `man` page output from a Cmdln class
+
 
 def man_sections_from_cmdln(inst, summary=None, description=None, author=None):
     """Return man page sections appropriate for the given Cmdln instance.
@@ -1183,7 +1206,7 @@ def man_sections_from_cmdln(inst, summary=None, description=None, author=None):
     """
     if not inst.__class__.name:
         raise ValueError("cannot generate man page content: `name` is not "
-            "set on class %r" % inst.__class__)
+                         "set on class %r" % inst.__class__)
     data = {
         "name": inst.name,
         "ucname": inst.name.upper(),
@@ -1194,7 +1217,8 @@ def man_sections_from_cmdln(inst, summary=None, description=None, author=None):
     }
 
     sections = []
-    sections.append('.\\" Automatically generated by cmdln %(cmdln_version)s\n'
+    sections.append(
+        '.\\" Automatically generated by cmdln %(cmdln_version)s\n'
         '.TH %(ucname)s "1" "%(date)s" "%(name)s%(version_str)s" "User Commands"\n'
         % data)
     sections.append(".SH NAME\n%(name)s%(summary_str)s\n" % data)
@@ -1248,9 +1272,8 @@ def man_sections_from_cmdln(inst, summary=None, description=None, author=None):
 
     return sections
 
-
-
 #---- internal support functions
+
 
 def _format_linedata(linedata, indent, indent_width):
     """Format specific linedata into a pleasant layout.
@@ -1268,7 +1291,7 @@ def _format_linedata(linedata, indent, indent_width):
     SPACING = 2
     NAME_WIDTH_LOWER_BOUND = 13
     NAME_WIDTH_UPPER_BOUND = 30
-    NAME_WIDTH = max([len(s) for s,d in linedata])
+    NAME_WIDTH = max([len(s) for s, d in linedata])
     if NAME_WIDTH < NAME_WIDTH_LOWER_BOUND:
         NAME_WIDTH = NAME_WIDTH_LOWER_BOUND
     elif NAME_WIDTH > NAME_WIDTH_UPPER_BOUND:
@@ -1285,6 +1308,7 @@ def _format_linedata(linedata, indent, indent_width):
         line += _summarize_doc(doc, DOC_WIDTH)
         lines.append(line.rstrip())
     return lines
+
 
 def _summarize_doc(doc, length=60):
     r"""Parse out a short one line summary from the given doclines.
@@ -1320,7 +1344,7 @@ def _summarize_doc(doc, length=60):
 
     summary = ' '.join(summlines)
     if len(summary) > length:
-        summary = summary[:length-3] + "..."
+        summary = summary[:length - 3] + "..."
     return summary
 
 
@@ -1385,7 +1409,7 @@ def line2argv(line):
     ...     line2argv(r'\\foo\\bar') == ['\\foo\\bar']
     ...     try:
     ...         line2argv('"foo')
-    ...     except ValueError, ex:
+    ...     except ValueError as ex:
     ...         "not terminated" in str(ex)
     True
     True
@@ -1402,12 +1426,12 @@ def line2argv(line):
         if i >= len(line): break
         ch = line[i]
 
-        if ch == "\\" and i+1 < len(line):
+        if ch == "\\" and i + 1 < len(line):
             # escaped char always added to arg, regardless of state
             if arg is None: arg = ""
-            if (sys.platform == "win32"
-                or state in ("double-quoted", "single-quoted")
-               ) and line[i+1] not in tuple('"\''):
+            if (sys.platform == "win32" or
+                    state in ("double-quoted", "single-quoted")
+                ) and line[i + 1] not in tuple('"\''):
                 arg += ch
             i += 1
             arg += line[i]
@@ -1459,9 +1483,9 @@ def argv2line(argv):
     'foo "bar baz"'
     >>> argv2line(['foo"bar'])
     'foo"bar'
-    >>> print argv2line(['foo" bar'])
+    >>> print(argv2line(['foo" bar']))
     'foo" bar'
-    >>> print argv2line(["foo' bar"])
+    >>> print(argv2line(["foo' bar"]))
     "foo' bar"
     >>> argv2line(["foo'bar"])
     "foo'bar"
@@ -1469,12 +1493,12 @@ def argv2line(argv):
     escapedArgs = []
     for arg in argv:
         if ' ' in arg and '"' not in arg:
-            arg = '"'+arg+'"'
+            arg = '"' + arg + '"'
         elif ' ' in arg and "'" not in arg:
-            arg = "'"+arg+"'"
+            arg = "'" + arg + "'"
         elif ' ' in arg:
             arg = arg.replace('"', r'\"')
-            arg = '"'+arg+'"'
+            arg = '"' + arg + '"'
         escapedArgs.append(arg)
     return ' '.join(escapedArgs)
 
@@ -1494,8 +1518,8 @@ def _dedentlines(lines, tabsize=8, skip_first_line=False):
     """
     DEBUG = False
     if DEBUG:
-        print "dedent: dedent(..., tabsize=%d, skip_first_line=%r)"\
-              % (tabsize, skip_first_line)
+        print("dedent: dedent(..., tabsize=%d, skip_first_line=%r)"\
+              % (tabsize, skip_first_line))
     indents = []
     margin = None
     for i, line in enumerate(lines):
@@ -1507,17 +1531,17 @@ def _dedentlines(lines, tabsize=8, skip_first_line=False):
             elif ch == '\t':
                 indent += tabsize - (indent % tabsize)
             elif ch in '\r\n':
-                continue # skip all-whitespace lines
+                continue  # skip all-whitespace lines
             else:
                 break
         else:
-            continue # skip all-whitespace lines
-        if DEBUG: print "dedent: indent=%d: %r" % (indent, line)
+            continue  # skip all-whitespace lines
+        if DEBUG: print("dedent: indent=%d: %r" % (indent, line))
         if margin is None:
             margin = indent
         else:
             margin = min(margin, indent)
-    if DEBUG: print "dedent: margin=%r" % margin
+    if DEBUG: print("dedent: margin=%r" % margin)
 
     if margin is not None and margin > 0:
         for i, line in enumerate(lines):
@@ -1529,23 +1553,25 @@ def _dedentlines(lines, tabsize=8, skip_first_line=False):
                 elif ch == '\t':
                     removed += tabsize - (removed % tabsize)
                 elif ch in '\r\n':
-                    if DEBUG: print "dedent: %r: EOL -> strip up to EOL" % line
+                    if DEBUG:
+                        print("dedent: %r: EOL -> strip up to EOL" % line)
                     lines[i] = lines[i][j:]
                     break
                 else:
                     raise ValueError("unexpected non-whitespace char %r in "
-                                     "line %r while removing %d-space margin"
-                                     % (ch, line, margin))
+                                     "line %r while removing %d-space margin" %
+                                     (ch, line, margin))
                 if DEBUG:
-                    print "dedent: %r: %r -> removed %d/%d"\
-                          % (line, ch, removed, margin)
+                    print("dedent: %r: %r -> removed %d/%d"\
+                          % (line, ch, removed, margin))
                 if removed == margin:
-                    lines[i] = lines[i][j+1:]
+                    lines[i] = lines[i][j + 1:]
                     break
                 elif removed > margin:
-                    lines[i] = ' '*(removed-margin) + lines[i][j+1:]
+                    lines[i] = ' ' * (removed - margin) + lines[i][j + 1:]
                     break
     return lines
+
 
 def _dedent(text, tabsize=8, skip_first_line=False):
     """_dedent(text, tabsize=8, skip_first_line=False) -> dedented text
@@ -1562,6 +1588,7 @@ def _dedent(text, tabsize=8, skip_first_line=False):
     _dedentlines(lines, tabsize=tabsize, skip_first_line=skip_first_line)
     return ''.join(lines)
 
+
 def _get_indent(marker, s, tab_width=8):
     """_get_indent(marker, s, tab_width=8) ->
         (<indentation-of-'marker'>, <indentation-width>)"""
@@ -1570,7 +1597,7 @@ def _get_indent(marker, s, tab_width=8):
     start = s.index(marker)
     i = start
     while i > 0:
-        if s[i-1] not in INDENT_CHARS:
+        if s[i - 1] not in INDENT_CHARS:
             break
         i -= 1
     indent = s[i:start]
@@ -1581,6 +1608,7 @@ def _get_indent(marker, s, tab_width=8):
         elif ch == '\t':
             indent_width += tab_width - (indent_width % tab_width)
     return indent, indent_width
+
 
 def _get_trailing_whitespace(marker, s):
     """Return the whitespace content trailing the given 'marker' in string 's',
@@ -1594,15 +1622,13 @@ def _get_trailing_whitespace(marker, s):
             suffix += s[i]
         elif s[i] in '\r\n':
             suffix += s[i]
-            if s[i] == '\r' and i+1 < len(s) and s[i+1] == '\n':
-                suffix += s[i+1]
+            if s[i] == '\r' and i + 1 < len(s) and s[i + 1] == '\n':
+                suffix += s[i + 1]
             break
         else:
             break
         i += 1
     return suffix
-
-
 
 #---- bash completion support
 # Note: This is still experimental. I expect to change this
@@ -1619,8 +1645,9 @@ def _get_trailing_whitespace(marker, s):
 #      optional if there is only one in the module (common case).
 
 if __name__ == "__main__" and len(sys.argv) == 6:
+
     def _log(s):
-        return # no-op, comment out for debugging
+        return  # no-op, comment out for debugging
         from os.path import expanduser
         fout = open(expanduser("~/tmp/bashcpln.log"), 'a')
         fout.write(str(s) + '\n')
@@ -1639,11 +1666,11 @@ if __name__ == "__main__" and len(sys.argv) == 6:
         finally:
             sys.path.remove(dir)
 
-    def _get_bash_cplns(script_path, class_name, cmd_name,
-                        token, preceding_token):
+    def _get_bash_cplns(script_path, class_name, cmd_name, token,
+                        preceding_token):
         _log('--')
-        _log('get_cplns(%r, %r, %r, %r, %r)'
-             % (script_path, class_name, cmd_name, token, preceding_token))
+        _log('get_cplns(%r, %r, %r, %r, %r)' %
+             (script_path, class_name, cmd_name, token, preceding_token))
         comp_line = os.environ["COMP_LINE"]
         comp_point = int(os.environ["COMP_POINT"])
         _log("COMP_LINE: %r" % comp_line)
@@ -1651,7 +1678,7 @@ if __name__ == "__main__" and len(sys.argv) == 6:
 
         try:
             script = _module_from_path(script_path)
-        except ImportError, ex:
+        except ImportError as ex:
             _log("error importing `%s': %s" % (script_path, ex))
             return []
         shell = getattr(script, class_name)()
@@ -1700,4 +1727,4 @@ if __name__ == "__main__" and len(sys.argv) == 6:
         return []
 
     for cpln in _get_bash_cplns(*sys.argv[1:]):
-        print cpln
+        print(cpln)
